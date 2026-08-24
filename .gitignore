@@ -1,0 +1,23 @@
+# Go
+/bin/
+/tmp/
+*.exe
+*.test
+*.out
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.turbo/
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
