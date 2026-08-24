@@ -3,7 +3,7 @@
 | **Field**        | **Value**                                                                                          |
 |------------------|----------------------------------------------------------------------------------------------------|
 | **Status**       | Draft                                                                                              |
-| **Version**      | 3.0                                                                                                |
+| **Version**      | 3.1                                                                                                |
 | **Author**       | Sepry                                                                                              |
 | **Last Updated** | August 24, 2026                                                                                    |
 | **Relevant Docs**| [PRD — CareLog MVP to Production](./PRD%20-%20CareLog%20MVP%20to%20Production.md)                |
@@ -12,7 +12,8 @@
 
 | Version | Change |
 |---|---|
-| 3.0 | **Go is the day-one backend.** Supabase (Auth, Edge Functions, PostgREST, Realtime, Storage) is removed from the architecture. The backend is a Go API (chi + sqlc + goose) with PostgreSQL 15, Redis, and S3-compatible object storage, behind Caddy. The former "Go Migration Path" section is deleted — it is now the architecture, not a migration. Product requirements are unchanged. |
+| 3.1 | **ImageKit replaces R2/MinIO as MVP media storage (owner decision).** Photos upload browser-direct to ImageKit with auth params signed by the Go API; reads go through ImageKit's CDN with signed URLs. Tenant isolation (workspace folder prefix + membership-checked signing) is unchanged. |
+| 3.0 | **Go is the day-one backend.** Supabase (Auth, Edge Functions, PostgREST, Realtime, Storage) is removed from the architecture. The backend is a Go API (chi + sqlc + goose) with PostgreSQL 15, Redis, and ImageKit for media, behind Caddy. The former "Go Migration Path" section is deleted — it is now the architecture, not a migration. Product requirements are unchanged. |
 | 2.0 | Workspace-centric isolation model; multi-contributor reporting model. |
 | 1.0 | Initial architecture. |
 
@@ -62,7 +63,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | Multi-contributor | `UNIQUE(recipient_id, report_date, contributor_id)` | Each contributor owns their row; merged at read time (unchanged from v2) |
 | Background jobs | River (Postgres-backed job queue) | Transactional enqueue with domain writes; retries + periodic jobs; no extra infrastructure |
 | Real-time | SSE over Redis pub/sub (polling fallback) | Pragmatic for MVP's one-way notification needs; WebSocket upgrade path documented |
-| File storage | Cloudflare R2 (S3 API) with signed URLs | Zero egress fees; already behind Cloudflare; MinIO for local dev |
+| File storage | ImageKit (hosted media service) | Browser-direct uploads with API-signed auth params; CDN delivery with signed URLs; built-in transformations — no self-hosted image resizing |
 | Edge | Caddy reverse proxy (`/api/*` → Go, `/` → Next.js) | Already in repo; automatic TLS; single origin so cookies are first-party |
 
 ---
@@ -85,7 +86,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | UI components | shadcn/ui | Radix-based; tree-shakeable |
 | i18n | next-intl | Bahasa Indonesia (default) + English |
 | Auth | Go-native: magic link + Google OAuth | JWT access token + rotating refresh token in HttpOnly cookies (see §8) |
-| File storage | Cloudflare R2 (S3-compatible) | Private bucket; signed upload/read URLs issued by the Go API; MinIO in local dev |
+| File storage | ImageKit | Private files; upload auth params + signed read URLs issued by the Go API; CDN + transformations built in |
 | Email | Resend | Bilingual templates rendered server-side |
 | Payments | Midtrans | IDR-denominated subscriptions; webhook handled by Go API |
 | Analytics | PostHog | `posthog-js` client-side, `posthog-go` server-side; no PII |
@@ -103,7 +104,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | golangci-lint | Go static analysis in CI |
 | sqlc | Regenerate `internal/store/generated/` from query files |
 | goose | Apply/rollback migrations locally and in CI |
-| Docker Compose | Local Postgres 15 + Redis + MinIO |
+| Docker Compose | Local Postgres 15 + Redis (media uses an ImageKit sandbox account — hosted, see §14.5) |
 | TypeScript 5 strict mode | Web app type safety |
 | Zod | Client-side form validation (server is the authority) |
 | OpenAPI + `openapi-typescript` | API types generated from the Go API's OpenAPI spec — never hand-written duplicates |
@@ -141,7 +142,7 @@ carelog/
 │   │       ├── shifts.go           # Check-in / check-out / handoff context
 │   │       ├── incidents.go
 │   │       ├── notifications.go    # List, mark-read
-│   │       ├── photos.go           # Signed upload/read URLs
+│   │       ├── photos.go           # ImageKit upload auth params + signed read URLs
 │   │       ├── billing.go          # Midtrans checkout + webhook
 │   │       └── events.go           # SSE stream
 │   │
@@ -170,7 +171,7 @@ carelog/
 │   │   ├── missing_report_alert.go
 │   │   └── notification_dispatch.go
 │   │
-│   ├── storage/                    # S3-compatible client (R2/MinIO), signed URLs
+│   ├── storage/                    # Media storage: abstract interface (UploadAuth, SignedReadURL); ImageKit impl
 │   ├── mail/                       # Resend client + bilingual templates
 │   └── config/                     # Env parsing (envconfig), validation at boot
 │
@@ -788,7 +789,7 @@ Client → Cloudflare → Caddy
                         ├── Redis: rate limits, SSE pub/sub, config cache
                         ├── River: enqueue background jobs (same Postgres tx)
                         ├── Resend: transactional email (via jobs)
-                        └── R2: signed URL generation
+                        └── ImageKit: upload auth params + signed read URLs
 ```
 
 ### 6.2 Route Table (v1)
@@ -830,7 +831,7 @@ GET    /api/v1/workspaces/{wsID}/incidents
 GET    /api/v1/notifications
 POST   /api/v1/notifications/{id}/read
 
-POST   /api/v1/workspaces/{wsID}/photos/upload-url
+POST   /api/v1/workspaces/{wsID}/photos/upload-auth
 GET    /api/v1/events                          # SSE stream (§16)
 
 POST   /api/v1/billing/checkout
@@ -1261,8 +1262,8 @@ Layer 2: sqlc query discipline
 
 Layer 3: Postgres RLS + storage prefix  (DEFENSE IN DEPTH)
   RLS policies (§5) backstop application bugs.
-  Object storage keys are prefixed workspaces/{workspace_id}/... and the
-  API verifies membership before signing any URL (§14).
+  ImageKit folder paths are prefixed workspaces/{workspace_id}/... and the
+  API verifies membership before signing any upload auth or read URL (§14).
 ```
 
 ### 9.2 Workspace Middleware
@@ -1617,26 +1618,45 @@ Templates live in `internal/mail` as Go `html/template` files with `id`/`en` cop
 
 ## 14. File Storage & Photo Handling
 
-Supabase Storage is replaced by **Cloudflare R2** (S3-compatible API) with a private bucket. Local development uses **MinIO** via Docker Compose — same S3 API, zero code difference. Rationale for R2: we already front everything with Cloudflare, egress is free (photos are read-heavy), and the S3 API keeps us portable to AWS S3 or MinIO in production if needed.
+Photos live in **ImageKit** (imagekit.io), a hosted media service, as **private files**. Uploads go from the browser directly to ImageKit using its client-side upload API, authenticated with signed parameters (`token`, `expire`, `signature`) that the Go API generates with the ImageKit **private key** — photo bytes never pass through our servers. Reads are served from ImageKit's CDN via signed URLs generated by the Go API for authorized workspace members only.
+
+A major benefit over raw object storage: **built-in transformations**. Timeline thumbnails and full-view renditions are URL-parameter transforms (resize, compress, format negotiation) computed by ImageKit at the CDN edge — no self-hosted image-resizing worker, no pre-generated thumbnail variants to store.
 
 ### 14.1 Upload Flow
 
 ```
 [1] Client: Compress image to ≤800KB (Canvas API)
 [2] Client: Strip EXIF (exifr.js)
-[3] Client: POST /api/v1/workspaces/{wsID}/photos/upload-url
+[3] Client: POST /api/v1/workspaces/{wsID}/photos/upload-auth
       → Auth + workspace middleware (membership verified)
       → Validate MIME whitelist: image/jpeg, image/png, image/webp
       → Validate declared size ≤800KB
-      → Generate presigned PUT URL (15 min TTL), key:
-          workspaces/{workspace_id}/{recipient_id}/{uuid}-{filename}
-      → Return { uploadUrl, path }
-[4] Client: PUT <uploadUrl> directly to R2 (upload bypasses the API)
-[5] Job: EXIF re-strip + size verification via image worker (defense in depth)
-[6] Store path (not URL) in report_entries.photo_urls[]
+      → Generate ImageKit auth params using the private key (server-side only):
+          token     — single-use random UUID
+          expire    — unix timestamp, now + 15 min
+          signature — HMAC-SHA1(token + expire, IMAGEKIT_PRIVATE_KEY)
+      → Return { token, expire, signature, publicKey, folder, fileName }
+          folder: workspaces/{workspace_id}/{recipient_id}/
+[4] Client: POST directly to ImageKit's upload endpoint with the auth params
+      (upload bypasses the Go API; file is stored as private, in the returned folder)
+[5] Store the ImageKit file path (not URL) in report_entries.photo_urls[]
 ```
 
-### 14.2 Signed Upload URL Handler
+Client-side EXIF stripping remains; renditions delivered through ImageKit transformations do not carry the original metadata, and the declared-size + MIME checks gate the auth params before any upload can start.
+
+### 14.2 Upload Auth Handler
+
+The storage dependency is an abstract interface — `UploadAuth` and `SignedReadURL` — with ImageKit as the only implementation for MVP (see §14.6 for why the interface stays abstract):
+
+```go
+// internal/storage/storage.go
+type Storage interface {
+    // UploadAuth returns client-upload auth params scoped to a folder.
+    UploadAuth(ctx context.Context, folder string, ttl time.Duration) (UploadAuthParams, error)
+    // SignedReadURL returns a signed CDN URL for a private file path.
+    SignedReadURL(ctx context.Context, path string, ttl time.Duration) (string, error)
+}
+```
 
 ```go
 // internal/http/handlers/photos.go
@@ -1644,10 +1664,10 @@ var allowedPhotoTypes = map[string]bool{
     "image/jpeg": true, "image/png": true, "image/webp": true,
 }
 
-func (h *PhotoHandlers) UploadURL(w http.ResponseWriter, r *http.Request) error {
+func (h *PhotoHandlers) UploadAuth(w http.ResponseWriter, r *http.Request) error {
     ws := middleware.WorkspaceFrom(r.Context())
 
-    var req UploadURLRequest
+    var req UploadAuthRequest
     if err := decodeJSON(r, &req); err != nil {
         return err
     }
@@ -1662,28 +1682,31 @@ func (h *PhotoHandlers) UploadURL(w http.ResponseWriter, r *http.Request) error 
         return fmt.Errorf("storage quota: %w", err)
     }
 
-    key := fmt.Sprintf("workspaces/%s/%s/%s-%s",
-        ws.ID, req.RecipientID, uuid.NewString(), sanitizeFilename(req.Filename))
-    url, err := h.storage.PresignPut(r.Context(), key, req.ContentType, 15*time.Minute)
+    folder := fmt.Sprintf("workspaces/%s/%s/", ws.ID, req.RecipientID)
+    auth, err := h.storage.UploadAuth(r.Context(), folder, 15*time.Minute)
     if err != nil {
-        return fmt.Errorf("presign upload: %w", err)
+        return fmt.Errorf("upload auth: %w", err)
     }
-    return respond.OK(w, UploadURLResponse{UploadURL: url, Path: key})
+    return respond.OK(w, UploadAuthResponse{
+        Token: auth.Token, Expire: auth.Expire, Signature: auth.Signature,
+        PublicKey: auth.PublicKey, Folder: folder,
+        FileName: fmt.Sprintf("%s-%s", uuid.NewString(), sanitizeFilename(req.Filename)),
+    })
 }
 ```
 
 ### 14.3 Signed Read URLs
 
-Photos are never stored or served with public URLs. The timeline service hydrates paths into presigned GET URLs (1h TTL) at query time:
+Photos are uploaded as **private files** — never stored or served with public URLs. The timeline service hydrates stored file paths into signed ImageKit CDN URLs (1h TTL) at query time; only requests that have already passed workspace-membership middleware reach this code:
 
 ```go
 // internal/service/report.go
 func (s *ReportService) hydratePhotoURLs(ctx context.Context, entries []TimelineEntry) ([]TimelineEntry, error) {
     for i, e := range entries {
         for j, path := range e.PhotoURLs {
-            signed, err := s.storage.PresignGet(ctx, path, time.Hour)
+            signed, err := s.storage.SignedReadURL(ctx, path, time.Hour)
             if err != nil {
-                return nil, fmt.Errorf("presign %s: %w", path, err)
+                return nil, fmt.Errorf("sign read url %s: %w", path, err)
             }
             entries[i].PhotoURLs[j] = signed
         }
@@ -1692,7 +1715,29 @@ func (s *ReportService) hydratePhotoURLs(ctx context.Context, entries []Timeline
 }
 ```
 
-The path prefix `workspaces/{workspace_id}/...` plus membership-checked signing is the storage arm of the tenant isolation model (§9.1, Layer 3).
+The folder prefix `workspaces/{workspace_id}/...` plus membership-checked signing is the storage arm of the tenant isolation model (§9.1, Layer 3).
+
+### 14.4 Transformations (Thumbnails vs Full View)
+
+Signed read URLs embed ImageKit transformation parameters, so each consumer gets an appropriately sized rendition without any server-side image processing:
+
+| Context | Transformation | Notes |
+|---|---|---|
+| Timeline thumbnail | `tr=w-160,h-160,fo-auto,q-70` | Small, cropped, aggressively compressed |
+| Full view / lightbox | `tr=w-1200,q-80` | Bounded width, original aspect ratio |
+| Recipient avatar | `tr=w-96,h-96,fo-face` | Face-aware crop |
+
+Transformation parameters are part of the signed URL, so a client cannot alter them to fetch a different rendition than the one signed for it.
+
+### 14.5 Local Development
+
+ImageKit is a hosted service — there is no self-hostable local equivalent (unlike MinIO for S3). Local dev and CI use a **dedicated ImageKit sandbox/dev account** (separate media library and keys from production), configured via the same env vars (§19.3).
+
+Tradeoff, accepted: photo upload/read flows in local dev require network access and a real external account. Mitigation: `internal/storage` is an interface, so unit and handler tests use a fake `Storage`; only manual local testing and E2E photo flows touch the sandbox account.
+
+### 14.6 Migration Path (If ImageKit Is Outgrown)
+
+If ImageKit becomes a poor fit — cost at scale, or a need for raw object storage beyond images — the exit is **S3-compatible object storage (e.g., Cloudflare R2)** behind the same `internal/storage` interface. This is why the interface stays abstract (`UploadAuth`, `SignedReadURL`) and why callers never touch ImageKit SDK types directly: the swap is one new implementation plus a media migration, not an application rewrite. Stored paths already follow the `workspaces/{workspace_id}/...` convention, which maps 1:1 onto object storage keys.
 
 ---
 
@@ -2017,8 +2062,8 @@ jobs:
 
   e2e:
     steps:
-      - run: docker compose up -d         # postgres + redis + minio + api + web + caddy
-      - run: cd web && pnpm test:e2e      # Playwright against the Caddy origin
+      - run: docker compose up -d         # postgres + redis + api + web + caddy
+      - run: cd web && pnpm test:e2e      # Playwright against the Caddy origin (photo flows use the ImageKit sandbox account, §14.5)
 
   lighthouse:
     # Gate: Performance ≥85, Accessibility ≥90
@@ -2039,7 +2084,7 @@ Cloudflare (WAF, DNS)
 
    Managed Postgres (ap-southeast-1)   — §2, PITR enabled
    Managed/colocated Redis             — ephemeral cache; loss is non-fatal
-   Cloudflare R2                       — photo storage
+   ImageKit (hosted)                   — photo storage + CDN + transformations
 ```
 
 - **Deploy:** GitHub Actions builds the Go binary and the Next.js standalone bundle, ships both to the VPS, runs `goose up` against production (append-only migrations, backward-compatible with the previous binary), then restarts services behind Caddy's health checks.
@@ -2059,7 +2104,7 @@ Parsed and validated at boot by `internal/config` (fail fast on missing values):
 | `JWT_SIGNING_KEY` | Go API | Ed25519 private key; **never leaves the server** |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | Go API | OAuth code exchange |
 | `RESEND_API_KEY` | Go API | Email |
-| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | Go API | Signed URLs |
+| `IMAGEKIT_PUBLIC_KEY` / `IMAGEKIT_PRIVATE_KEY` / `IMAGEKIT_URL_ENDPOINT` | Go API | Upload auth params + signed read URLs (§14); private key never leaves the server |
 | `MIDTRANS_SERVER_KEY` | Go API | Payments + webhook signature verification |
 | `POSTHOG_KEY` / `POSTHOG_HOST` | Go API + web | Analytics |
 | `SENTRY_DSN` | Go API + web | Error tracking |
@@ -2085,9 +2130,9 @@ There is no service-role key and no anon key: the only credentials with database
 | OQ-009 | PostHog self-hosted vs cloud? Self-hosted gives full data sovereignty (UU PDP) but adds operational burden. | Engineering Lead | Medium |
 | OQ-010 | Midtrans webhook retry policy — how many failures before workspace enters a grace period? | PM | Medium |
 | OQ-011 | Should viewer-role members receive the daily EOD email digest? Currently excluded. | PM | Low |
-| OQ-012 | `audit_logs` cold storage after 3 years — R2 or S3 Glacier? | Engineering Lead | Low |
+| OQ-012 | `audit_logs` cold storage after 3 years — any S3-compatible archive tier (R2, S3 Glacier, etc.) works; this is decoupled from image storage (ImageKit, §14) and can be decided independently. Which one? | Engineering Lead | Low |
 | OQ-013 | Should owners be allowed to edit another contributor's entries (e.g., correct a typo)? Currently denied in the service layer and by RLS. Requires an explicit authorization rule + audit trail. | PM | Medium |
 
 ---
 
-*RFC v3.0 — Aligned with PRD: CareLog MVP to Production. Architecture change only; product requirements unchanged from v2.*
+*RFC v3.1 — Aligned with PRD: CareLog MVP to Production. Architecture change only; product requirements unchanged from v2.*
