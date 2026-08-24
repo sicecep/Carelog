@@ -1,0 +1,128 @@
+{
+  "common": {
+    "appName": "CareLog",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "retry": "Coba lagi",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Edit",
+    "create": "Buat",
+    "search": "Cari",
+    "filter": "Filter",
+    "clear": "Bersihkan"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "recipients": "Penerima Perawatan",
+    "reports": "Laporan Harian",
+    "incidents": "Insiden",
+    "settings": "Pengaturan",
+    "logout": "Keluar"
+  },
+  "auth": {
+    "login": "Masuk",
+    "logout": "Keluar",
+    "email": "Email",
+    "emailPlaceholder": "contoh: nama@email.com",
+    "magicLinkIntro": "Masukkan email Anda. Kami akan mengirim tautan untuk masuk — tanpa kata sandi.",
+    "sendMagicLink": "Kirim Tautan Masuk",
+    "sendingMagicLink": "Mengirim...",
+    "magicLinkSent": "Cek email Anda — kami mengirim tautan masuk ke {email}",
+    "magicLinkError": "Gagal mengirim tautan masuk. Silakan coba lagi.",
+    "or": "atau",
+    "signInWithGoogle": "Masuk dengan Google",
+    "comingSoon": "Segera hadir",
+    "sessionExpired": "Sesi berakhir, silakan masuk kembali"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Selamat datang, {name}!",
+    "todayReports": "Laporan hari ini",
+    "recentIncidents": "Insiden terbaru",
+    "quickActions": "Aksi cepat",
+    "newReport": "Laporan baru",
+    "newIncident": "Catat insiden",
+    "addRecipient": "Tambah penerima perawatan"
+  },
+  "recipients": {
+    "title": "Penerima Perawatan",
+    "add": "Tambah penerima",
+    "name": "Nama",
+    "careType": "Jenis perawatan",
+    "dateOfBirth": "Tanggal lahir",
+    "notes": "Catatan",
+    "careTypes": {
+      "child": "Anak",
+      "infant": "Bayi",
+      "elderly": "Lansia",
+      "patient": "Pasien"
+    }
+  },
+  "reports": {
+    "title": "Laporan Harian",
+    "newReport": "Laporan baru",
+    "date": "Tanggal",
+    "recipient": "Penerima",
+    "type": "Tipe",
+    "status": "Status",
+    "contributor": "Pelapor",
+    "types": {
+      "detailed": "Detail",
+      "summary": "Ringkasan"
+    },
+    "statuses": {
+      "draft": "Draf",
+      "submitted": "Dikirim",
+      "acknowledged": "Dikonfirmasi"
+    },
+    "categories": {
+      "meal": "Makanan",
+      "sleep": "Tidur",
+      "diaper": "Popok",
+      "medication": "Obat",
+      "activity": "Aktivitas",
+      "mood": "Suasana hati",
+      "health": "Kesehatan",
+      "learning": "Belajar",
+      "therapy": "Terapi",
+      "note": "Catatan",
+      "other": "Lainnya"
+    }
+  },
+  "incidents": {
+    "title": "Insiden",
+    "newIncident": "Catat insiden baru",
+    "type": "Jenis",
+    "severity": "Tingkat",
+    "description": "Deskripsi",
+    "occurredAt": "Waktu kejadian",
+    "types": {
+      "fall": "Jatuh",
+      "injury": "Cedera",
+      "medical": "Medis",
+      "behavioral": "Perilaku",
+      "environmental": "Lingkungan",
+      "other": "Lainnya"
+    },
+    "severities": {
+      "low": "Rendah",
+      "medium": "Sedang",
+      "high": "Tinggi",
+      "emergency": "Darurat"
+    }
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "workspace": "Ruang kerja",
+    "plan": "Paket",
+    "locale": "Bahasa",
+    "timezone": "Zona waktu",
+    "plans": {
+      "free": "Gratis",
+      "starter": "Starter",
+      "pro": "Pro"
+    }
+  }
+}

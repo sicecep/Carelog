@@ -1,0 +1,51 @@
+# docker-compose.yml — local development datastores
+#
+# Services:
+#   - postgres: PostgreSQL 15 (matches RFC v3.1 / production target)
+#   - redis:    Redis 7 (cache + rate limiting + job queue backing)
+#
+# The Go API and Next.js web app run on the HOST (not in compose) for fast
+# iteration: `make run` / `make web-dev`. This keeps the container surface small
+# and avoids rebuilding an image on every code change.
+#
+# Media/images are NOT in this file: ImageKit is a hosted service (RFC v3.1 §14).
+# Local development uses an ImageKit dev account — set IMAGEKIT_* in .env.
+#
+# Usage:
+#   docker compose up -d          # start datastores
+#   docker compose ps             # check health
+#   docker compose down           # stop
+#   docker compose down -v        # stop and WIPE data
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: carelog
+      POSTGRES_PASSWORD: carelog
+      POSTGRES_DB: carelog
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carelog -d carelog"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:

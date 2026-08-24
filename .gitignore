@@ -1,6 +1,7 @@
 # Go
 /bin/
 /tmp/
+/server
 *.exe
 *.test
 *.out

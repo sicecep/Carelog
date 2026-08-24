@@ -1,0 +1,128 @@
+{
+  "common": {
+    "appName": "CareLog",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "recipients": "Care Recipients",
+    "reports": "Daily Reports",
+    "incidents": "Incidents",
+    "settings": "Settings",
+    "logout": "Log out"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email",
+    "emailPlaceholder": "e.g. name@email.com",
+    "magicLinkIntro": "Enter your email. We'll send you a link to sign in — no password needed.",
+    "sendMagicLink": "Send Login Link",
+    "sendingMagicLink": "Sending...",
+    "magicLinkSent": "Check your email — we sent a login link to {email}",
+    "magicLinkError": "We couldn't send the login link. Please try again.",
+    "or": "or",
+    "signInWithGoogle": "Sign in with Google",
+    "comingSoon": "Coming soon",
+    "sessionExpired": "Session expired, please sign in again"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome, {name}!",
+    "todayReports": "Today's reports",
+    "recentIncidents": "Recent incidents",
+    "quickActions": "Quick actions",
+    "newReport": "New report",
+    "newIncident": "Log incident",
+    "addRecipient": "Add care recipient"
+  },
+  "recipients": {
+    "title": "Care Recipients",
+    "add": "Add recipient",
+    "name": "Name",
+    "careType": "Care type",
+    "dateOfBirth": "Date of birth",
+    "notes": "Notes",
+    "careTypes": {
+      "child": "Child",
+      "infant": "Infant",
+      "elderly": "Elderly",
+      "patient": "Patient"
+    }
+  },
+  "reports": {
+    "title": "Daily Reports",
+    "newReport": "New report",
+    "date": "Date",
+    "recipient": "Recipient",
+    "type": "Type",
+    "status": "Status",
+    "contributor": "Contributor",
+    "types": {
+      "detailed": "Detailed",
+      "summary": "Summary"
+    },
+    "statuses": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "acknowledged": "Acknowledged"
+    },
+    "categories": {
+      "meal": "Meal",
+      "sleep": "Sleep",
+      "diaper": "Diaper",
+      "medication": "Medication",
+      "activity": "Activity",
+      "mood": "Mood",
+      "health": "Health",
+      "learning": "Learning",
+      "therapy": "Therapy",
+      "note": "Note",
+      "other": "Other"
+    }
+  },
+  "incidents": {
+    "title": "Incidents",
+    "newIncident": "Log new incident",
+    "type": "Type",
+    "severity": "Severity",
+    "description": "Description",
+    "occurredAt": "Occurred at",
+    "types": {
+      "fall": "Fall",
+      "injury": "Injury",
+      "medical": "Medical",
+      "behavioral": "Behavioral",
+      "environmental": "Environmental",
+      "other": "Other"
+    },
+    "severities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "emergency": "Emergency"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "workspace": "Workspace",
+    "plan": "Plan",
+    "locale": "Language",
+    "timezone": "Timezone",
+    "plans": {
+      "free": "Free",
+      "starter": "Starter",
+      "pro": "Pro"
+    }
+  }
+}

@@ -1,59 +1,39 @@
-#:schema https://json.schemastore.org/any.json
+# .air.toml — air configuration for Go hot reload
+#
+# See https://github.com/air-verse/air for full documentation.
 
-env_files = []
 root = "."
-testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  args_bin = []
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./cmd/server"
-  delay = 500
-  entrypoint = ["./tmp/main"]
-  exclude_dir = ["tmp", "vendor", "testdata", "node_modules", "web"]
-  exclude_file = []
-  exclude_regex = ["_test.go"]
-  exclude_unchanged = false
-  follow_symlink = false
-  full_bin = ""
-  ignore_dangerous_root_dir = false
-  include_dir = []
+  # Binary output
+  bin = "./tmp/server"
+  # Custom build command
+  cmd = "go build -o ./tmp/server ./cmd/server"
+  # Files to watch for rebuild
   include_ext = ["go", "tpl", "tmpl", "html", "sql"]
-  include_file = []
-  kill_delay = "0s"
+  # Directories to exclude
+  exclude_dir = ["assets", "tmp", "vendor", "web", "node_modules", ".git"]
+  # Regex to exclude files
+  exclude_regex = ["_test\\.go"]
+  # Watch file system events
+  follow_symlink = true
+  # Poll interval for file system (ms)
+  # 0 = watch events (inotify on Linux, FSEvents on macOS)
+  poll = 0
+  # Log build output
   log = "build-errors.log"
-  poll = false
-  poll_interval = 0
-  post_cmd = []
-  pre_cmd = []
-  rerun = false
-  rerun_delay = 500
-  send_interrupt = false
-  stop_on_error = false
 
 [color]
   app = ""
-  build = "yellow"
   main = "magenta"
-  mode = ""
-  runner = "green"
   watcher = "cyan"
+  build = "yellow"
+  runner = "green"
 
 [log]
-  main_only = false
-  silent = false
-  time = false
+  time = true
 
 [misc]
-  clean_on_exit = false
-
-[proxy]
-  app_port = 0
-  app_start_timeout = 0
-  enabled = false
-  proxy_port = 0
-
-[screen]
-  clear_on_rebuild = false
-  keep_scroll = true
+  # Clean tmp directory on start
+  clean_on_exit = true
