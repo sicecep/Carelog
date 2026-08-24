@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carelog — Coming Soon</title>
+<meta name="description" content="Carelog helps caregivers track, coordinate, and share care — so nothing falls through the cracks. Coming soon.">
+<style>
+  :root {
+    --bg: #faf7f2;
+    --surface: #ffffff;
+    --ink: #1f2a24;
+    --muted: #5c6b62;
+    --border: #e5ded2;
+    --accent: #2f7d5d;
+    --accent-soft: #e3efe8;
+    --accent-ink: #1d5a41;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .wrap {
+    width: min(680px, 92vw);
+    margin: 0 auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 0;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 56px;
+  }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+  }
+  .logo-mark svg { width: 20px; height: 20px; }
+  .logo-name {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .badge {
+    display: inline-block;
+    align-self: flex-start;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(34px, 6vw, 52px);
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin-bottom: 20px;
+    text-wrap: balance;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .lede {
+    font-size: clamp(16px, 2.2vw, 19px);
+    color: var(--muted);
+    max-width: 54ch;
+    margin-bottom: 40px;
+    text-wrap: pretty;
+  }
+  form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  input[type="email"] {
+    flex: 1;
+    min-width: 220px;
+    font-size: 16px;
+    font-family: inherit;
+    padding: 14px 18px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input[type="email"]:focus {
+    border-color: var(--accent);
+  }
+  input[type="email"]::placeholder { color: #a3aca6; }
+  button {
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 14px 26px;
+    min-height: 48px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button:hover { background: var(--accent-ink); }
+  button:focus-visible {
+    outline: 3px solid var(--accent-soft);
+    outline-offset: 2px;
+  }
+  .note {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin-bottom: 56px;
+  }
+  .confirm {
+    display: none;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-weight: 600;
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 56px;
+  }
+  .points {
+    display: grid;
+    gap: 14px;
+    border-top: 1px solid var(--border);
+    padding-top: 36px;
+  }
+  .point {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .point-dot {
+    flex: none;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: translateY(-2px);
+  }
+  .point p { color: var(--muted); font-size: 15.5px; }
+  .point p strong { color: var(--ink); font-weight: 600; }
+  footer {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 24px 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wrap > * {
+      animation: rise 0.5s ease both;
+    }
+    .wrap > *:nth-child(2) { animation-delay: 0.06s; }
+    .wrap > *:nth-child(3) { animation-delay: 0.12s; }
+    .wrap > *:nth-child(4) { animation-delay: 0.18s; }
+    .wrap > *:nth-child(5) { animation-delay: 0.24s; }
+    .wrap > *:nth-child(6) { animation-delay: 0.30s; }
+    .wrap > *:nth-child(7) { animation-delay: 0.36s; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="logo">
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 14c1.5-1.5 2-3.2 2-4.5A4.5 4.5 0 0 0 16.5 5c-1.7 0-3.2.9-4.5 2.6C10.7 5.9 9.2 5 7.5 5A4.5 4.5 0 0 0 3 9.5c0 1.3.5 3 2 4.5l7 6.5 7-6.5z"/>
+        </svg>
+      </div>
+      <span class="logo-name">Carelog</span>
+    </div>
+
+    <span class="badge">Coming soon</span>
+
+    <h1>Caring for someone is hard.<br>Keeping track of it <em>shouldn't be.</em></h1>
+
+    <p class="lede">
+      Carelog is a simple home for everything care involves — medications, appointments, daily notes, and the people who share the load. Built for family caregivers and care teams.
+    </p>
+
+    <form id="waitlist" autocomplete="on">
+      <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address">
+      <button type="submit">Join the waitlist</button>
+    </form>
+    <p class="note" id="note">Be the first to know when we launch. No spam, ever.</p>
+    <p class="confirm" id="confirm">You're on the list — we'll be in touch. Thank you for caring. 🌱</p>
+
+    <div class="points">
+      <div class="point"><span class="point-dot"></span><p><strong>One shared log.</strong> Every dose, visit, and change in one place the whole care team can see.</p></div>
+      <div class="point"><span class="point-dot"></span><p><strong>Nothing forgotten.</strong> Gentle reminders for medications, refills, and appointments.</p></div>
+      <div class="point"><span class="point-dot"></span><p><strong>Handoffs that work.</strong> When someone else takes over, they know exactly where things stand.</p></div>
+    </div>
+  </main>
+
+  <footer>© 2026 Carelog</footer>
+
+<script>
+  document.getElementById('waitlist').addEventListener('submit', function (e) {
+    e.preventDefault();
+    // TODO: POST to waitlist endpoint when the API is ready
+    this.style.display = 'none';
+    document.getElementById('note').style.display = 'none';
+    document.getElementById('confirm').style.display = 'block';
+  });
+</script>
+</body>
+</html>
