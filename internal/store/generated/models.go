@@ -9,6 +9,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuthMagicLink struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	TokenHash  []byte             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CareRecipient struct {
+	ID             uuid.UUID          `json:"id"`
+	WorkspaceID    uuid.UUID          `json:"workspace_id"`
+	FullName       string             `json:"full_name"`
+	DisplayName    pgtype.Text        `json:"display_name"`
+	DateOfBirth    pgtype.Date        `json:"date_of_birth"`
+	CareType       string             `json:"care_type"`
+	Gender         pgtype.Text        `json:"gender"`
+	PhotoUrl       pgtype.Text        `json:"photo_url"`
+	Notes          pgtype.Text        `json:"notes"`
+	MedicalNotes   pgtype.Text        `json:"medical_notes"`
+	IsActive       bool               `json:"is_active"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
+	EnabledModules []byte             `json:"enabled_modules"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DailyReport struct {
 	ID              uuid.UUID          `json:"id"`
 	WorkspaceID     uuid.UUID          `json:"workspace_id"`
@@ -43,17 +70,6 @@ type PlanConfig struct {
 	MaxBackfillDays int32       `json:"max_backfill_days"`
 }
 
-type Recipient struct {
-	ID          uuid.UUID          `json:"id"`
-	WorkspaceID uuid.UUID          `json:"workspace_id"`
-	Name        string             `json:"name"`
-	CareType    string             `json:"care_type"`
-	DateOfBirth pgtype.Date        `json:"date_of_birth"`
-	Notes       pgtype.Text        `json:"notes"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
 type RefreshToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -74,6 +90,20 @@ type ReportEntry struct {
 	ValueJson   []byte             `json:"value_json"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID                  uuid.UUID          `json:"id"`
+	Email               string             `json:"email"`
+	EmailVerifiedAt     pgtype.Timestamptz `json:"email_verified_at"`
+	FullName            pgtype.Text        `json:"full_name"`
+	AvatarUrl           pgtype.Text        `json:"avatar_url"`
+	GoogleID            pgtype.Text        `json:"google_id"`
+	Locale              string             `json:"locale"`
+	IsActive            bool               `json:"is_active"`
+	OnboardingCompleted bool               `json:"onboarding_completed"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Workspace struct {

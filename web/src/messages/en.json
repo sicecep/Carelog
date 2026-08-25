@@ -36,6 +36,44 @@
     "comingSoon": "Coming soon",
     "sessionExpired": "Session expired, please sign in again"
   },
+  "onboarding": {
+    "welcome": "Welcome to CareLog",
+    "welcomeSubtitle": "Let's create your first care profile to start logging daily activities.",
+    "getStarted": "Get started",
+    "back": "Back",
+    "createProfile": "Create care profile",
+    "nameLabel": "Full name",
+    "namePlaceholder": "e.g. Budi Santoso",
+    "nameRequired": "Name is required",
+    "careTypeLabel": "Care type",
+    "careTypeRequired": "Select a care type",
+    "next": "Next",
+    "customizeModules": "Customize modules",
+    "modulesHint": "Choose which modules to enable for this profile. You can change this later.",
+    "modulesLabel": "Active modules",
+    "modulesCanChangeLater": "Modules can be changed anytime in settings.",
+    "createProfileSubmit": "Create profile",
+    "progressLabel": "Onboarding progress",
+    "step": "Step",
+    "careType": {
+      "infant": "Infant (0–12 months)",
+      "child": "Child (1–12 years)",
+      "elderly": "Elderly (60+ years)",
+      "patient": "Patient (all ages)"
+    },
+    "modules": {
+      "meal": "Meal",
+      "sleep": "Sleep",
+      "diaper": "Diaper",
+      "medication": "Medication",
+      "activity": "Activity",
+      "mood": "Mood",
+      "health": "Health",
+      "learning": "Learning",
+      "therapy": "Therapy",
+      "note": "Note"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome, {name}!",

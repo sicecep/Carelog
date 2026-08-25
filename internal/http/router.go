@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sicecep/carelog/internal/http/middleware"
+	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
 // Pinger is anything whose liveness can be checked. Both *pgxpool.Pool and
@@ -26,6 +28,8 @@ type Deps struct {
 
 	DB    Pinger
 	Cache Pinger
+	Pool  *pgxpool.Pool
+	Queries *store.Queries
 
 	// Version is the build-time version string reported by /api/v1/version.
 	Version string
@@ -72,6 +76,13 @@ func NewRouter(deps Deps) http.Handler {
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/version", HandlerFunc(deps.handleVersion).Wrap())
+
+		// Register recipient routes
+		recipientHandlers := &RecipientHandlers{
+			Queries: deps.Queries,
+			Pool:    deps.Pool,
+		}
+		RegisterRecipientRoutes(api, recipientHandlers)
 	})
 
 	return r

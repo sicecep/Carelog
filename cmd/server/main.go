@@ -76,6 +76,8 @@ func main() {
 		AllowedCorsOrigins: []string{"http://localhost:3000"},
 		DB:                 dbpool,
 		Cache:              redisClient,
+		Pool:               dbpool,
+		Queries:            queries,
 		Version:            "0.0.0", // TODO: inject from build / git tag
 	})
 

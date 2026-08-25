@@ -29,6 +29,7 @@ func Render() []byte {
 
 	writeEnum(&b, "Role", "ROLES", toStrings(domain.Roles))
 	writeEnum(&b, "CareType", "CARE_TYPES", toStrings(domain.CareTypes))
+	writeEnum(&b, "Module", "MODULES", toStrings(domain.Modules))
 	writeEnum(&b, "LogCategory", "LOG_CATEGORIES", toStrings(domain.LogCategories))
 	writeEnum(&b, "IncidentType", "INCIDENT_TYPES", toStrings(domain.IncidentTypes))
 	writeEnum(&b, "Severity", "SEVERITIES", toStrings(domain.Severities))
@@ -38,6 +39,7 @@ func Render() []byte {
 	writeEnum(&b, "Plan", "PLANS", toStrings(domain.Plans))
 	writeEnum(&b, "Locale", "LOCALES", toStrings(domain.Locales))
 
+	writeDefaultModules(&b)
 	writePlanLimits(&b)
 
 	fmt.Fprintf(&b, "\nexport const DEFAULT_LOCALE: Locale = %q;\n", domain.DefaultLocale.String())
@@ -54,6 +56,22 @@ func writeEnum(b *strings.Builder, typeName, constName string, values []string) 
 	}
 	fmt.Fprintf(b, "\nexport const %s = [%s] as const;\n", constName, strings.Join(quoted, ", "))
 	fmt.Fprintf(b, "export type %s = (typeof %s)[number];\n", typeName, constName)
+}
+
+// writeDefaultModules emits the per-care-type module defaults the onboarding
+// wizard pre-checks. Emitting them keeps the wizard from hard-coding a list that
+// would silently drift from the server's subset validation.
+func writeDefaultModules(b *strings.Builder) {
+	b.WriteString("\nexport const DEFAULT_MODULES_FOR_CARE_TYPE = {\n")
+	for _, c := range domain.CareTypes {
+		mods, _ := domain.DefaultModulesForCareType(c)
+		quoted := make([]string, len(mods))
+		for i, m := range mods {
+			quoted[i] = fmt.Sprintf("%q", m.String())
+		}
+		fmt.Fprintf(b, "  %s: [%s],\n", c.String(), strings.Join(quoted, ", "))
+	}
+	b.WriteString("} as const satisfies Record<CareType, readonly Module[]>;\n")
 }
 
 func writePlanLimits(b *strings.Builder) {
