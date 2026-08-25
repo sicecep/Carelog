@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${process.env.API_PROXY_TARGET ?? "http://localhost:8080"}/api/:path*`,
       },
+      {
+        source: "/healthz",
+        destination: `${process.env.API_PROXY_TARGET ?? "http://localhost:8080"}/healthz`,
+      },
     ];
   },
   // Allow cross-origin images if needed (e.g., from ImageKit)

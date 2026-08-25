@@ -44,25 +44,49 @@ export class APIError extends Error {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
-  patch: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  get: <T>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { method: "GET", headers }),
+  post: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: "POST", body: JSON.stringify(body), headers }),
+  patch: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body), headers }),
+  delete: <T>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { method: "DELETE", headers }),
 };
 
 // Auth endpoints.
 // CareLog is passwordless (AUTH-001): auth is magic-link only, no passwords anywhere.
 export const authApi = {
-  // STUB: magic-link delivery is not wired up to the backend yet.
-  // Resolves successfully so the UI can render its confirmation state.
+  // POST /api/v1/auth/magic-link - Request a magic link to be sent to the email.
   requestMagicLink: async (email: string): Promise<{ sent: boolean }> => {
-    void email;
+    await api.post<{ message: string }>("/api/v1/auth/magic-link", { email });
     return { sent: true };
   },
-  refresh: () => api.post<{ accessToken: string }>("/api/v1/auth/refresh", {}),
-  logout: () => api.post<void>("/api/v1/auth/logout", {}),
+
+  // GET /api/v1/auth/me - Get current user and workspace memberships.
+  // Requires cl_access cookie. Optionally accepts X-Workspace-ID header.
+  me: (workspaceId?: string) => {
+    const headers: Record<string, string> = {};
+    if (workspaceId) headers["X-Workspace-ID"] = workspaceId;
+    return api.get<{
+      user: {
+        id: string;
+        email: string;
+        full_name?: string;
+        avatar_url?: string;
+        locale: string;
+        email_verified: boolean;
+        onboarding_completed: boolean;
+      };
+      workspaces: { id: string; name: string; role: string; active: boolean }[];
+    }>("/api/v1/auth/me", headers);
+  },
+
+  // POST /api/v1/auth/refresh - Rotate refresh token (uses cl_refresh cookie).
+  refresh: () => api.post<{ message: string }>("/api/v1/auth/refresh", {}),
+
+  // POST /api/v1/auth/logout - Revoke refresh token family and clear cookies.
+  logout: () => api.post<{ message: string }>("/api/v1/auth/logout", {}),
 };
 
 // Workspace endpoints

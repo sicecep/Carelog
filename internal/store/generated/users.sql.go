@@ -99,6 +99,34 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 	return i, err
 }
 
+const markEmailVerified = `-- name: MarkEmailVerified :one
+UPDATE users
+SET email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
+WHERE id = $1
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+`
+
+// COALESCE keeps the original verification timestamp: clicking a second magic
+// link months later is a login, not a re-verification.
+func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, markEmailVerified, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const markOnboardingCompleted = `-- name: MarkOnboardingCompleted :exec
 UPDATE users
 SET onboarding_completed = true, updated_at = now()
@@ -139,6 +167,42 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.EmailVerifiedAt,
 		arg.IsActive,
 	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertUserByEmail = `-- name: UpsertUserByEmail :one
+INSERT INTO users (email, locale)
+VALUES (LOWER($1), $2)
+ON CONFLICT (LOWER(email)) DO UPDATE
+    SET updated_at = now()
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+`
+
+type UpsertUserByEmailParams struct {
+	Email  string `json:"email"`
+	Locale string `json:"locale"`
+}
+
+// Magic-link sign-up and sign-in are the same request (RFC §8.1, AUTH-001/002):
+// the caller does not get to learn whether the account already existed, so the
+// insert and the lookup have to be one statement. Conflict inference targets
+// idx_users_email_lower, which is why the email is lowered on the way in.
+func (q *Queries) UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, upsertUserByEmail, arg.Email, arg.Locale)
 	var i User
 	err := row.Scan(
 		&i.ID,

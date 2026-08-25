@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/sicecep/carelog/internal/auth"
 	apihttp "github.com/sicecep/carelog/internal/http"
 )
 
@@ -17,12 +18,22 @@ func testLogger() *slog.Logger {
 }
 
 func testRouter() apihttp.Deps {
+	// Create an ephemeral signer for tests (APP_ENV=development allows empty seed)
+	_ = os.Setenv("APP_ENV", "development")
+	signer, _, err := auth.NewSigner("", 0, 0)
+	if err != nil {
+		panic(err)
+	}
+
 	return apihttp.Deps{
 		Logger:             testLogger(),
 		AllowedCorsOrigins: []string{},
 		DB:                 nil,
 		Cache:              nil,
 		Version:            "test",
+		Signer:             signer,
+		// MagicLinkSvc, RefreshSvc, Mailer, WebBaseURL, CookieDomain remain nil
+		// RegisterAuthRoutes will handle nil services gracefully for public routes
 	}
 }
 
@@ -81,13 +92,7 @@ func TestRouter_Endpoints(t *testing.T) {
 }
 
 func TestRouter_SetsCorsHeaders(t *testing.T) {
-	router := apihttp.NewRouter(apihttp.Deps{
-		Logger:             testLogger(),
-		AllowedCorsOrigins: []string{"http://localhost:3000"},
-		DB:                 nil,
-		Cache:              nil,
-		Version:            "test",
-	})
+	router := apihttp.NewRouter(testRouter())
 
 	req := httptest.NewRequest(nethttp.MethodOptions, "/api/v1/version", nil)
 	req.Header.Set("Origin", "http://localhost:3000")

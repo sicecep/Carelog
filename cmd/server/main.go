@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sicecep/carelog/internal/auth"
 	"github.com/sicecep/carelog/internal/cache"
 	"github.com/sicecep/carelog/internal/config"
+	"github.com/sicecep/carelog/internal/mail"
 	apihttp "github.com/sicecep/carelog/internal/http"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -68,17 +70,42 @@ func main() {
 
 	// Store (sqlc-generated queries)
 	queries := store.New(dbpool)
-	_ = queries // used by handlers when wired
+
+	// Auth services
+	magicLinkSvc := auth.NewMagicLinkService(queries)
+	refreshSvc := auth.NewRefreshTokenService(queries, cfg.RefreshTokenTTL)
+	signer, _, err := auth.NewSigner(cfg.JWTEd25519Seed, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	if err != nil {
+		logger.Error("JWT signer init failed", "error", err)
+		os.Exit(1)
+	}
+
+	// Mailer
+	var mailer mail.Mailer
+	if cfg.ResendAPIKey != "" {
+		mailer = mail.NewResendMailer(cfg.ResendAPIKey, cfg.ResendFrom)
+	} else {
+		mailer = mail.NewNoopMailer(logger)
+		logger.Info("using noop mailer (no RESEND_API_KEY set)")
+	}
 
 	// HTTP router with dependencies for readiness checks
 	router := apihttp.NewRouter(apihttp.Deps{
 		Logger:             logger,
-		AllowedCorsOrigins: []string{"http://localhost:3000"},
+		AllowedCorsOrigins: []string{cfg.WebBaseURL},
 		DB:                 dbpool,
 		Cache:              redisClient,
 		Pool:               dbpool,
 		Queries:            queries,
-		Version:            "0.0.0", // TODO: inject from build / git tag
+
+		// Auth dependencies
+		MagicLinkSvc: magicLinkSvc,
+		RefreshSvc:   refreshSvc,
+		Signer:       signer,
+		Mailer:       mailer,
+		WebBaseURL:   cfg.WebBaseURL,
+
+		Version: "0.0.0", // TODO: inject from build / git tag
 	})
 
 	// HTTP server

@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,47 +24,96 @@ func (q *Queries) CleanExpiredRefreshTokens(ctx context.Context) error {
 }
 
 const createRefreshToken = `-- name: CreateRefreshToken :one
-INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-VALUES ($1, $2, $3)
-RETURNING id, user_id, token_hash, expires_at, rotated_at, revoked_at, created_at
+INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, user_agent, ip_address)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, user_id, family_id, token_hash, expires_at, rotated_at, revoked_at, user_agent, ip_address, created_at
 `
 
 type CreateRefreshTokenParams struct {
 	UserID    uuid.UUID          `json:"user_id"`
-	TokenHash string             `json:"token_hash"`
+	FamilyID  uuid.UUID          `json:"family_id"`
+	TokenHash []byte             `json:"token_hash"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UserAgent pgtype.Text        `json:"user_agent"`
+	IpAddress *netip.Addr        `json:"ip_address"`
 }
 
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, createRefreshToken, arg.UserID, arg.TokenHash, arg.ExpiresAt)
+	row := q.db.QueryRow(ctx, createRefreshToken,
+		arg.UserID,
+		arg.FamilyID,
+		arg.TokenHash,
+		arg.ExpiresAt,
+		arg.UserAgent,
+		arg.IpAddress,
+	)
 	var i RefreshToken
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.FamilyID,
 		&i.TokenHash,
 		&i.ExpiresAt,
 		&i.RotatedAt,
 		&i.RevokedAt,
+		&i.UserAgent,
+		&i.IpAddress,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getRefreshToken = `-- name: GetRefreshToken :one
-SELECT id, user_id, token_hash, expires_at, rotated_at, revoked_at, created_at FROM refresh_tokens
-WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
+const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
+SELECT id, user_id, family_id, token_hash, expires_at, rotated_at, revoked_at, user_agent, ip_address, created_at FROM refresh_tokens
+WHERE token_hash = $1
 `
 
-func (q *Queries) GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, getRefreshToken, tokenHash)
+// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
+// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
+func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshTokenByHash, tokenHash)
 	var i RefreshToken
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.FamilyID,
 		&i.TokenHash,
 		&i.ExpiresAt,
 		&i.RotatedAt,
 		&i.RevokedAt,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const markRefreshTokenRotated = `-- name: MarkRefreshTokenRotated :one
+UPDATE refresh_tokens
+SET rotated_at = now()
+WHERE token_hash = $1
+  AND rotated_at IS NULL
+  AND revoked_at IS NULL
+  AND expires_at > now()
+RETURNING id, user_id, family_id, token_hash, expires_at, rotated_at, revoked_at, user_agent, ip_address, created_at
+`
+
+// The guard clause is the race protection: two requests presenting the same
+// valid token both reach this statement, exactly one updates a row, and the
+// loser is indistinguishable from a replay — which is the desired outcome.
+func (q *Queries) MarkRefreshTokenRotated(ctx context.Context, tokenHash []byte) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, markRefreshTokenRotated, tokenHash)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FamilyID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.RotatedAt,
+		&i.RevokedAt,
+		&i.UserAgent,
+		&i.IpAddress,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -80,35 +130,14 @@ func (q *Queries) RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UU
 	return err
 }
 
-const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+const revokeRefreshTokenFamily = `-- name: RevokeRefreshTokenFamily :exec
 UPDATE refresh_tokens
 SET revoked_at = now()
-WHERE token_hash = $1
+WHERE family_id = $1 AND revoked_at IS NULL
 `
 
-func (q *Queries) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
-	_, err := q.db.Exec(ctx, revokeRefreshToken, tokenHash)
+// Used by logout and by reuse detection; kills every token in the lineage.
+func (q *Queries) RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, revokeRefreshTokenFamily, familyID)
 	return err
-}
-
-const rotateRefreshToken = `-- name: RotateRefreshToken :one
-UPDATE refresh_tokens
-SET rotated_at = now(), revoked_at = now()
-WHERE token_hash = $1 AND revoked_at IS NULL
-RETURNING id, user_id, token_hash, expires_at, rotated_at, revoked_at, created_at
-`
-
-func (q *Queries) RotateRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, rotateRefreshToken, tokenHash)
-	var i RefreshToken
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.TokenHash,
-		&i.ExpiresAt,
-		&i.RotatedAt,
-		&i.RevokedAt,
-		&i.CreatedAt,
-	)
-	return i, err
 }

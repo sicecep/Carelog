@@ -11,8 +11,8 @@ import (
 
 // TestLoad_valid parses a minimally complete environment and checks defaults.
 func TestLoad_valid(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/carelog?sslmode=disable")
-	t.Setenv("JWT_SIGNING_KEY", "dev-only-not-for-prod")
+	t.Setenv("DATABASE_URL", "postgres://user:***@localhost:5432/carelog?sslmode=disable")
+	t.Setenv("JWT_ED25519_SEED", "dev-only-not-for-prod")
 
 	c, err := config.Load()
 	require.NoError(t, err)
@@ -21,8 +21,8 @@ func TestLoad_valid(t *testing.T) {
 	require.Equal(t, "development", c.AppEnv)
 	require.Equal(t, "http://localhost:8080", c.AppBaseURL)
 	require.Equal(t, "Asia/Jakarta", c.DefaultTimezone)
-	require.Equal(t, "postgres://user:pass@localhost:5432/carelog?sslmode=disable", c.DatabaseURL)
-	require.Equal(t, "dev-only-not-for-prod", c.JWTSigningKey)
+	require.Equal(t, "postgres://user:***@localhost:5432/carelog?sslmode=disable", c.DatabaseURL)
+	require.Equal(t, "dev-only-not-for-prod", c.JWTEd25519Seed)
 	require.NotNil(t, c.Location())
 	require.Equal(t, "Asia/Jakarta", c.Location().String())
 }
@@ -31,7 +31,7 @@ func TestLoad_valid(t *testing.T) {
 func TestLoad_missingDatabaseURL(t *testing.T) {
 	// Unset DATABASE_URL explicitly
 	_ = os.Unsetenv("DATABASE_URL")
-	t.Setenv("JWT_SIGNING_KEY", "dev")
+	t.Setenv("JWT_ED25519_SEED", "dev")
 
 	_, err := config.Load()
 	require.Error(t, err)
@@ -41,7 +41,7 @@ func TestLoad_missingDatabaseURL(t *testing.T) {
 // TestLoad_invalidDatabaseURL rejects malformed connection strings.
 func TestLoad_invalidDatabaseURL(t *testing.T) {
 	t.Setenv("DATABASE_URL", "not-a-url")
-	t.Setenv("JWT_SIGNING_KEY", "dev")
+	t.Setenv("JWT_ED25519_SEED", "dev")
 
 	_, err := config.Load()
 	require.Error(t, err)
@@ -50,24 +50,24 @@ func TestLoad_invalidDatabaseURL(t *testing.T) {
 
 // TestLoad_invalidTimezone rejects unknown IANA names.
 func TestLoad_invalidTimezone(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/db")
-	t.Setenv("JWT_SIGNING_KEY", "dev")
-	t.Setenv("DEFAULT_TIMEZONE", "Mars/Time")
+	t.Setenv("DATABASE_URL", "postgres://user:***@localhost/db")
+	t.Setenv("JWT_ED25519_SEED", "dev")
+	t.Setenv("DEFAULT_TIMEZONE", "Not/A/Timezone")
 
 	_, err := config.Load()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "DEFAULT_TIMEZONE is not a valid IANA timezone")
 }
 
-// TestLoad_jwtRequiredInProd enforces JWT_SIGNING_KEY outside development.
+// TestLoad_jwtRequiredInProd enforces JWT_ED25519_SEED outside development.
 func TestLoad_jwtRequiredInProd(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/db")
+	t.Setenv("DATABASE_URL", "postgres://user:***@localhost/db")
 	t.Setenv("APP_ENV", "production")
-	_ = os.Unsetenv("JWT_SIGNING_KEY")
+	_ = os.Unsetenv("JWT_ED25519_SEED")
 
 	_, err := config.Load()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "JWT_SIGNING_KEY is required")
+	require.Contains(t, err.Error(), "JWT_ED25519_SEED is required")
 }
 
 // TestLoad_googleOAuthPaired requires both ID and secret together.

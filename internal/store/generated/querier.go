@@ -14,16 +14,28 @@ type Querier interface {
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) error
 	CareRecipientExistsInWorkspace(ctx context.Context, arg CareRecipientExistsInWorkspaceParams) (bool, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
+	// Single-use is enforced here, not in Go: the predicate and the write are one
+	// statement, so two concurrent verifications of the same link cannot both win.
+	// A miss means the link was already consumed, expired, or never existed —
+	// GetMagicLinkByHash tells the three apart for logging.
+	ConsumeMagicLink(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	CountActiveRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	// Zero means this is a first login and the verify handler must provision a
+	// workspace + owner membership (RFC §8.2).
+	CountWorkspaceMembershipsForUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateCareRecipient(ctx context.Context, arg CreateCareRecipientParams) (CareRecipient, error)
 	CreateDailyReport(ctx context.Context, arg CreateDailyReportParams) (DailyReport, error)
 	CreateIncident(ctx context.Context, arg CreateIncidentParams) (Incident, error)
+	CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (AuthMagicLink, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, id uuid.UUID) error
 	DeleteDailyReport(ctx context.Context, id uuid.UUID) error
+	// Retains a day past expiry so a user who clicks a stale link still gets the
+	// "this link expired" path rather than a bare "invalid".
+	DeleteExpiredMagicLinks(ctx context.Context) error
 	DeleteIncident(ctx context.Context, id uuid.UUID) error
 	DeleteReportEntry(ctx context.Context, id uuid.UUID) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
@@ -31,23 +43,38 @@ type Querier interface {
 	GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport, error)
 	GetDailyReportByDate(ctx context.Context, arg GetDailyReportByDateParams) (DailyReport, error)
 	GetIncident(ctx context.Context, id uuid.UUID) (Incident, error)
-	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetMagicLinkByHash(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
+	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
+	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
+	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	GetReportEntry(ctx context.Context, id uuid.UUID) (ReportEntry, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
+	// Resolved per request by the workspace middleware. Role is never a JWT claim
+	// (RFC §8.4), so a demotion or removal takes effect on the very next request.
+	// The join on users is what makes "active member" mean active *user*.
+	GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceRoleForUserParams) (string, error)
 	ListCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error)
 	ListDailyReports(ctx context.Context, arg ListDailyReportsParams) ([]DailyReport, error)
 	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]Incident, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
 	ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]Workspace, error)
+	ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]ListWorkspacesForUserRow, error)
+	// COALESCE keeps the original verification timestamp: clicking a second magic
+	// link months later is a login, not a re-verification.
+	MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, error)
 	MarkOnboardingCompleted(ctx context.Context, id uuid.UUID) error
+	// The guard clause is the race protection: two requests presenting the same
+	// valid token both reach this statement, exactly one updates a row, and the
+	// loser is indistinguishable from a replay — which is the desired outcome.
+	MarkRefreshTokenRotated(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
-	RevokeRefreshToken(ctx context.Context, tokenHash string) error
-	RotateRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
+	// Used by logout and by reuse detection; kills every token in the lineage.
+	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
 	UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipientParams) (CareRecipient, error)
 	UpdateDailyReport(ctx context.Context, arg UpdateDailyReportParams) (DailyReport, error)
 	UpdateIncident(ctx context.Context, arg UpdateIncidentParams) (Incident, error)
@@ -55,6 +82,11 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 	UpdateWorkspaceMemberRole(ctx context.Context, arg UpdateWorkspaceMemberRoleParams) error
+	// Magic-link sign-up and sign-in are the same request (RFC §8.1, AUTH-001/002):
+	// the caller does not get to learn whether the account already existed, so the
+	// insert and the lookup have to be one statement. Conflict inference targets
+	// idx_users_email_lower, which is why the email is lowered on the way in.
+	UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

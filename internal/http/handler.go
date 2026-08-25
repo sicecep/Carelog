@@ -5,7 +5,7 @@
 package http
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
 )
 
@@ -50,8 +50,7 @@ func mapError(w http.ResponseWriter, r *http.Request, err error) {
 		typed = e
 	default:
 		// Not a typed error — log and return 500
-		// In production, this would use slog with request ID
-		_ = fmt.Errorf("unhandled error: %w", err)
+		slog.Error("unhandled HTTP handler error", "error", err)
 		Err(w, "INTERNAL", "Internal server error", http.StatusInternalServerError)
 		return
 	}

@@ -28,8 +28,17 @@ type Config struct {
 	// App
 	AppEnv string // "development" | "staging" | "production"
 
-	// JWT (Ed25519 private key, PEM-encoded, never leaves the server)
-	JWTSigningKey string
+	// JWT (Ed25519 seed, base64-encoded, 32 bytes)
+	JWTEd25519Seed string
+
+	// Access token TTL (default 15m)
+	AccessTokenTTL time.Duration
+
+	// Refresh token TTL (default 30d)
+	RefreshTokenTTL time.Duration
+
+	// Cookie domain (e.g. ".carelog.app" for cross-subdomain, empty for localhost)
+	CookieDomain string
 
 	// Google OAuth
 	GoogleOAuthClientID     string
@@ -42,9 +51,13 @@ type Config struct {
 
 	// Resend (email)
 	ResendAPIKey string
+	ResendFrom   string
 
 	// App base URL (for email links, absolute redirects)
 	AppBaseURL string
+
+	// Web base URL (frontend, for magic links in emails)
+	WebBaseURL string
 
 	// Default timezone for cron schedules (e.g. "Asia/Jakarta")
 	DefaultTimezone string
@@ -57,19 +70,24 @@ type Config struct {
 // Returns a validation error if anything required is missing or malformed.
 func Load() (*Config, error) {
 	c := &Config{
-		HTTPPort:                getenv("HTTP_PORT", "8080"),
-		DatabaseURL:             os.Getenv("DATABASE_URL"),
-		RedisURL:                getenv("REDIS_URL", "redis://localhost:6379"),
-		AppEnv:                  getenv("APP_ENV", "development"),
-		JWTSigningKey:           os.Getenv("JWT_SIGNING_KEY"),
-		GoogleOAuthClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+		HTTPPort:             getenv("HTTP_PORT", "8080"),
+		DatabaseURL:          os.Getenv("DATABASE_URL"),
+		RedisURL:             getenv("REDIS_URL", "redis://localhost:6379"),
+		AppEnv:               getenv("APP_ENV", "development"),
+		JWTEd25519Seed:       os.Getenv("JWT_ED25519_SEED"),
+		AccessTokenTTL:       parseDuration(getenv("ACCESS_TOKEN_TTL", "15m")),
+		RefreshTokenTTL:      parseDuration(getenv("REFRESH_TOKEN_TTL", "720h")), // 30 days
+		CookieDomain:         os.Getenv("COOKIE_DOMAIN"),
+		GoogleOAuthClientID:  os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
 		GoogleOAuthClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
-		ImageKitPublicKey:       os.Getenv("IMAGEKIT_PUBLIC_KEY"),
-		ImageKitPrivateKey:      os.Getenv("IMAGEKIT_PRIVATE_KEY"),
-		ImageKitURLEndpoint:     os.Getenv("IMAGEKIT_URL_ENDPOINT"),
-		ResendAPIKey:            os.Getenv("RESEND_API_KEY"),
-		AppBaseURL:              getenv("APP_BASE_URL", "http://localhost:8080"),
-		DefaultTimezone:         getenv("DEFAULT_TIMEZONE", "Asia/Jakarta"),
+		ImageKitPublicKey:    os.Getenv("IMAGEKIT_PUBLIC_KEY"),
+		ImageKitPrivateKey:   os.Getenv("IMAGEKIT_PRIVATE_KEY"),
+		ImageKitURLEndpoint:  os.Getenv("IMAGEKIT_URL_ENDPOINT"),
+		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
+		ResendFrom:           getenv("RESEND_FROM", "Carelog <noreply@carelog.app>"),
+		AppBaseURL:           getenv("APP_BASE_URL", "http://localhost:8080"),
+		WebBaseURL:           getenv("WEB_BASE_URL", "http://localhost:3000"),
+		DefaultTimezone:      getenv("DEFAULT_TIMEZONE", "Asia/Jakarta"),
 	}
 
 	if err := c.validate(); err != nil {
@@ -103,9 +121,9 @@ func (c *Config) validate() error {
 		errs = append(errs, "DATABASE_URL must be an absolute URL with scheme and host")
 	}
 
-	// Required: JWT signing key (non-empty in non-dev)
-	if strings.TrimSpace(c.JWTSigningKey) == "" && c.AppEnv != "development" {
-		errs = append(errs, "JWT_SIGNING_KEY is required in non-development environments")
+	// Required: JWT Ed25519 seed (non-empty in non-dev)
+	if strings.TrimSpace(c.JWTEd25519Seed) == "" && c.AppEnv != "development" {
+		errs = append(errs, "JWT_ED25519_SEED is required in non-development environments")
 	}
 
 	// Optional but validated if set
@@ -143,6 +161,11 @@ func (c *Config) validate() error {
 		errs = append(errs, "APP_BASE_URL must be an absolute URL with scheme and host")
 	}
 
+	// WebBaseURL must be absolute if set
+	if u, err := url.Parse(c.WebBaseURL); err != nil || u.Scheme == "" || u.Host == "" {
+		errs = append(errs, "WEB_BASE_URL must be an absolute URL with scheme and host")
+	}
+
 	// DefaultTimezone must be a valid IANA name
 	if _, err := time.LoadLocation(c.DefaultTimezone); err != nil {
 		errs = append(errs, "DEFAULT_TIMEZONE is not a valid IANA timezone: "+err.Error())
@@ -169,4 +192,13 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// parseDuration parses a duration string with a fallback.
+func parseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0
+	}
+	return d
 }
