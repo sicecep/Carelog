@@ -1,26 +1,248 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* Color Palette — Light Mode (default) */
+  --color-bg: #FAF7F2;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F5F0E8;
+  --color-border: #E5DED2;
+  --color-border-strong: #D4C9B8;
+  --color-text: #1F2A24;
+  --color-text-muted: #5C6B62;
+  --color-text-inverse: #FFFFFF;
+  --color-accent: #2F7D5D;
+  --color-accent-hover: #266B4E;
+  --color-accent-soft: #E3EFE8;
+  --color-accent-ink: #1D5A41;
+  --color-error: #C0392B;
+  --color-error-soft: #FADBD8;
+  --color-error-ink: #7B241C;
+  --color-warning: #D4A017;
+  --color-warning-soft: #FEF5E7;
+  --color-success: #27AE60;
+  --color-success-soft: #E8F8F0;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Semantic aliases for Tailwind utilities */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-text-inverse);
+  --color-secondary: var(--color-surface-hover);
+  --color-secondary-foreground: var(--color-text);
+  --color-muted: var(--color-border);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-accent-foreground: var(--color-accent-ink);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-text-inverse);
+  --color-border: var(--color-border);
+  --color-ring: var(--color-accent-soft);
+
+  /* Dark Mode (opt-in via class) */
+  --color-bg-dark: #1A1F1C;
+  --color-surface-dark: #222825;
+  --color-border-dark: #3A3F3C;
+  --color-text-dark: #E8EDEA;
+  --color-text-muted-dark: #9AA8A1;
+  --color-accent-dark: #4ADE80;
+  --color-accent-soft-dark: #1B3A2A;
+  --color-accent-ink-dark: #A8F5C8;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not(.light) {
+    --color-background: var(--color-bg-dark);
+    --color-foreground: var(--color-text-dark);
+    --color-primary: var(--color-accent-dark);
+    --color-primary-foreground: var(--color-bg-dark);
+    --color-secondary: var(--color-surface-dark);
+    --color-secondary-foreground: var(--color-text-dark);
+    --color-muted: var(--color-border-dark);
+    --color-muted-foreground: var(--color-text-muted-dark);
+    --color-accent-foreground: var(--color-accent-ink-dark);
+    --color-destructive: var(--color-error);
+    --color-destructive-foreground: var(--color-text-inverse);
+    --color-border: var(--color-border-dark);
+    --color-ring: var(--color-accent-soft-dark);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+  }
+
+  /* Focus visible for all interactive elements */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-ring);
+    border-color: var(--color-ring);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Touch target minimum — Bu Sari test compliance */
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Input base — 48px height, 16px font (prevents iOS zoom) */
+  .input-base {
+    height: 48px;
+    font-size: 16px;
+    padding: 0 1rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: 0.5rem;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-base:focus {
+    border-color: var(--color-border-strong);
+    box-shadow: 0 0 0 3px var(--color-ring);
+  }
+  .input-base::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* Button base — 48px minimum height */
+  .btn-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 48px;
+    padding: 0 1.5rem;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    min-width: 48px;
+  }
+  .btn-base:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Icon button — square 48x48 touch target */
+  .btn-icon {
+    padding: 0;
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: var(--color-text-inverse);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text);
+    border: 1.5px solid var(--color-border);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-border);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-text);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* Chip — care type selector */
+  .chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 100px;
+    padding: 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: 0.75rem;
+    background-color: var(--color-surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .chip:hover {
+    border-color: var(--color-border-strong);
+  }
+  .chip-selected {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent-soft);
+  }
+  .chip-icon {
+    width: 32px;
+    height: 32px;
+    color: var(--color-text-muted);
+  }
+  .chip-selected .chip-icon {
+    color: var(--color-accent);
+  }
+
+  /* Card */
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+  @media (min-width: 768px) {
+    .card {
+      padding: 1.5rem;
+    }
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-border) 25%,
+      var(--color-surface-hover) 50%,
+      var(--color-border) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton 1.5s ease-in-out infinite;
+  }
+  @keyframes skeleton {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Toast / success feedback */
+  .toast-success {
+    background-color: var(--color-success-soft);
+    border: 1px solid var(--color-success);
+    color: var(--color-success);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+  }
 }

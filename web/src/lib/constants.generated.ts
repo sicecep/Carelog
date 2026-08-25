@@ -9,6 +9,9 @@ export type Role = (typeof ROLES)[number];
 export const CARE_TYPES = ["child", "infant", "elderly", "patient"] as const;
 export type CareType = (typeof CARE_TYPES)[number];
 
+export const MODULES = ["meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note"] as const;
+export type Module = (typeof MODULES)[number];
+
 export const LOG_CATEGORIES = ["meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note", "other"] as const;
 export type LogCategory = (typeof LOG_CATEGORIES)[number];
 
@@ -32,6 +35,13 @@ export type Plan = (typeof PLANS)[number];
 
 export const LOCALES = ["id", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
+
+export const DEFAULT_MODULES_FOR_CARE_TYPE = {
+  child: ["meal", "sleep", "activity", "learning", "mood", "health", "note"],
+  infant: ["meal", "sleep", "diaper", "health", "mood", "note"],
+  elderly: ["meal", "medication", "health", "mood", "activity", "note"],
+  patient: ["medication", "health", "therapy", "note", "meal", "mood"],
+} as const satisfies Record<CareType, readonly Module[]>;
 
 export interface PlanLimit {
   maxRecipients: number | null;

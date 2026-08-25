@@ -36,6 +36,44 @@
     "comingSoon": "Segera hadir",
     "sessionExpired": "Sesi berakhir, silakan masuk kembali"
   },
+  "onboarding": {
+    "welcome": "Selamat datang di CareLog",
+    "welcomeSubtitle": "Mari buat profil perawatan pertama Anda untuk memulai mencatat kegiatan harian.",
+    "getStarted": "Mulai sekarang",
+    "back": "Kembali",
+    "createProfile": "Buat profil perawatan",
+    "nameLabel": "Nama lengkap",
+    "namePlaceholder": "Contoh: Budi Santoso",
+    "nameRequired": "Nama wajib diisi",
+    "careTypeLabel": "Jenis perawatan",
+    "careTypeRequired": "Pilih jenis perawatan",
+    "next": "Lanjut",
+    "customizeModules": "Sesuaikan modul",
+    "modulesHint": "Pilih modul yang ingin Anda aktifkan untuk profil ini. Bisa diubah nanti.",
+    "modulesLabel": "Modul aktif",
+    "modulesCanChangeLater": "Modul bisa diubah kapan saja di pengaturan.",
+    "createProfileSubmit": "Buat profil",
+    "progressLabel": "Kemajuan onboarding",
+    "step": "Langkah",
+    "careType": {
+      "infant": "Bayi (0–12 bulan)",
+      "child": "Anak (1–12 tahun)",
+      "elderly": "Lansia (60+ tahun)",
+      "patient": "Pasien (semua usia)"
+    },
+    "modules": {
+      "meal": "Makanan",
+      "sleep": "Tidur",
+      "diaper": "Popok",
+      "medication": "Obat",
+      "activity": "Aktivitas",
+      "mood": "Suasana hati",
+      "health": "Kesehatan",
+      "learning": "Belajar",
+      "therapy": "Terapi",
+      "note": "Catatan"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Selamat datang, {name}!",

@@ -23,6 +23,9 @@ func TestValidators(t *testing.T) {
 		{"CareType", domain.IsValidCareType,
 			[]string{"child", "infant", "elderly", "patient"},
 			[]string{"", "adult", "Child"}},
+		{"Module", domain.IsValidModule,
+			[]string{"meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note"},
+			[]string{"", "other", "Meal", "vitamins"}}, // "other" is a LogCategory but never a Module
 		{"LogCategory", domain.IsValidLogCategory,
 			[]string{"meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note", "other"},
 			[]string{"", "snack", "Meal"}},
@@ -88,6 +91,72 @@ func TestPlanLimits(t *testing.T) {
 
 	_, ok = domain.LimitsFor(domain.Plan("mystery"))
 	require.False(t, ok)
+}
+
+// TestDefaultModulesForCareType pins the per-care-type defaults. These drive
+// both the wizard's pre-checked toggles and the server's subset validation, so a
+// change here is a change to what a profile is allowed to enable.
+func TestDefaultModulesForCareType(t *testing.T) {
+	cases := []struct {
+		careType domain.CareType
+		want     []domain.Module
+	}{
+		{domain.CareTypeInfant, []domain.Module{
+			domain.ModuleMeal, domain.ModuleSleep, domain.ModuleDiaper,
+			domain.ModuleHealth, domain.ModuleMood, domain.ModuleNote,
+		}},
+		{domain.CareTypeChild, []domain.Module{
+			domain.ModuleMeal, domain.ModuleSleep, domain.ModuleActivity,
+			domain.ModuleLearning, domain.ModuleMood, domain.ModuleHealth,
+			domain.ModuleNote,
+		}},
+		{domain.CareTypeElderly, []domain.Module{
+			domain.ModuleMeal, domain.ModuleMedication, domain.ModuleHealth,
+			domain.ModuleMood, domain.ModuleActivity, domain.ModuleNote,
+		}},
+		{domain.CareTypePatient, []domain.Module{
+			domain.ModuleMedication, domain.ModuleHealth, domain.ModuleTherapy,
+			domain.ModuleNote, domain.ModuleMeal, domain.ModuleMood,
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.careType.String(), func(t *testing.T) {
+			got, ok := domain.DefaultModulesForCareType(tc.careType)
+			require.True(t, ok)
+			require.Equal(t, tc.want, got)
+
+			for _, m := range got {
+				require.Truef(t, domain.IsValidModule(m.String()),
+					"%q is a default but not a valid Module", m)
+			}
+		})
+	}
+}
+
+// TestEveryCareTypeHasDefaultModules stops a new care type from shipping without
+// defaults, which would leave the wizard's step 3 empty.
+func TestEveryCareTypeHasDefaultModules(t *testing.T) {
+	for _, c := range domain.CareTypes {
+		mods, ok := domain.DefaultModulesForCareType(c)
+		require.Truef(t, ok, "care type %q has no default modules", c)
+		require.NotEmptyf(t, mods, "care type %q has an empty default module set", c)
+	}
+
+	_, ok := domain.DefaultModulesForCareType(domain.CareType("alien"))
+	require.False(t, ok)
+}
+
+// TestDefaultModulesAreACopy guards the accessor's defensive copy: a caller that
+// mutates the returned slice must not corrupt the shared defaults.
+func TestDefaultModulesAreACopy(t *testing.T) {
+	first, ok := domain.DefaultModulesForCareType(domain.CareTypeInfant)
+	require.True(t, ok)
+	first[0] = domain.ModuleTherapy
+
+	second, ok := domain.DefaultModulesForCareType(domain.CareTypeInfant)
+	require.True(t, ok)
+	require.Equal(t, domain.ModuleMeal, second[0], "defaults were mutated by a caller")
 }
 
 func TestDefaultLocaleIsIndonesian(t *testing.T) {

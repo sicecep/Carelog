@@ -44,6 +44,75 @@ func (c CareType) String() string { return string(c) }
 // IsValidCareType reports whether s names a known care type.
 func IsValidCareType(s string) bool { return isValid(CareTypes, s) }
 
+// Module is a section of the daily report that a care recipient's profile has
+// switched on. Modules are code, not user data: the set is fixed here and the
+// per-recipient selection is stored as a JSONB array of these values on
+// care_recipients.enabled_modules.
+//
+// Module values deliberately mirror the LogCategory vocabulary minus "other",
+// which is a catch-all for entries rather than a toggleable report section.
+type Module string
+
+const (
+	ModuleMeal       Module = "meal"
+	ModuleSleep      Module = "sleep"
+	ModuleDiaper     Module = "diaper"
+	ModuleMedication Module = "medication"
+	ModuleActivity   Module = "activity"
+	ModuleMood       Module = "mood"
+	ModuleHealth     Module = "health"
+	ModuleLearning   Module = "learning"
+	ModuleTherapy    Module = "therapy"
+	ModuleNote       Module = "note"
+)
+
+// Modules lists every valid Module in display order.
+var Modules = []Module{
+	ModuleMeal, ModuleSleep, ModuleDiaper, ModuleMedication, ModuleActivity,
+	ModuleMood, ModuleHealth, ModuleLearning, ModuleTherapy, ModuleNote,
+}
+
+func (m Module) String() string { return string(m) }
+
+// IsValidModule reports whether s names a known module.
+func IsValidModule(s string) bool { return isValid(Modules, s) }
+
+// defaultModules holds the modules pre-selected when a profile of each care type
+// is created. The onboarding wizard offers exactly this set, and a recipient's
+// enabled_modules must be a subset of it — a care type never gains a module that
+// makes no sense for it (an infant has no therapy log; a patient has no diaper
+// log).
+var defaultModules = map[CareType][]Module{
+	CareTypeInfant: {
+		ModuleMeal, ModuleSleep, ModuleDiaper, ModuleHealth, ModuleMood, ModuleNote,
+	},
+	CareTypeChild: {
+		ModuleMeal, ModuleSleep, ModuleActivity, ModuleLearning, ModuleMood,
+		ModuleHealth, ModuleNote,
+	},
+	CareTypeElderly: {
+		ModuleMeal, ModuleMedication, ModuleHealth, ModuleMood, ModuleActivity,
+		ModuleNote,
+	},
+	CareTypePatient: {
+		ModuleMedication, ModuleHealth, ModuleTherapy, ModuleNote, ModuleMeal,
+		ModuleMood,
+	},
+}
+
+// DefaultModulesForCareType returns the modules enabled by default for a care
+// type, and whether the care type is known. The returned slice is a copy, so
+// callers cannot mutate the shared defaults.
+func DefaultModulesForCareType(c CareType) ([]Module, bool) {
+	mods, ok := defaultModules[c]
+	if !ok {
+		return nil, false
+	}
+	out := make([]Module, len(mods))
+	copy(out, mods)
+	return out, true
+}
+
 // LogCategory is the category of a single report entry.
 type LogCategory string
 
