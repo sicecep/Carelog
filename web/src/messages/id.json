@@ -82,7 +82,17 @@
     "quickActions": "Aksi cepat",
     "newReport": "Laporan baru",
     "newIncident": "Catat insiden",
-    "addRecipient": "Tambah penerima perawatan"
+    "addRecipient": "Tambah penerima perawatan",
+    "workspaceLabel": "Ruang kerja",
+    "recipientsHeading": "Penerima perawatan Anda",
+    "openRecipient": "Buka profil {name}",
+    "moreModules": "+{count} lagi",
+    "emptyTitle": "Belum ada profil perawatan",
+    "emptyBody": "Buat profil perawatan pertama Anda untuk mulai mencatat kegiatan harian.",
+    "emptyCta": "Buat profil pertama",
+    "loadError": "Tidak dapat memuat data Anda. Silakan muat ulang halaman.",
+    "loadingRecipients": "Memuat penerima perawatan",
+    "loggingOut": "Keluar..."
   },
   "recipients": {
     "title": "Penerima Perawatan",
