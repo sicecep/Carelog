@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sicecep/carelog/internal/domain"
+	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -98,10 +99,12 @@ func toRecipientResponse(r store.CareRecipient) RecipientResponse {
 
 // handleCreateRecipient handles POST /api/v1/recipients.
 func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http.Request) error {
-	// TODO: Extract workspaceID and userID from auth context
-	// For now, we'll use placeholder values that will be replaced when auth is implemented
-	var workspaceID uuid.UUID
-	var userID uuid.UUID
+	// Workspace and user come from the auth + workspace middleware chain.
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if workspaceID == uuid.Nil || !ok {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace or user context"}}}
+	}
 
 	var req CreateRecipientRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -155,8 +158,10 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 
 // handleListRecipients handles GET /api/v1/recipients.
 func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.Request) error {
-	// TODO: Extract workspaceID from auth context
-	var workspaceID uuid.UUID
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID == uuid.Nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
+	}
 
 	recipients, err := h.Queries.ListCareRecipientsByWorkspace(r.Context(), workspaceID)
 	if err != nil {

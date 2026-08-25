@@ -9,7 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sicecep/carelog/internal/auth"
 	"github.com/sicecep/carelog/internal/http/middleware"
+	"github.com/sicecep/carelog/internal/mail"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
@@ -30,6 +32,14 @@ type Deps struct {
 	Cache Pinger
 	Pool  *pgxpool.Pool
 	Queries *store.Queries
+
+	// Auth dependencies
+	MagicLinkSvc *auth.MagicLinkService
+	RefreshSvc   *auth.RefreshTokenService
+	Signer       *auth.Signer
+	Mailer       mail.Mailer
+	WebBaseURL   string
+	CookieDomain string
 
 	// Version is the build-time version string reported by /api/v1/version.
 	Version string
@@ -77,12 +87,30 @@ func NewRouter(deps Deps) http.Handler {
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/version", HandlerFunc(deps.handleVersion).Wrap())
 
-		// Register recipient routes
-		recipientHandlers := &RecipientHandlers{
-			Queries: deps.Queries,
-			Pool:    deps.Pool,
+		// Auth routes (public + protected)
+		authHandlers := &AuthHandlers{
+			Queries:       deps.Queries,
+			Pool:          deps.Pool,
+			MagicLinkSvc:  deps.MagicLinkSvc,
+			RefreshSvc:    deps.RefreshSvc,
+			Signer:        deps.Signer,
+			Mailer:        deps.Mailer,
+			WebBaseURL:    deps.WebBaseURL,
+			CookieDomain:  deps.CookieDomain,
 		}
-		RegisterRecipientRoutes(api, recipientHandlers)
+		RegisterAuthRoutes(api, authHandlers)
+
+		// Protected routes with Auth + Workspace middleware
+		api.With(
+			middleware.AuthMiddleware(deps.Signer.Verifier()),
+			middleware.WorkspaceMiddleware(deps.Queries),
+		).Group(func(r chi.Router) {
+			recipientHandlers := &RecipientHandlers{
+				Queries: deps.Queries,
+				Pool:    deps.Pool,
+			}
+			RegisterRecipientRoutes(r, recipientHandlers)
+		})
 	})
 
 	return r

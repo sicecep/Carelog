@@ -124,16 +124,20 @@ CREATE TABLE plan_configs (
 -- refresh_tokens
 CREATE TABLE refresh_tokens (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id      UUID NOT NULL,
-    token_hash   TEXT NOT NULL,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    family_id    UUID NOT NULL,
+    token_hash   BYTEA NOT NULL UNIQUE,
     expires_at   TIMESTAMPTZ NOT NULL,
     rotated_at   TIMESTAMPTZ,
     revoked_at   TIMESTAMPTZ,
+    user_agent   TEXT,
+    ip_address   INET,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
 
 -- auth_magic_links
 CREATE TABLE auth_magic_links (
@@ -144,3 +148,6 @@ CREATE TABLE auth_magic_links (
     consumed_at TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX idx_auth_magic_links_user ON auth_magic_links(user_id);
+CREATE INDEX idx_auth_magic_links_expires ON auth_magic_links(expires_at);

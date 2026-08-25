@@ -27,6 +27,20 @@ func (q *Queries) AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMember
 	return err
 }
 
+const countWorkspaceMembershipsForUser = `-- name: CountWorkspaceMembershipsForUser :one
+SELECT COUNT(*) FROM workspace_members
+WHERE user_id = $1
+`
+
+// Zero means this is a first login and the verify handler must provision a
+// workspace + owner membership (RFC §8.2).
+func (q *Queries) CountWorkspaceMembershipsForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspaceMembershipsForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getWorkspaceMember = `-- name: GetWorkspaceMember :one
 SELECT workspace_id, user_id, role, joined_at FROM workspace_members
 WHERE workspace_id = $1 AND user_id = $2
@@ -49,6 +63,28 @@ func (q *Queries) GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMember
 	return i, err
 }
 
+const getWorkspaceRoleForUser = `-- name: GetWorkspaceRoleForUser :one
+SELECT wm.role
+FROM workspace_members wm
+JOIN users u ON u.id = wm.user_id
+WHERE wm.workspace_id = $1 AND wm.user_id = $2 AND u.is_active
+`
+
+type GetWorkspaceRoleForUserParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+// Resolved per request by the workspace middleware. Role is never a JWT claim
+// (RFC §8.4), so a demotion or removal takes effect on the very next request.
+// The join on users is what makes "active member" mean active *user*.
+func (q *Queries) GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceRoleForUserParams) (string, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceRoleForUser, arg.WorkspaceID, arg.UserID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
 const listWorkspaceMembers = `-- name: ListWorkspaceMembers :many
 SELECT workspace_id, user_id, role, joined_at FROM workspace_members
 WHERE workspace_id = $1
@@ -69,6 +105,48 @@ func (q *Queries) ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUI
 			&i.UserID,
 			&i.Role,
 			&i.JoinedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkspacesForUser = `-- name: ListWorkspacesForUser :many
+SELECT w.id, w.name, w.plan, w.locale, w.timezone, w.created_at, w.updated_at, wm.role
+FROM workspaces w
+JOIN workspace_members wm ON wm.workspace_id = w.id
+WHERE wm.user_id = $1
+ORDER BY wm.joined_at
+`
+
+type ListWorkspacesForUserRow struct {
+	Workspace Workspace `json:"workspace"`
+	Role      string    `json:"role"`
+}
+
+func (q *Queries) ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]ListWorkspacesForUserRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspacesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspacesForUserRow{}
+	for rows.Next() {
+		var i ListWorkspacesForUserRow
+		if err := rows.Scan(
+			&i.Workspace.ID,
+			&i.Workspace.Name,
+			&i.Workspace.Plan,
+			&i.Workspace.Locale,
+			&i.Workspace.Timezone,
+			&i.Workspace.CreatedAt,
+			&i.Workspace.UpdatedAt,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}

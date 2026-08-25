@@ -5,6 +5,8 @@
 package store
 
 import (
+	"net/netip"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -73,10 +75,13 @@ type PlanConfig struct {
 type RefreshToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
-	TokenHash string             `json:"token_hash"`
+	FamilyID  uuid.UUID          `json:"family_id"`
+	TokenHash []byte             `json:"token_hash"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	RotatedAt pgtype.Timestamptz `json:"rotated_at"`
 	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	UserAgent pgtype.Text        `json:"user_agent"`
+	IpAddress *netip.Addr        `json:"ip_address"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
