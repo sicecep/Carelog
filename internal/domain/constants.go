@@ -142,6 +142,124 @@ func (c LogCategory) String() string { return string(c) }
 // IsValidLogCategory reports whether s names a known log category.
 func IsValidLogCategory(s string) bool { return isValid(LogCategories, s) }
 
+// LogSubcategory is the sub-classification of a report entry.
+type LogSubcategory string
+
+const (
+	// Meal
+	SubcategoryMealBreakfast LogSubcategory = "breakfast"
+	SubcategoryMealLunch     LogSubcategory = "lunch"
+	SubcategoryMealDinner    LogSubcategory = "dinner"
+	SubcategoryMealSnack     LogSubcategory = "snack"
+	SubcategoryMealMilk      LogSubcategory = "milk"
+	SubcategoryMealFormula   LogSubcategory = "formula"
+
+	// Medication
+	SubcategoryMedVitaminD     LogSubcategory = "vitamin_d"
+	SubcategoryMedIron         LogSubcategory = "iron"
+	SubcategoryMedMultivitamin LogSubcategory = "multivitamin"
+	SubcategoryMedCustom       LogSubcategory = "custom"
+
+	// Activity
+	SubcategoryActivityOutdoor     LogSubcategory = "outdoor_play"
+	SubcategoryActivityIndoor      LogSubcategory = "indoor_play"
+	SubcategoryActivityReading      LogSubcategory = "reading"
+	SubcategoryActivityTV           LogSubcategory = "tv"
+	SubcategoryActivityBath         LogSubcategory = "bath"
+	SubcategoryActivityWalk         LogSubcategory = "walk"
+	SubcategoryActivityEducational LogSubcategory = "educational_toy"
+	SubcategoryActivityDrawing     LogSubcategory = "drawing"
+	SubcategoryActivitySinging     LogSubcategory = "singing"
+
+	// Sleep
+	SubcategorySleepMorning   LogSubcategory = "morning_nap"
+	SubcategorySleepAfternoon LogSubcategory = "afternoon_nap"
+	SubcategorySleepNight     LogSubcategory = "night_sleep"
+
+	// Diaper
+	SubcategoryDiaperWet   LogSubcategory = "wet"
+	SubcategoryDiaperDirty LogSubcategory = "dirty"
+	SubcategoryDiaperBoth  LogSubcategory = "both"
+	SubcategoryDiaperDry   LogSubcategory = "dry"
+
+	// Mood
+	SubcategoryMoodHappy     LogSubcategory = "happy"
+	SubcategoryMoodCalm      LogSubcategory = "calm"
+	SubcategoryMoodFussy      LogSubcategory = "fussy"
+	SubcategoryMoodCrying     LogSubcategory = "crying"
+	SubcategoryMoodSleepy     LogSubcategory = "sleepy"
+	SubcategoryMoodIrritable LogSubcategory = "irritable"
+
+	// Health
+	SubcategoryHealthSneezing LogSubcategory = "sneezing"
+	SubcategoryHealthCoughing LogSubcategory = "coughing"
+	SubcategoryHealthVomiting LogSubcategory = "vomiting"
+	SubcategoryHealthRash     LogSubcategory = "rash"
+	SubcategoryHealthNormal   LogSubcategory = "normal"
+)
+
+func (s LogSubcategory) String() string { return string(s) }
+
+var subcategories = map[LogCategory][]LogSubcategory{
+	LogCategoryMeal: {
+		SubcategoryMealBreakfast, SubcategoryMealLunch, SubcategoryMealDinner,
+		SubcategoryMealSnack, SubcategoryMealMilk, SubcategoryMealFormula,
+	},
+	LogCategoryMedication: {
+		SubcategoryMedVitaminD, SubcategoryMedIron, SubcategoryMedMultivitamin,
+		SubcategoryMedCustom,
+	},
+	LogCategoryActivity: {
+		SubcategoryActivityOutdoor, SubcategoryActivityIndoor, SubcategoryActivityReading,
+		SubcategoryActivityTV, SubcategoryActivityBath, SubcategoryActivityWalk,
+		SubcategoryActivityEducational, SubcategoryActivityDrawing, SubcategoryActivitySinging,
+	},
+	LogCategorySleep: {
+		SubcategorySleepMorning, SubcategorySleepAfternoon, SubcategorySleepNight,
+	},
+	LogCategoryDiaper: {
+		SubcategoryDiaperWet, SubcategoryDiaperDirty, SubcategoryDiaperBoth,
+		SubcategoryDiaperDry,
+	},
+	LogCategoryMood: {
+		SubcategoryMoodHappy, SubcategoryMoodCalm, SubcategoryMoodFussy,
+		SubcategoryMoodCrying, SubcategoryMoodSleepy, SubcategoryMoodIrritable,
+	},
+	LogCategoryHealth: {
+		SubcategoryHealthSneezing, SubcategoryHealthCoughing, SubcategoryHealthVomiting,
+		SubcategoryHealthRash, SubcategoryHealthNormal,
+	},
+}
+
+// LogSubcategoriesFor returns the valid subcategories for a category.
+func LogSubcategoriesFor(c LogCategory) []LogSubcategory {
+	subs := subcategories[c]
+	if subs == nil {
+		return nil
+	}
+	out := make([]LogSubcategory, len(subs))
+	copy(out, subs)
+	return out
+}
+
+// IsValidLogSubcategoryFor reports whether sub is a known subcategory for c.
+func IsValidLogSubcategoryFor(c LogCategory, sub string) bool {
+	subs, ok := subcategories[c]
+	if !ok {
+		return sub == "" // categories without subs only allow empty
+	}
+	return isValid(subs, sub)
+}
+
+// IsDiaperAllowedFor reports whether the diaper log is permitted for the given
+// care type. Per LOG-002.1, diapers are for child and infant only.
+func IsDiaperAllowedFor(c CareType) bool {
+	return c == CareTypeChild || c == CareTypeInfant
+}
+
+// MaxNoteLength is the maximum allowed length for a note entry (LOG-005).
+const MaxNoteLength = 500
+
 // IncidentType classifies a reported incident.
 type IncidentType string
 

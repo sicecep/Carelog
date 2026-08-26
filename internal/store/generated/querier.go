@@ -32,22 +32,27 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, id uuid.UUID) error
-	DeleteDailyReport(ctx context.Context, id uuid.UUID) error
+	DeleteDailyReport(ctx context.Context, arg DeleteDailyReportParams) error
 	// Retains a day past expiry so a user who clicks a stale link still gets the
 	// "this link expired" path rather than a bare "invalid".
 	DeleteExpiredMagicLinks(ctx context.Context) error
 	DeleteIncident(ctx context.Context, id uuid.UUID) error
-	DeleteReportEntry(ctx context.Context, id uuid.UUID) error
+	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 	GetCareRecipient(ctx context.Context, id uuid.UUID) (CareRecipient, error)
-	GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport, error)
+	GetDailyReport(ctx context.Context, arg GetDailyReportParams) (DailyReport, error)
+	// Keyed by (recipient_id, report_date, contributor_id) to match the unique constraint.
+	// Returns the specific contributor's report for that recipient on that date.
 	GetDailyReportByDate(ctx context.Context, arg GetDailyReportByDateParams) (DailyReport, error)
+	// Convenience query: resolves contributor_id from workspace membership.
+	// Returns the report for the caller (workspace member) for the given recipient/date.
+	GetDailyReportByDateAndWorkspace(ctx context.Context, arg GetDailyReportByDateAndWorkspaceParams) (DailyReport, error)
 	GetIncident(ctx context.Context, id uuid.UUID) (Incident, error)
 	GetMagicLinkByHash(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
 	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
-	GetReportEntry(ctx context.Context, id uuid.UUID) (ReportEntry, error)
+	GetReportEntry(ctx context.Context, arg GetReportEntryParams) (ReportEntry, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
@@ -58,8 +63,14 @@ type Querier interface {
 	GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceRoleForUserParams) (string, error)
 	ListCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error)
 	ListDailyReports(ctx context.Context, arg ListDailyReportsParams) ([]DailyReport, error)
+	// RPT-001: Gets ALL contributors' reports for a recipient on a specific date.
+	// Used by the unified timeline to merge entries across contributors.
+	ListDailyReportsByRecipientAndDate(ctx context.Context, arg ListDailyReportsByRecipientAndDateParams) ([]DailyReport, error)
 	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]Incident, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
+	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
+	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
+	ListReportEntriesByRecipientAndDate(ctx context.Context, arg ListReportEntriesByRecipientAndDateParams) ([]ListReportEntriesByRecipientAndDateRow, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
 	ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]Workspace, error)
 	ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]ListWorkspacesForUserRow, error)

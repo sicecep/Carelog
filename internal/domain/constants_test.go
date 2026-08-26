@@ -162,3 +162,113 @@ func TestDefaultModulesAreACopy(t *testing.T) {
 func TestDefaultLocaleIsIndonesian(t *testing.T) {
 	require.Equal(t, domain.LocaleID, domain.DefaultLocale)
 }
+
+// TestLogSubcategories validates subcategory constants and validators per LOG-005.
+func TestLogSubcategories(t *testing.T) {
+	t.Run("Meal subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryMeal)
+		require.Equal(t, 6, len(subs))
+		require.Contains(t, subs, domain.SubcategoryMealBreakfast)
+		require.Contains(t, subs, domain.SubcategoryMealLunch)
+		require.Contains(t, subs, domain.SubcategoryMealDinner)
+		require.Contains(t, subs, domain.SubcategoryMealSnack)
+		require.Contains(t, subs, domain.SubcategoryMealMilk)
+		require.Contains(t, subs, domain.SubcategoryMealFormula)
+	})
+
+	t.Run("Medication subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryMedication)
+		require.Equal(t, 4, len(subs))
+		require.Contains(t, subs, domain.SubcategoryMedVitaminD)
+		require.Contains(t, subs, domain.SubcategoryMedIron)
+		require.Contains(t, subs, domain.SubcategoryMedMultivitamin)
+		require.Contains(t, subs, domain.SubcategoryMedCustom)
+	})
+
+	t.Run("Activity subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryActivity)
+		require.Equal(t, 9, len(subs))
+		require.Contains(t, subs, domain.SubcategoryActivityOutdoor)
+		require.Contains(t, subs, domain.SubcategoryActivityIndoor)
+		require.Contains(t, subs, domain.SubcategoryActivityReading)
+		require.Contains(t, subs, domain.SubcategoryActivityTV)
+		require.Contains(t, subs, domain.SubcategoryActivityBath)
+		require.Contains(t, subs, domain.SubcategoryActivityWalk)
+		require.Contains(t, subs, domain.SubcategoryActivityEducational)
+		require.Contains(t, subs, domain.SubcategoryActivityDrawing)
+		require.Contains(t, subs, domain.SubcategoryActivitySinging)
+	})
+
+	t.Run("Sleep subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategorySleep)
+		require.Equal(t, 3, len(subs))
+		require.Contains(t, subs, domain.SubcategorySleepMorning)
+		require.Contains(t, subs, domain.SubcategorySleepAfternoon)
+		require.Contains(t, subs, domain.SubcategorySleepNight)
+	})
+
+	t.Run("Diaper subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryDiaper)
+		require.Equal(t, 4, len(subs))
+		require.Contains(t, subs, domain.SubcategoryDiaperWet)
+		require.Contains(t, subs, domain.SubcategoryDiaperDirty)
+		require.Contains(t, subs, domain.SubcategoryDiaperBoth)
+		require.Contains(t, subs, domain.SubcategoryDiaperDry)
+	})
+
+	t.Run("Mood subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryMood)
+		require.Equal(t, 6, len(subs))
+		require.Contains(t, subs, domain.SubcategoryMoodHappy)
+		require.Contains(t, subs, domain.SubcategoryMoodCalm)
+		require.Contains(t, subs, domain.SubcategoryMoodFussy)
+		require.Contains(t, subs, domain.SubcategoryMoodCrying)
+		require.Contains(t, subs, domain.SubcategoryMoodSleepy)
+		require.Contains(t, subs, domain.SubcategoryMoodIrritable)
+	})
+
+	t.Run("Health subcategories", func(t *testing.T) {
+		subs := domain.LogSubcategoriesFor(domain.LogCategoryHealth)
+		require.Equal(t, 5, len(subs))
+		require.Contains(t, subs, domain.SubcategoryHealthSneezing)
+		require.Contains(t, subs, domain.SubcategoryHealthCoughing)
+		require.Contains(t, subs, domain.SubcategoryHealthVomiting)
+		require.Contains(t, subs, domain.SubcategoryHealthRash)
+		require.Contains(t, subs, domain.SubcategoryHealthNormal)
+	})
+
+	t.Run("Categories without subcategories return nil", func(t *testing.T) {
+		require.Nil(t, domain.LogSubcategoriesFor(domain.LogCategoryLearning))
+		require.Nil(t, domain.LogSubcategoriesFor(domain.LogCategoryTherapy))
+		require.Nil(t, domain.LogSubcategoriesFor(domain.LogCategoryNote))
+		require.Nil(t, domain.LogSubcategoriesFor(domain.LogCategoryOther))
+	})
+}
+
+// TestIsValidLogSubcategoryFor validates the subcategory validator.
+func TestIsValidLogSubcategoryFor(t *testing.T) {
+	require.True(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryMeal, "breakfast"))
+	require.True(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryMeal, "lunch"))
+	require.False(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryMeal, "dinner_time")) // invalid
+	require.False(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryMeal, "wet")) // wrong category
+	require.True(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryDiaper, "wet"))
+	require.False(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryDiaper, "breakfast"))
+
+	// Categories without subcategories only allow empty string
+	require.True(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryNote, ""))
+	require.False(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryNote, "something"))
+}
+
+// TestIsDiaperAllowedFor enforces LOG-002.1: diaper is child/infant only.
+func TestIsDiaperAllowedFor(t *testing.T) {
+	require.True(t, domain.IsDiaperAllowedFor(domain.CareTypeChild))
+	require.True(t, domain.IsDiaperAllowedFor(domain.CareTypeInfant))
+	require.False(t, domain.IsDiaperAllowedFor(domain.CareTypeElderly))
+	require.False(t, domain.IsDiaperAllowedFor(domain.CareTypePatient))
+	require.False(t, domain.IsDiaperAllowedFor(domain.CareType("alien")))
+}
+
+// TestMaxNoteLength ensures the constant is correct per LOG-005.
+func TestMaxNoteLength(t *testing.T) {
+	require.Equal(t, 500, domain.MaxNoteLength)
+}
