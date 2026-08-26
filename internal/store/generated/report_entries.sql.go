@@ -55,21 +55,44 @@ func (q *Queries) CreateReportEntry(ctx context.Context, arg CreateReportEntryPa
 
 const deleteReportEntry = `-- name: DeleteReportEntry :exec
 DELETE FROM report_entries
-WHERE id = $1
+WHERE report_entries.id = $1 AND EXISTS (
+    SELECT 1 FROM daily_reports r WHERE r.id = report_entries.report_id AND r.workspace_id = $2
+)
 `
 
-func (q *Queries) DeleteReportEntry(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteReportEntry, id)
+type DeleteReportEntryParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error {
+	_, err := q.db.Exec(ctx, deleteReportEntry, arg.ID, arg.WorkspaceID)
 	return err
 }
 
 const getReportEntry = `-- name: GetReportEntry :one
-SELECT id, report_id, category, subcategory, value_text, value_number, value_json, occurred_at, created_at FROM report_entries
-WHERE id = $1
+SELECT
+    e.id,
+    e.report_id,
+    e.category,
+    e.subcategory,
+    e.value_text,
+    e.value_number,
+    e.value_json,
+    e.occurred_at,
+    e.created_at
+FROM report_entries e
+JOIN daily_reports r ON r.id = e.report_id
+WHERE e.id = $1 AND r.workspace_id = $2
 `
 
-func (q *Queries) GetReportEntry(ctx context.Context, id uuid.UUID) (ReportEntry, error) {
-	row := q.db.QueryRow(ctx, getReportEntry, id)
+type GetReportEntryParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetReportEntry(ctx context.Context, arg GetReportEntryParams) (ReportEntry, error) {
+	row := q.db.QueryRow(ctx, getReportEntry, arg.ID, arg.WorkspaceID)
 	var i ReportEntry
 	err := row.Scan(
 		&i.ID,
@@ -121,10 +144,92 @@ func (q *Queries) ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]
 	return items, nil
 }
 
+const listReportEntriesByRecipientAndDate = `-- name: ListReportEntriesByRecipientAndDate :many
+SELECT
+    e.id,
+    e.report_id,
+    e.category,
+    e.subcategory,
+    e.value_text,
+    e.value_number,
+    e.value_json,
+    e.occurred_at,
+    e.created_at,
+    r.id AS report_id,
+    r.contributor_id,
+    r.contributor_role,
+    u.full_name AS contributor_name
+FROM report_entries e
+JOIN daily_reports r ON r.id = e.report_id
+JOIN users u ON u.id = r.contributor_id
+WHERE r.workspace_id = $1 AND r.recipient_id = $2 AND r.report_date = $3::date
+ORDER BY e.occurred_at
+`
+
+type ListReportEntriesByRecipientAndDateParams struct {
+	WorkspaceID uuid.UUID   `json:"workspace_id"`
+	RecipientID uuid.UUID   `json:"recipient_id"`
+	Column3     pgtype.Date `json:"column_3"`
+}
+
+type ListReportEntriesByRecipientAndDateRow struct {
+	ID              uuid.UUID          `json:"id"`
+	ReportID        uuid.UUID          `json:"report_id"`
+	Category        string             `json:"category"`
+	Subcategory     pgtype.Text        `json:"subcategory"`
+	ValueText       pgtype.Text        `json:"value_text"`
+	ValueNumber     pgtype.Numeric     `json:"value_number"`
+	ValueJson       []byte             `json:"value_json"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ReportID_2      uuid.UUID          `json:"report_id_2"`
+	ContributorID   uuid.UUID          `json:"contributor_id"`
+	ContributorRole string             `json:"contributor_role"`
+	ContributorName pgtype.Text        `json:"contributor_name"`
+}
+
+// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
+// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
+func (q *Queries) ListReportEntriesByRecipientAndDate(ctx context.Context, arg ListReportEntriesByRecipientAndDateParams) ([]ListReportEntriesByRecipientAndDateRow, error) {
+	rows, err := q.db.Query(ctx, listReportEntriesByRecipientAndDate, arg.WorkspaceID, arg.RecipientID, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReportEntriesByRecipientAndDateRow{}
+	for rows.Next() {
+		var i ListReportEntriesByRecipientAndDateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReportID,
+			&i.Category,
+			&i.Subcategory,
+			&i.ValueText,
+			&i.ValueNumber,
+			&i.ValueJson,
+			&i.OccurredAt,
+			&i.CreatedAt,
+			&i.ReportID_2,
+			&i.ContributorID,
+			&i.ContributorRole,
+			&i.ContributorName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateReportEntry = `-- name: UpdateReportEntry :one
 UPDATE report_entries
 SET category = $2, subcategory = $3, value_text = $4, value_number = $5, value_json = $6, occurred_at = $7
-WHERE id = $1
+WHERE report_entries.id = $1 AND EXISTS (
+    SELECT 1 FROM daily_reports r WHERE r.id = report_entries.report_id AND r.workspace_id = $8
+)
 RETURNING id, report_id, category, subcategory, value_text, value_number, value_json, occurred_at, created_at
 `
 
@@ -136,6 +241,7 @@ type UpdateReportEntryParams struct {
 	ValueNumber pgtype.Numeric     `json:"value_number"`
 	ValueJson   []byte             `json:"value_json"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
 }
 
 func (q *Queries) UpdateReportEntry(ctx context.Context, arg UpdateReportEntryParams) (ReportEntry, error) {
@@ -147,6 +253,7 @@ func (q *Queries) UpdateReportEntry(ctx context.Context, arg UpdateReportEntryPa
 		arg.ValueNumber,
 		arg.ValueJson,
 		arg.OccurredAt,
+		arg.WorkspaceID,
 	)
 	var i ReportEntry
 	err := row.Scan(

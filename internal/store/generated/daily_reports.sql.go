@@ -59,21 +59,31 @@ func (q *Queries) CreateDailyReport(ctx context.Context, arg CreateDailyReportPa
 
 const deleteDailyReport = `-- name: DeleteDailyReport :exec
 DELETE FROM daily_reports
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) DeleteDailyReport(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteDailyReport, id)
+type DeleteDailyReportParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) DeleteDailyReport(ctx context.Context, arg DeleteDailyReportParams) error {
+	_, err := q.db.Exec(ctx, deleteDailyReport, arg.ID, arg.WorkspaceID)
 	return err
 }
 
 const getDailyReport = `-- name: GetDailyReport :one
 SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport, error) {
-	row := q.db.QueryRow(ctx, getDailyReport, id)
+type GetDailyReportParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetDailyReport(ctx context.Context, arg GetDailyReportParams) (DailyReport, error) {
+	row := q.db.QueryRow(ctx, getDailyReport, arg.ID, arg.WorkspaceID)
 	var i DailyReport
 	err := row.Scan(
 		&i.ID,
@@ -95,17 +105,59 @@ func (q *Queries) GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport
 
 const getDailyReportByDate = `-- name: GetDailyReportByDate :one
 SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
-WHERE workspace_id = $1 AND recipient_id = $2 AND report_date = $3::date
+WHERE recipient_id = $1 AND report_date = $2::date AND contributor_id = $3
 `
 
 type GetDailyReportByDateParams struct {
-	WorkspaceID uuid.UUID   `json:"workspace_id"`
-	RecipientID uuid.UUID   `json:"recipient_id"`
-	Column3     pgtype.Date `json:"column_3"`
+	RecipientID   uuid.UUID   `json:"recipient_id"`
+	Column2       pgtype.Date `json:"column_2"`
+	ContributorID uuid.UUID   `json:"contributor_id"`
 }
 
+// Keyed by (recipient_id, report_date, contributor_id) to match the unique constraint.
+// Returns the specific contributor's report for that recipient on that date.
 func (q *Queries) GetDailyReportByDate(ctx context.Context, arg GetDailyReportByDateParams) (DailyReport, error) {
-	row := q.db.QueryRow(ctx, getDailyReportByDate, arg.WorkspaceID, arg.RecipientID, arg.Column3)
+	row := q.db.QueryRow(ctx, getDailyReportByDate, arg.RecipientID, arg.Column2, arg.ContributorID)
+	var i DailyReport
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RecipientID,
+		&i.ReportDate,
+		&i.ContributorID,
+		&i.ContributorRole,
+		&i.ReportType,
+		&i.Status,
+		&i.SubmittedAt,
+		&i.AcknowledgedAt,
+		&i.AcknowledgedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getDailyReportByDateAndWorkspace = `-- name: GetDailyReportByDateAndWorkspace :one
+SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
+WHERE workspace_id = $1 AND recipient_id = $2 AND report_date = $3::date AND contributor_id = $4
+`
+
+type GetDailyReportByDateAndWorkspaceParams struct {
+	WorkspaceID   uuid.UUID   `json:"workspace_id"`
+	RecipientID   uuid.UUID   `json:"recipient_id"`
+	Column3       pgtype.Date `json:"column_3"`
+	ContributorID uuid.UUID   `json:"contributor_id"`
+}
+
+// Convenience query: resolves contributor_id from workspace membership.
+// Returns the report for the caller (workspace member) for the given recipient/date.
+func (q *Queries) GetDailyReportByDateAndWorkspace(ctx context.Context, arg GetDailyReportByDateAndWorkspaceParams) (DailyReport, error) {
+	row := q.db.QueryRow(ctx, getDailyReportByDateAndWorkspace,
+		arg.WorkspaceID,
+		arg.RecipientID,
+		arg.Column3,
+		arg.ContributorID,
+	)
 	var i DailyReport
 	err := row.Scan(
 		&i.ID,
@@ -171,10 +223,58 @@ func (q *Queries) ListDailyReports(ctx context.Context, arg ListDailyReportsPara
 	return items, nil
 }
 
+const listDailyReportsByRecipientAndDate = `-- name: ListDailyReportsByRecipientAndDate :many
+SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
+WHERE workspace_id = $1 AND recipient_id = $2 AND report_date = $3::date
+ORDER BY contributor_role, contributor_id
+`
+
+type ListDailyReportsByRecipientAndDateParams struct {
+	WorkspaceID uuid.UUID   `json:"workspace_id"`
+	RecipientID uuid.UUID   `json:"recipient_id"`
+	Column3     pgtype.Date `json:"column_3"`
+}
+
+// RPT-001: Gets ALL contributors' reports for a recipient on a specific date.
+// Used by the unified timeline to merge entries across contributors.
+func (q *Queries) ListDailyReportsByRecipientAndDate(ctx context.Context, arg ListDailyReportsByRecipientAndDateParams) ([]DailyReport, error) {
+	rows, err := q.db.Query(ctx, listDailyReportsByRecipientAndDate, arg.WorkspaceID, arg.RecipientID, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DailyReport{}
+	for rows.Next() {
+		var i DailyReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.RecipientID,
+			&i.ReportDate,
+			&i.ContributorID,
+			&i.ContributorRole,
+			&i.ReportType,
+			&i.Status,
+			&i.SubmittedAt,
+			&i.AcknowledgedAt,
+			&i.AcknowledgedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDailyReport = `-- name: UpdateDailyReport :one
 UPDATE daily_reports
 SET contributor_role = $2, report_type = $3, status = $4, updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $5
 RETURNING id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at
 `
 
@@ -183,6 +283,7 @@ type UpdateDailyReportParams struct {
 	ContributorRole string    `json:"contributor_role"`
 	ReportType      string    `json:"report_type"`
 	Status          string    `json:"status"`
+	WorkspaceID     uuid.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) UpdateDailyReport(ctx context.Context, arg UpdateDailyReportParams) (DailyReport, error) {
@@ -191,6 +292,7 @@ func (q *Queries) UpdateDailyReport(ctx context.Context, arg UpdateDailyReportPa
 		arg.ContributorRole,
 		arg.ReportType,
 		arg.Status,
+		arg.WorkspaceID,
 	)
 	var i DailyReport
 	err := row.Scan(

@@ -8,15 +8,17 @@ const nextConfig: NextConfig = {
   // (testing on a real Android phone — the "Bu Sari test" device).
   allowedDevOrigins: ["192.168.1.102", "100.120.83.114"],
   // Proxy API requests to the Go backend during development
+// Use Tailscale IP so phone clients go through the tunnel to the API
   async rewrites() {
+    const apiTarget = process.env.API_PROXY_TARGET ?? "http://100.120.83.114:8080";
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.API_PROXY_TARGET ?? "http://localhost:8080"}/api/:path*`,
+        destination: `${apiTarget}/api/:path*`,
       },
       {
         source: "/healthz",
-        destination: `${process.env.API_PROXY_TARGET ?? "http://localhost:8080"}/healthz`,
+        destination: `${apiTarget}/healthz`,
       },
     ];
   },
