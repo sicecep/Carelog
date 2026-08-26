@@ -39,6 +39,7 @@ type Deps struct {
 	Signer       *auth.Signer
 	Mailer       mail.Mailer
 	WebBaseURL   string
+	APIBaseURL   string
 	CookieDomain string
 
 	// Version is the build-time version string reported by /api/v1/version.
@@ -96,6 +97,7 @@ func NewRouter(deps Deps) http.Handler {
 			Signer:        deps.Signer,
 			Mailer:        deps.Mailer,
 			WebBaseURL:    deps.WebBaseURL,
+			APIBaseURL:    deps.APIBaseURL,
 			CookieDomain:  deps.CookieDomain,
 		}
 		RegisterAuthRoutes(api, authHandlers)

@@ -104,6 +104,8 @@ func main() {
 		Signer:       signer,
 		Mailer:       mailer,
 		WebBaseURL:   cfg.WebBaseURL,
+		APIBaseURL:   cfg.AppBaseURL,
+		CookieDomain: cfg.CookieDomain,
 
 		Version: "0.0.0", // TODO: inject from build / git tag
 	})

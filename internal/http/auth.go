@@ -34,6 +34,7 @@ type AuthHandlers struct {
 	Signer       *auth.Signer
 	Mailer       mail.Mailer
 	WebBaseURL   string
+	APIBaseURL   string
 	CookieDomain string
 }
 
@@ -100,7 +101,10 @@ func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) e
 	}
 
 	// Build verification link
-	verifyLink := h.WebBaseURL + "/auth/verify?token=" + rawToken
+	// The link must hit the API, not the web app: /auth/verify sets the session
+	// cookies and then redirects the browser into the app. Pointing it at the
+	// web origin would 404 — there is no client-side verify page.
+	verifyLink := h.APIBaseURL + "/api/v1/auth/verify?token=" + rawToken
 
 	// Send email (async, don't block on email delivery)
 	go func() {
@@ -163,7 +167,7 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Set HttpOnly cookies
-	setAuthCookies(w, accessToken, rawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
+	setAuthCookies(w, r, accessToken, rawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
 
 	// Fetch user to return
 	user, err := h.Queries.GetUser(r.Context(), userID)
@@ -188,17 +192,25 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	response.OK(w, ptr(VerifyResponse{
-		User: struct {
-			ID    string `json:"id"`
-			Email string `json:"email"`
-		}{
-			ID:    user.ID.String(),
-			Email: user.Email,
-		},
-	}))
-
+	// The user reaches this endpoint by clicking a link in their email, so the
+	// response has to be a redirect into the app — not JSON. Cookies are already
+	// set above, so the destination loads authenticated. Users who have not
+	// finished onboarding go there first; everyone else lands on the dashboard.
+	dest := "/dashboard"
+	if !user.OnboardingCompleted {
+		dest = "/onboarding"
+	}
+	http.Redirect(w, r, h.WebBaseURL+"/"+localeOrDefault(user.Locale)+dest, http.StatusSeeOther)
 	return nil
+}
+
+// localeOrDefault guards the locale segment of a redirect URL: the app only has
+// id and en routes, so anything else would 404 after a successful login.
+func localeOrDefault(locale string) string {
+	if locale == "en" {
+		return "en"
+	}
+	return "id"
 }
 
 // provisionFirstWorkspace creates a starter workspace and an owner membership
@@ -268,7 +280,7 @@ func (h *AuthHandlers) handleRefresh(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		if err == auth.ErrTokenExpired || err == auth.ErrInvalidToken || err == auth.ErrTokenReused {
 			// Clear cookies on auth failure
-			clearAuthCookies(w)
+			clearAuthCookies(w, r)
 			response.Err(w, "unauthorized", "refresh token invalid or expired", http.StatusUnauthorized)
 			return nil
 		}
@@ -297,7 +309,7 @@ func (h *AuthHandlers) handleRefresh(w http.ResponseWriter, r *http.Request) err
 	}
 
 	// Set new cookies
-	setAuthCookies(w, newAccessToken, newRawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
+	setAuthCookies(w, r, newAccessToken, newRawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
 
 	response.Created(w, ptr(RefreshResponse{Message: "tokens refreshed"}))
 	return nil
@@ -329,7 +341,7 @@ func (h *AuthHandlers) handleLogout(w http.ResponseWriter, r *http.Request) erro
 	}
 
 	// Clear cookies
-	clearAuthCookies(w)
+	clearAuthCookies(w, r)
 
 	response.OK(w, ptr(LogoutResponse{Message: "logged out"}))
 	return nil
@@ -441,9 +453,13 @@ func getClientIP(r *http.Request) string {
 }
 
 // setAuthCookies sets the HttpOnly auth cookies.
-func setAuthCookies(w http.ResponseWriter, accessToken, refreshToken, cookieDomain string, accessTTL, refreshTTL time.Duration) {
-	secure := true // In production, always true. In dev, can be false if not on HTTPS.
-	// We'll default to true; the frontend proxy handles HTTPS in dev.
+//
+// Secure is derived from the request scheme rather than hardcoded: browsers
+// silently DISCARD Secure cookies delivered over plain http, which would make
+// local development impossible to log into. curl ignores the flag, so this only
+// shows up in a real browser.
+func setAuthCookies(w http.ResponseWriter, r *http.Request, accessToken, refreshToken, cookieDomain string, accessTTL, refreshTTL time.Duration) {
+	secure := isRequestSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "cl_access",
 		Value:    accessToken,
@@ -466,14 +482,27 @@ func setAuthCookies(w http.ResponseWriter, accessToken, refreshToken, cookieDoma
 	})
 }
 
-// clearAuthCookies clears the auth cookies.
-func clearAuthCookies(w http.ResponseWriter) {
+// isRequestSecure reports whether the original client request arrived over
+// HTTPS, accounting for a TLS-terminating proxy such as Caddy in front of the
+// API (r.TLS is nil in that case).
+func isRequestSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+}
+
+// clearAuthCookies clears the auth cookies. The Secure flag must match the one
+// used when setting them, or the browser treats these as different cookies and
+// the originals survive logout.
+func clearAuthCookies(w http.ResponseWriter, r *http.Request) {
+	secure := isRequestSecure(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     "cl_access",
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
@@ -482,7 +511,7 @@ func clearAuthCookies(w http.ResponseWriter) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
