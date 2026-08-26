@@ -15,7 +15,7 @@ import (
 const createDailyReport = `-- name: CreateDailyReport :one
 INSERT INTO daily_reports (workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, created_at, updated_at
+RETURNING id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at
 `
 
 type CreateDailyReportParams struct {
@@ -48,6 +48,9 @@ func (q *Queries) CreateDailyReport(ctx context.Context, arg CreateDailyReportPa
 		&i.ContributorRole,
 		&i.ReportType,
 		&i.Status,
+		&i.SubmittedAt,
+		&i.AcknowledgedAt,
+		&i.AcknowledgedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -65,7 +68,7 @@ func (q *Queries) DeleteDailyReport(ctx context.Context, id uuid.UUID) error {
 }
 
 const getDailyReport = `-- name: GetDailyReport :one
-SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, created_at, updated_at FROM daily_reports
+SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
 WHERE id = $1
 `
 
@@ -81,6 +84,9 @@ func (q *Queries) GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport
 		&i.ContributorRole,
 		&i.ReportType,
 		&i.Status,
+		&i.SubmittedAt,
+		&i.AcknowledgedAt,
+		&i.AcknowledgedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -88,7 +94,7 @@ func (q *Queries) GetDailyReport(ctx context.Context, id uuid.UUID) (DailyReport
 }
 
 const getDailyReportByDate = `-- name: GetDailyReportByDate :one
-SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, created_at, updated_at FROM daily_reports
+SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
 WHERE workspace_id = $1 AND recipient_id = $2 AND report_date = $3::date
 `
 
@@ -110,6 +116,9 @@ func (q *Queries) GetDailyReportByDate(ctx context.Context, arg GetDailyReportBy
 		&i.ContributorRole,
 		&i.ReportType,
 		&i.Status,
+		&i.SubmittedAt,
+		&i.AcknowledgedAt,
+		&i.AcknowledgedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -117,7 +126,7 @@ func (q *Queries) GetDailyReportByDate(ctx context.Context, arg GetDailyReportBy
 }
 
 const listDailyReports = `-- name: ListDailyReports :many
-SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, created_at, updated_at FROM daily_reports
+SELECT id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at FROM daily_reports
 WHERE workspace_id = $1 AND report_date BETWEEN $2::date AND $3::date
 ORDER BY report_date DESC
 `
@@ -146,6 +155,9 @@ func (q *Queries) ListDailyReports(ctx context.Context, arg ListDailyReportsPara
 			&i.ContributorRole,
 			&i.ReportType,
 			&i.Status,
+			&i.SubmittedAt,
+			&i.AcknowledgedAt,
+			&i.AcknowledgedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -163,7 +175,7 @@ const updateDailyReport = `-- name: UpdateDailyReport :one
 UPDATE daily_reports
 SET contributor_role = $2, report_type = $3, status = $4, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, created_at, updated_at
+RETURNING id, workspace_id, recipient_id, report_date, contributor_id, contributor_role, report_type, status, submitted_at, acknowledged_at, acknowledged_by, created_at, updated_at
 `
 
 type UpdateDailyReportParams struct {
@@ -190,6 +202,9 @@ func (q *Queries) UpdateDailyReport(ctx context.Context, arg UpdateDailyReportPa
 		&i.ContributorRole,
 		&i.ReportType,
 		&i.Status,
+		&i.SubmittedAt,
+		&i.AcknowledgedAt,
+		&i.AcknowledgedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
