@@ -82,7 +82,17 @@
     "quickActions": "Quick actions",
     "newReport": "New report",
     "newIncident": "Log incident",
-    "addRecipient": "Add care recipient"
+    "addRecipient": "Add care recipient",
+    "workspaceLabel": "Workspace",
+    "recipientsHeading": "Your care recipients",
+    "openRecipient": "Open {name}'s profile",
+    "moreModules": "+{count} more",
+    "emptyTitle": "No care profiles yet",
+    "emptyBody": "Create your first care profile to start logging daily activities.",
+    "emptyCta": "Create first profile",
+    "loadError": "We couldn't load your data. Please refresh the page.",
+    "loadingRecipients": "Loading care recipients",
+    "loggingOut": "Signing out..."
   },
   "recipients": {
     "title": "Care Recipients",

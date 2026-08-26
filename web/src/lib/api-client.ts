@@ -1,6 +1,8 @@
 // API client for talking to the Go backend.
 // All paths are proxied through /api/* to the backend running on :8080.
 
+import type { CareType, Module } from "./constants.generated";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
 
 export interface Envelope<T> {
@@ -54,6 +56,30 @@ export const api = {
     request<T>(path, { method: "DELETE", headers }),
 };
 
+// Shapes returned by the Go API. Kept here so components import one canonical
+// type instead of hand-rolling their own copy.
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  locale: string;
+  email_verified: boolean;
+  onboarding_completed: boolean;
+}
+
+export interface AuthWorkspace {
+  id: string;
+  name: string;
+  role: string;
+  active: boolean;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  workspaces: AuthWorkspace[];
+}
+
 // Auth endpoints.
 // CareLog is passwordless (AUTH-001): auth is magic-link only, no passwords anywhere.
 export const authApi = {
@@ -65,21 +91,14 @@ export const authApi = {
 
   // GET /api/v1/auth/me - Get current user and workspace memberships.
   // Requires cl_access cookie. Optionally accepts X-Workspace-ID header.
-  me: (workspaceId?: string) => {
-    const headers: Record<string, string> = {};
+  //
+  // `extraHeaders` exists for Server Components: in the browser the cl_access
+  // cookie rides along via `credentials: "include"`, but a server-side fetch has
+  // no cookie jar, so the caller forwards the incoming `Cookie` header itself.
+  me: (workspaceId?: string, extraHeaders?: Record<string, string>) => {
+    const headers: Record<string, string> = { ...extraHeaders };
     if (workspaceId) headers["X-Workspace-ID"] = workspaceId;
-    return api.get<{
-      user: {
-        id: string;
-        email: string;
-        full_name?: string;
-        avatar_url?: string;
-        locale: string;
-        email_verified: boolean;
-        onboarding_completed: boolean;
-      };
-      workspaces: { id: string; name: string; role: string; active: boolean }[];
-    }>("/api/v1/auth/me", headers);
+    return api.get<MeResponse>("/api/v1/auth/me", headers);
   },
 
   // POST /api/v1/auth/refresh - Rotate refresh token (uses cl_refresh cookie).
@@ -87,6 +106,36 @@ export const authApi = {
 
   // POST /api/v1/auth/logout - Revoke refresh token family and clear cookies.
   logout: () => api.post<{ message: string }>("/api/v1/auth/logout", {}),
+};
+
+// Care recipients.
+export interface Recipient {
+  id: string;
+  workspace_id: string;
+  full_name: string;
+  display_name?: string;
+  care_type: CareType;
+  enabled_modules: Module[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export const recipientApi = {
+  // GET /api/v1/recipients - List recipients in a workspace.
+  // X-Workspace-ID is mandatory: the API answers 400 without it and 403 if the
+  // caller isn't a member of that workspace.
+  // See authApi.me for why `extraHeaders` exists.
+  list: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Recipient[]>("/api/v1/recipients", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/recipients - Create a recipient (used by the onboarding wizard).
+  create: (
+    workspaceId: string,
+    body: { full_name: string; care_type: CareType; enabled_modules: Module[] }
+  ) => api.post<Recipient>("/api/v1/recipients", body, { "X-Workspace-ID": workspaceId }),
 };
 
 // Workspace endpoints

@@ -1,139 +1,126 @@
-"use client";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import {
+  APIError,
+  authApi,
+  recipientApi,
+  type MeResponse,
+  type Recipient,
+} from "@/lib/api-client";
+import { LogoutButton } from "./logout-button";
+import { RecipientsSection } from "./recipients-section";
 
-import { useTranslations } from "next-intl";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+interface DashboardPageProps {
+  params: Promise<{ locale: string }>;
+}
 
-export default function DashboardPage() {
-  const t = useTranslations("dashboard");
-  const nav = useTranslations("nav");
-  const common = useTranslations("common");
-  const params = useParams();
-  const locale = params.locale as string;
+export default async function DashboardPage({ params }: DashboardPageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "dashboard" });
+  const common = await getTranslations({ locale, namespace: "common" });
+
+  // Fetched server-side rather than in a client effect. `credentials: "include"`
+  // is a browser-only concept — a server fetch has no cookie jar — so the
+  // incoming Cookie header is forwarded to the Go API explicitly. This works
+  // because cookies are not scoped by port: cl_access, set by the API on
+  // localhost:8080, is also sent to the Next server on localhost:3000.
+  const forwarded = { Cookie: (await cookies()).toString() };
+
+  let me: MeResponse | null = null;
+  let recipients: Recipient[] = [];
+  let redirectToLogin = false;
+  let loadFailed = false;
+
+  try {
+    const res = await authApi.me(undefined, forwarded);
+    me = res.data;
+    if (!me) loadFailed = true;
+  } catch (err) {
+    // proxy.ts only checks that a cookie exists; the API is authoritative on
+    // whether it is still valid.
+    if (err instanceof APIError && err.status === 401) {
+      redirectToLogin = true;
+    } else {
+      console.error("dashboard: /auth/me failed", err);
+      loadFailed = true;
+    }
+  }
+
+  // A user always has at least one workspace once onboarding has run; `active`
+  // marks the one to scope this session to.
+  const workspace = me?.workspaces.find((w) => w.active) ?? me?.workspaces[0] ?? null;
+
+  if (workspace) {
+    try {
+      const res = await recipientApi.list(workspace.id, forwarded);
+      recipients = res.data ?? [];
+    } catch (err) {
+      if (err instanceof APIError && err.status === 401) {
+        redirectToLogin = true;
+      } else {
+        console.error("dashboard: /recipients failed", err);
+        loadFailed = true;
+      }
+    }
+  }
+
+  // redirect() works by throwing NEXT_REDIRECT, so it has to run outside the
+  // try/catch blocks above or they would swallow it.
+  if (redirectToLogin) redirect(`/${locale}/login`);
+
+  const displayName = me?.user.full_name?.trim() || me?.user.email.split("@")[0] || "";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <span className="text-xl font-bold text-gray-900">{common("appName")}</span>
-            </div>
-            <div className="flex items-center space-x-8">
-              <Link href={`/${locale}/dashboard`} className="text-sm font-medium text-gray-700 hover:text-blue-600">
-                {nav("dashboard")}
-              </Link>
-              <Link href={`/${locale}/recipients`} className="text-sm font-medium text-gray-700 hover:text-blue-600">
-                {nav("recipients")}
-              </Link>
-              <Link href={`/${locale}/reports`} className="text-sm font-medium text-gray-700 hover:text-blue-600">
-                {nav("reports")}
-              </Link>
-              <Link href={`/${locale}/incidents`} className="text-sm font-medium text-gray-700 hover:text-blue-600">
-                {nav("incidents")}
-              </Link>
-              <Link href={`/${locale}/settings`} className="text-sm font-medium text-gray-700 hover:text-blue-600">
-                {nav("settings")}
-              </Link>
-              <button className="text-sm font-medium text-gray-700 hover:text-red-600">
-                {nav("logout")}
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[var(--color-bg)]">
+      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+          <span className="text-lg font-semibold text-[var(--color-text)]">
+            {common("appName")}
+          </span>
+          <LogoutButton />
         </div>
-      </nav>
+      </header>
 
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="mt-2 text-gray-600">{t("welcome", { name: "Caregiver" })}</p>
-        </div>
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {me ? (
+          <>
+            <div className="mb-8">
+              <h1 className="text-2xl font-medium text-[var(--color-text)]">
+                {t("welcome", { name: displayName })}
+              </h1>
+              {workspace && (
+                <p className="mt-2">
+                  <span className="sr-only">{t("workspaceLabel")}: </span>
+                  <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
+                    {workspace.name}
+                  </span>
+                </p>
+              )}
+            </div>
 
-        {/* Quick actions */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t("quickActions")}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Link
-              href={`/${locale}/reports/new`}
-              className="p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
-            >
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <span className="ml-3 text-sm font-medium text-gray-900">{t("newReport")}</span>
-              </div>
-            </Link>
-            <Link
-              href={`/${locale}/incidents/new`}
-              className="p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
-            >
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <span className="ml-3 text-sm font-medium text-gray-900">{t("newIncident")}</span>
-              </div>
-            </Link>
-            <Link
-              href={`/${locale}/recipients/new`}
-              className="p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
-            >
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                </div>
-                <span className="ml-3 text-sm font-medium text-gray-900">{t("addRecipient")}</span>
-              </div>
-            </Link>
-          </div>
-        </section>
+            <section aria-labelledby="recipients-heading">
+              <h2
+                id="recipients-heading"
+                className="mb-4 text-xl font-medium text-[var(--color-text)]"
+              >
+                {t("recipientsHeading")}
+              </h2>
 
-        {/* Today's reports placeholder */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{t("todayReports")}</h2>
-            <Link href={`/${locale}/reports`} className="text-sm text-blue-600 hover:text-blue-500">
-              View all →
-            </Link>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center text-gray-500">
-            <svg className="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-            <p className="text-sm">No reports for today yet.</p>
-            <Link href={`/${locale}/reports/new`} className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-500">
-              {t("newReport")}
-            </Link>
-          </div>
-        </section>
-
-        {/* Recent incidents placeholder */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">{t("recentIncidents")}</h2>
-            <Link href={`/${locale}/incidents`} className="text-sm text-blue-600 hover:text-blue-500">
-              View all →
-            </Link>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-lg p-6 text-center text-gray-500">
-            <svg className="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-sm">No incidents recorded.</p>
-            <Link href={`/${locale}/incidents/new`} className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-500">
-              {t("newIncident")}
-            </Link>
-          </div>
-        </section>
+              {loadFailed ? (
+                <p role="alert" className="card text-base text-[var(--color-error-ink)]">
+                  {t("loadError")}
+                </p>
+              ) : (
+                <RecipientsSection recipients={recipients} />
+              )}
+            </section>
+          </>
+        ) : (
+          <p role="alert" className="card text-base text-[var(--color-error-ink)]">
+            {t("loadError")}
+          </p>
+        )}
       </main>
     </div>
   );
