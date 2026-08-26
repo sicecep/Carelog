@@ -47,6 +47,9 @@ type DailyReport struct {
 	ContributorRole string             `json:"contributor_role"`
 	ReportType      string             `json:"report_type"`
 	Status          string             `json:"status"`
+	SubmittedAt     pgtype.Timestamptz `json:"submitted_at"`
+	AcknowledgedAt  pgtype.Timestamptz `json:"acknowledged_at"`
+	AcknowledgedBy  pgtype.UUID        `json:"acknowledged_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }

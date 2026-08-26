@@ -62,22 +62,27 @@ CREATE INDEX idx_care_recipients_workspace_id ON care_recipients(workspace_id);
 CREATE INDEX idx_care_recipients_workspace_active ON care_recipients(workspace_id) WHERE is_active;
 
 -- daily_reports
+-- One report per (recipient, date, contributor): morning nanny, night nanny and
+-- the owner each get their own row for the same child on the same day.
 CREATE TABLE daily_reports (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     recipient_id    UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
     report_date     DATE NOT NULL,
-    contributor_id  UUID NOT NULL,
-    contributor_role TEXT NOT NULL,
-    report_type     TEXT NOT NULL DEFAULT 'detailed',
-    status          TEXT NOT NULL DEFAULT 'draft',
+    contributor_id  UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    contributor_role TEXT NOT NULL CHECK (contributor_role IN ('caregiver', 'owner')),
+    report_type     TEXT NOT NULL DEFAULT 'detailed' CHECK (report_type IN ('quick', 'detailed', 'summary')),
+    status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'acknowledged')),
+    submitted_at    TIMESTAMPTZ,
+    acknowledged_at TIMESTAMPTZ,
+    acknowledged_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (workspace_id, recipient_id, report_date)
+    UNIQUE (recipient_id, report_date, contributor_id)
 );
 
 CREATE INDEX idx_daily_reports_workspace_date ON daily_reports(workspace_id, report_date);
-CREATE INDEX idx_daily_reports_recipient_date ON daily_reports(recipient_id, report_date);
+CREATE INDEX idx_daily_reports_recipient_date ON daily_reports(recipient_id, report_date DESC);
 
 -- report_entries
 CREATE TABLE report_entries (
@@ -92,7 +97,7 @@ CREATE TABLE report_entries (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_report_entries_report_id ON report_entries(report_id);
+CREATE INDEX idx_report_entries_report_occurred ON report_entries(report_id, occurred_at);
 CREATE INDEX idx_report_entries_occurred_at ON report_entries(occurred_at);
 
 -- incidents
