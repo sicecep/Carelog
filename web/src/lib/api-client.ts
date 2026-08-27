@@ -3,7 +3,11 @@
 
 import type { CareType, Module } from "./constants.generated";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
+// Paths are proxied through /api/* to the Go backend by next.config.ts
+// rewrites. Using a relative base means the browser always calls the same
+// origin it loaded the page from — critical when accessed via Tailscale IP
+// or from a phone, where "localhost" would resolve to the device itself.
+const API_BASE = "";
 
 export interface Envelope<T> {
   data: T | null;

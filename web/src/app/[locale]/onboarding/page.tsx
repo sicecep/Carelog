@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,7 @@ import {
   CareType,
   Module,
 } from "@/lib/constants.generated";
+import { APIError, authApi, recipientApi, type AuthWorkspace } from "@/lib/api-client";
 
 type Step = 1 | 2 | 3;
 
@@ -29,6 +30,25 @@ export default function OnboardingPage() {
   const [enabledModules, setEnabledModules] = useState<Module[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The workspace is provisioned server-side on first login, so it should
+  // always resolve. Track the load so the submit button can't fire before the
+  // ID is known — the API rejects a create without X-Workspace-ID.
+  const [workspace, setWorkspace] = useState<AuthWorkspace | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(true);
+
+  useEffect(() => {
+    authApi
+      .me()
+      .then((res) => {
+        const list = res.data?.workspaces ?? [];
+        const active = list.find((w) => w.active) ?? list[0] ?? null;
+        setWorkspace(active);
+      })
+      .catch((err) => {
+        console.error("onboarding: failed to resolve workspace", err);
+      })
+      .finally(() => setWorkspaceLoading(false));
+  }, []);
 
   const handleCareTypeSelect = useCallback((type: CareType) => {
     setCareType(type);
@@ -49,31 +69,32 @@ export default function OnboardingPage() {
   const canSubmitStep3 = enabledModules.length > 0;
 
   const handleSubmit = async () => {
+    if (!workspace) {
+      setError(tCommon("error"));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      // Call the Go API
-      const res = await fetch(`/api/v1/recipients`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: name,
-          care_type: careType,
-          enabled_modules: enabledModules,
-        }),
+      // Call the Go API with workspace header
+      const res = await recipientApi.create(workspace.id, {
+        full_name: name,
+        care_type: careType!,
+        enabled_modules: enabledModules,
       });
 
-      if (!res.ok) {
-        throw new Error(`create recipient failed: ${res.status}`);
+      if (!res.data) {
+        throw new Error("create recipient failed");
       }
 
       // Redirect to dashboard using Next.js router
       router.push(`/${locale}/dashboard`);
       router.refresh();
     } catch (err) {
-      // Surface a translated message; keep the raw cause in the console.
-      console.error(err);
-      setError(tCommon("error"));
+      // Show the API's own message when it has one — a bare "something went
+      // wrong" hides real causes like a plan limit being hit.
+      console.error("onboarding: create recipient failed", err);
+      setError(err instanceof APIError ? err.message : tCommon("error"));
     } finally {
       setSubmitting(false);
     }
@@ -163,7 +184,7 @@ export default function OnboardingPage() {
                       />
                     ))}
                   </div>
-                  {careType === null && (
+                  {careType === null && name.trim().length > 0 && (
                     <p className="text-sm text-[var(--color-error)]" role="alert">
                       {t("careTypeRequired")}
                     </p>
@@ -221,7 +242,12 @@ export default function OnboardingPage() {
                   <Button variant="secondary" className="flex-1" onClick={() => setStep(2)}>
                     {t("back")}
                   </Button>
-                  <Button className="flex-1" loading={submitting} disabled={!canSubmitStep3 || submitting} onClick={handleSubmit}>
+                  <Button
+                    className="flex-1"
+                    loading={submitting}
+                    disabled={!canSubmitStep3 || submitting || workspaceLoading || !workspace}
+                    onClick={handleSubmit}
+                  >
                     <CheckCircle size={18} weight="fill" className="mr-2" />
                     {t("createProfileSubmit")}
                   </Button>

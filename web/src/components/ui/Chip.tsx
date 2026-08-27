@@ -2,7 +2,7 @@
 
 import { forwardRef, ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { Baby, User, Users, Heart } from "phosphor-react";
+import { Baby, User, Users, Heart, CheckCircle } from "phosphor-react";
 
 type CareTypeId = "infant" | "child" | "elderly" | "patient";
 
@@ -33,15 +33,31 @@ export const CareTypeChip = forwardRef<HTMLButtonElement, CareTypeChipProps>(
         role="radio"
         aria-checked={selected}
         onClick={() => onSelect(type)}
-        className={cn("chip", selected && "chip-selected", className)}
+        className={cn(
+          "chip shadow-sm relative transition-all duration-200",
+          selected && "chip-selected ring-2 ring-[var(--color-accent)] ring-offset-2",
+          className
+        )}
         {...props}
       >
-        <Icon className="chip-icon" size={32} weight="thin" />
-        <span className="text-base font-medium">{t(`careType.${type}`)}</span>
+        <div className={cn(
+          "w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors",
+          selected ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+        )}>
+          <Icon size={28} weight={selected ? "fill" : "regular"} />
+        </div>
+        <span className={cn(
+          "text-base font-semibold",
+          selected ? "text-[var(--color-accent-ink)]" : "text-[var(--color-text)]"
+        )}>
+          {t(`careType.${type}`)}
+        </span>
         {selected && (
-          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-          </svg>
+          <div className="absolute top-2 right-2">
+            <div className="w-5 h-5 bg-[var(--color-accent)] rounded-full flex items-center justify-center shadow-sm">
+              <CheckCircle size={14} weight="fill" className="text-white" />
+            </div>
+          </div>
         )}
       </button>
     );
