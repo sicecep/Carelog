@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -106,11 +107,16 @@ func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) e
 	// web origin would 404 — there is no client-side verify page.
 	verifyLink := h.APIBaseURL + "/api/v1/auth/verify?token=" + rawToken
 
-	// Send email (async, don't block on email delivery)
+	// Send the email out of band so a slow provider doesn't stall the response.
+	// The error must be logged: swallowing it made a Resend rejection (e.g. an
+	// unverified sender domain) look identical to a successful send, since the
+	// endpoint always returns the same body to avoid user enumeration.
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		_ = h.Mailer.SendMagicLink(ctx, req.Email, verifyLink, locale)
+		if err := h.Mailer.SendMagicLink(ctx, req.Email, verifyLink, locale); err != nil {
+			slog.Error("magic link send failed", "email", req.Email, "error", err)
+		}
 	}()
 
 	// Always return success (don't reveal if email exists)
