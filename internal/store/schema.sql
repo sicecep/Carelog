@@ -105,10 +105,11 @@ CREATE TABLE incidents (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     recipient_id    UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
-    reporter_id     UUID NOT NULL,
-    type            TEXT NOT NULL,
-    severity        TEXT NOT NULL,
-    description     TEXT NOT NULL,
+    reporter_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type            TEXT NOT NULL CHECK (type IN ('fall', 'injury', 'medical', 'behavioral', 'environmental', 'other')),
+    severity        TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'emergency')),
+    description     TEXT NOT NULL CHECK (char_length(description) >= 20 AND char_length(description) <= 1000),
+    action_taken    TEXT CHECK (char_length(action_taken) <= 500),
     occurred_at     TIMESTAMPTZ NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

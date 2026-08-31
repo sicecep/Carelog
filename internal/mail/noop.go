@@ -1,4 +1,4 @@
-// Package mail provides email sending abstractions for authentication flows.
+// Package mail provides email sending abstractions.
 package mail
 
 import (
@@ -25,6 +25,17 @@ func (m *NoopMailer) SendMagicLink(ctx context.Context, toEmail, link, locale st
 		"to", toEmail,
 		"link", link,
 		"locale", locale,
+	)
+	return nil
+}
+
+// SendDailyDigest logs the daily digest instead of sending an email.
+func (m *NoopMailer) SendDailyDigest(ctx context.Context, toEmail string, data DigestEmailData) error {
+	m.logger.Info("daily digest email (noop)",
+		"to", toEmail,
+		"workspace", data.WorkspaceName,
+		"date", data.Date,
+		"recipients_count", len(data.Recipients),
 	)
 	return nil
 }

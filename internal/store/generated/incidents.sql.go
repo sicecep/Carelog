@@ -13,9 +13,12 @@ import (
 )
 
 const createIncident = `-- name: CreateIncident :one
-INSERT INTO incidents (workspace_id, recipient_id, reporter_id, type, severity, description, occurred_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, workspace_id, recipient_id, reporter_id, type, severity, description, occurred_at, created_at
+INSERT INTO incidents (
+    workspace_id, recipient_id, reporter_id, type, severity, 
+    description, action_taken, occurred_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, workspace_id, recipient_id, reporter_id, type, severity, description, action_taken, occurred_at, created_at
 `
 
 type CreateIncidentParams struct {
@@ -25,6 +28,7 @@ type CreateIncidentParams struct {
 	Type        string             `json:"type"`
 	Severity    string             `json:"severity"`
 	Description string             `json:"description"`
+	ActionTaken pgtype.Text        `json:"action_taken"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 }
 
@@ -36,6 +40,7 @@ func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) 
 		arg.Type,
 		arg.Severity,
 		arg.Description,
+		arg.ActionTaken,
 		arg.OccurredAt,
 	)
 	var i Incident
@@ -47,6 +52,7 @@ func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) 
 		&i.Type,
 		&i.Severity,
 		&i.Description,
+		&i.ActionTaken,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)
@@ -55,21 +61,33 @@ func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) 
 
 const deleteIncident = `-- name: DeleteIncident :exec
 DELETE FROM incidents
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) DeleteIncident(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteIncident, id)
+type DeleteIncidentParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+// Scoped by workspace_id for tenant safety.
+func (q *Queries) DeleteIncident(ctx context.Context, arg DeleteIncidentParams) error {
+	_, err := q.db.Exec(ctx, deleteIncident, arg.ID, arg.WorkspaceID)
 	return err
 }
 
 const getIncident = `-- name: GetIncident :one
-SELECT id, workspace_id, recipient_id, reporter_id, type, severity, description, occurred_at, created_at FROM incidents
-WHERE id = $1
+SELECT id, workspace_id, recipient_id, reporter_id, type, severity, description, action_taken, occurred_at, created_at FROM incidents
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, error) {
-	row := q.db.QueryRow(ctx, getIncident, id)
+type GetIncidentParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+// Scoped by workspace_id for tenant safety.
+func (q *Queries) GetIncident(ctx context.Context, arg GetIncidentParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, getIncident, arg.ID, arg.WorkspaceID)
 	var i Incident
 	err := row.Scan(
 		&i.ID,
@@ -79,6 +97,7 @@ func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, erro
 		&i.Type,
 		&i.Severity,
 		&i.Description,
+		&i.ActionTaken,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)
@@ -86,9 +105,15 @@ func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, erro
 }
 
 const listIncidents = `-- name: ListIncidents :many
-SELECT id, workspace_id, recipient_id, reporter_id, type, severity, description, occurred_at, created_at FROM incidents
-WHERE workspace_id = $1 AND occurred_at BETWEEN $2 AND $3
-ORDER BY occurred_at DESC
+SELECT 
+    i.id, i.workspace_id, i.recipient_id, i.reporter_id, i.type, i.severity, i.description, i.action_taken, i.occurred_at, i.created_at,
+    u.full_name as reporter_name,
+    r.full_name as recipient_name
+FROM incidents i
+JOIN users u ON u.id = i.reporter_id
+JOIN care_recipients r ON r.id = i.recipient_id
+WHERE i.workspace_id = $1 AND i.occurred_at BETWEEN $2 AND $3
+ORDER BY i.occurred_at DESC
 `
 
 type ListIncidentsParams struct {
@@ -97,15 +122,31 @@ type ListIncidentsParams struct {
 	OccurredAt_2 pgtype.Timestamptz `json:"occurred_at_2"`
 }
 
-func (q *Queries) ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]Incident, error) {
+type ListIncidentsRow struct {
+	ID            uuid.UUID          `json:"id"`
+	WorkspaceID   uuid.UUID          `json:"workspace_id"`
+	RecipientID   uuid.UUID          `json:"recipient_id"`
+	ReporterID    uuid.UUID          `json:"reporter_id"`
+	Type          string             `json:"type"`
+	Severity      string             `json:"severity"`
+	Description   string             `json:"description"`
+	ActionTaken   pgtype.Text        `json:"action_taken"`
+	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ReporterName  pgtype.Text        `json:"reporter_name"`
+	RecipientName string             `json:"recipient_name"`
+}
+
+// Lists incidents for a workspace, filterable by date range.
+func (q *Queries) ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]ListIncidentsRow, error) {
 	rows, err := q.db.Query(ctx, listIncidents, arg.WorkspaceID, arg.OccurredAt, arg.OccurredAt_2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Incident{}
+	items := []ListIncidentsRow{}
 	for rows.Next() {
-		var i Incident
+		var i ListIncidentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
@@ -114,8 +155,74 @@ func (q *Queries) ListIncidents(ctx context.Context, arg ListIncidentsParams) ([
 			&i.Type,
 			&i.Severity,
 			&i.Description,
+			&i.ActionTaken,
 			&i.OccurredAt,
 			&i.CreatedAt,
+			&i.ReporterName,
+			&i.RecipientName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIncidentsByRecipient = `-- name: ListIncidentsByRecipient :many
+SELECT 
+    i.id, i.workspace_id, i.recipient_id, i.reporter_id, i.type, i.severity, i.description, i.action_taken, i.occurred_at, i.created_at,
+    u.full_name as reporter_name
+FROM incidents i
+JOIN users u ON u.id = i.reporter_id
+WHERE i.workspace_id = $1 AND i.recipient_id = $2 AND i.occurred_at::date = $3::date
+ORDER BY i.occurred_at DESC
+`
+
+type ListIncidentsByRecipientParams struct {
+	WorkspaceID uuid.UUID   `json:"workspace_id"`
+	RecipientID uuid.UUID   `json:"recipient_id"`
+	Column3     pgtype.Date `json:"column_3"`
+}
+
+type ListIncidentsByRecipientRow struct {
+	ID           uuid.UUID          `json:"id"`
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	RecipientID  uuid.UUID          `json:"recipient_id"`
+	ReporterID   uuid.UUID          `json:"reporter_id"`
+	Type         string             `json:"type"`
+	Severity     string             `json:"severity"`
+	Description  string             `json:"description"`
+	ActionTaken  pgtype.Text        `json:"action_taken"`
+	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ReporterName pgtype.Text        `json:"reporter_name"`
+}
+
+// RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
+func (q *Queries) ListIncidentsByRecipient(ctx context.Context, arg ListIncidentsByRecipientParams) ([]ListIncidentsByRecipientRow, error) {
+	rows, err := q.db.Query(ctx, listIncidentsByRecipient, arg.WorkspaceID, arg.RecipientID, arg.Column3)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIncidentsByRecipientRow{}
+	for rows.Next() {
+		var i ListIncidentsByRecipientRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.RecipientID,
+			&i.ReporterID,
+			&i.Type,
+			&i.Severity,
+			&i.Description,
+			&i.ActionTaken,
+			&i.OccurredAt,
+			&i.CreatedAt,
+			&i.ReporterName,
 		); err != nil {
 			return nil, err
 		}
@@ -129,9 +236,14 @@ func (q *Queries) ListIncidents(ctx context.Context, arg ListIncidentsParams) ([
 
 const updateIncident = `-- name: UpdateIncident :one
 UPDATE incidents
-SET type = $2, severity = $3, description = $4, occurred_at = $5
-WHERE id = $1
-RETURNING id, workspace_id, recipient_id, reporter_id, type, severity, description, occurred_at, created_at
+SET 
+    type = $2, 
+    severity = $3, 
+    description = $4, 
+    action_taken = $5,
+    occurred_at = $6
+WHERE id = $1 AND workspace_id = $7
+RETURNING id, workspace_id, recipient_id, reporter_id, type, severity, description, action_taken, occurred_at, created_at
 `
 
 type UpdateIncidentParams struct {
@@ -139,16 +251,21 @@ type UpdateIncidentParams struct {
 	Type        string             `json:"type"`
 	Severity    string             `json:"severity"`
 	Description string             `json:"description"`
+	ActionTaken pgtype.Text        `json:"action_taken"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
 }
 
+// Scoped by workspace_id for tenant safety.
 func (q *Queries) UpdateIncident(ctx context.Context, arg UpdateIncidentParams) (Incident, error) {
 	row := q.db.QueryRow(ctx, updateIncident,
 		arg.ID,
 		arg.Type,
 		arg.Severity,
 		arg.Description,
+		arg.ActionTaken,
 		arg.OccurredAt,
+		arg.WorkspaceID,
 	)
 	var i Incident
 	err := row.Scan(
@@ -159,6 +276,7 @@ func (q *Queries) UpdateIncident(ctx context.Context, arg UpdateIncidentParams) 
 		&i.Type,
 		&i.Severity,
 		&i.Description,
+		&i.ActionTaken,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)

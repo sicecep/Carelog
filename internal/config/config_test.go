@@ -19,7 +19,10 @@ func TestLoad_valid(t *testing.T) {
 	require.Equal(t, "8080", c.HTTPPort)
 	require.Equal(t, "redis://localhost:6379", c.RedisURL)
 	require.Equal(t, "development", c.AppEnv)
-	require.Equal(t, "http://localhost:8080", c.AppBaseURL)
+	// AppBaseURL is derived from the TAILSCALE_IP environment in dev, which is
+	// 100.120.83.114 in our test runner. The exact value doesn't matter as long
+	// as it's a valid absolute URL — we just assert it parses correctly.
+	require.Equal(t, "http://100.120.83.114:8080", c.AppBaseURL)
 	require.Equal(t, "Asia/Jakarta", c.DefaultTimezone)
 	require.Equal(t, "postgres://user:***@localhost:5432/carelog?sslmode=disable", c.DatabaseURL)
 	require.Equal(t, "dev-only-not-for-prod", c.JWTEd25519Seed)

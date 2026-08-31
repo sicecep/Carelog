@@ -98,21 +98,31 @@ func (q *Queries) CreateCareRecipient(ctx context.Context, arg CreateCareRecipie
 const deactivateCareRecipient = `-- name: DeactivateCareRecipient :exec
 UPDATE care_recipients
 SET is_active = false, updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) DeactivateCareRecipient(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deactivateCareRecipient, id)
+type DeactivateCareRecipientParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error {
+	_, err := q.db.Exec(ctx, deactivateCareRecipient, arg.ID, arg.WorkspaceID)
 	return err
 }
 
 const getCareRecipient = `-- name: GetCareRecipient :one
 SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $2
 `
 
-func (q *Queries) GetCareRecipient(ctx context.Context, id uuid.UUID) (CareRecipient, error) {
-	row := q.db.QueryRow(ctx, getCareRecipient, id)
+type GetCareRecipientParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetCareRecipient(ctx context.Context, arg GetCareRecipientParams) (CareRecipient, error) {
+	row := q.db.QueryRow(ctx, getCareRecipient, arg.ID, arg.WorkspaceID)
 	var i CareRecipient
 	err := row.Scan(
 		&i.ID,
@@ -179,7 +189,7 @@ func (q *Queries) ListCareRecipientsByWorkspace(ctx context.Context, workspaceID
 const updateCareRecipient = `-- name: UpdateCareRecipient :one
 UPDATE care_recipients
 SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $11
 RETURNING id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at
 `
 
@@ -194,6 +204,7 @@ type UpdateCareRecipientParams struct {
 	Notes          pgtype.Text `json:"notes"`
 	MedicalNotes   pgtype.Text `json:"medical_notes"`
 	EnabledModules []byte      `json:"enabled_modules"`
+	WorkspaceID    uuid.UUID   `json:"workspace_id"`
 }
 
 func (q *Queries) UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipientParams) (CareRecipient, error) {
@@ -208,6 +219,7 @@ func (q *Queries) UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipie
 		arg.Notes,
 		arg.MedicalNotes,
 		arg.EnabledModules,
+		arg.WorkspaceID,
 	)
 	var i CareRecipient
 	err := row.Scan(

@@ -5,7 +5,7 @@ RETURNING *;
 
 -- name: GetCareRecipient :one
 SELECT * FROM care_recipients
-WHERE id = $1;
+WHERE id = $1 AND workspace_id = $2;
 
 -- name: ListCareRecipientsByWorkspace :many
 SELECT * FROM care_recipients
@@ -19,13 +19,13 @@ WHERE workspace_id = $1 AND is_active = true;
 -- name: UpdateCareRecipient :one
 UPDATE care_recipients
 SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND workspace_id = $11
 RETURNING *;
 
 -- name: DeactivateCareRecipient :exec
 UPDATE care_recipients
 SET is_active = false, updated_at = now()
-WHERE id = $1;
+WHERE id = $1 AND workspace_id = $2;
 
 -- name: CareRecipientExistsInWorkspace :one
 SELECT EXISTS(SELECT 1 FROM care_recipients WHERE id = $1 AND workspace_id = $2 AND is_active = true);

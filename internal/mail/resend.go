@@ -1,4 +1,3 @@
-// Package mail provides email sending abstractions for authentication flows.
 package mail
 
 import (
@@ -10,14 +9,12 @@ import (
 	"time"
 )
 
-// ResendMailer sends emails via the Resend API.
 type ResendMailer struct {
-	apiKey   string
-	from     string
+	apiKey     string
+	from       string
 	httpClient *http.Client
 }
 
-// ResendEmailRequest represents the Resend API request body.
 type ResendEmailRequest struct {
 	From    string `json:"from"`
 	To      string `json:"to"`
@@ -26,12 +23,6 @@ type ResendEmailRequest struct {
 	Text    string `json:"text"`
 }
 
-// ResendEmailResponse represents the Resend API response.
-type ResendEmailResponse struct {
-	ID string `json:"id"`
-}
-
-// NewResendMailer creates a new ResendMailer.
 func NewResendMailer(apiKey, from string) *ResendMailer {
 	return &ResendMailer{
 		apiKey: apiKey,
@@ -42,19 +33,12 @@ func NewResendMailer(apiKey, from string) *ResendMailer {
 	}
 }
 
-// SendMagicLink sends a magic link email via Resend.
 func (m *ResendMailer) SendMagicLink(ctx context.Context, toEmail, link, locale string) error {
-	data := EmailData{Link: link, Locale: locale}
-	subject, html, text := renderMagicLinkEmail(data)
+	subject, html, text := renderMagicLinkEmail(EmailData{Link: link, Locale: locale})
+	return m.send(ctx, ResendEmailRequest{From: m.from, To: toEmail, Subject: subject, Html: html, Text: text})
+}
 
-	reqBody := ResendEmailRequest{
-		From:    m.from,
-		To:      toEmail,
-		Subject: subject,
-		Html:    html,
-		Text:    text,
-	}
-
+func (m *ResendMailer) send(ctx context.Context, reqBody ResendEmailRequest) error {
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("marshal request: %w", err)
@@ -80,11 +64,6 @@ func (m *ResendMailer) SendMagicLink(ctx context.Context, toEmail, link, locale 
 		}
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		return fmt.Errorf("resend error (%d): %s", resp.StatusCode, errResp.Message)
-	}
-
-	var res ResendEmailResponse
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return fmt.Errorf("decode response: %w", err)
 	}
 
 	return nil

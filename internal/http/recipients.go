@@ -147,7 +147,10 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 	}
 
 	// Fetch the created recipient to return it
-	recipient, err := h.Queries.GetCareRecipient(r.Context(), recipientID)
+	recipient, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	})
 	if err != nil {
 		return err
 	}

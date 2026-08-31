@@ -1,7 +1,8 @@
 // API client for talking to the Go backend.
 // All paths are proxied through /api/* to the backend running on :8080.
 
-import type { CareType, Module } from "./constants.generated";
+import type { CareType, Module, LogCategory } from "./constants.generated";
+import type { LogSubcategory } from "./log-subcategories";
 
 // Paths are proxied through /api/* to the Go backend by next.config.ts
 // rewrites. Using a relative base means the browser always calls the same
@@ -124,6 +125,19 @@ export interface Recipient {
   created_at: string;
 }
 
+export interface ReportEntry {
+  id: string;
+  report_id: string;
+  category: LogCategory;
+  subcategory?: LogSubcategory;
+  value_text?: string;
+  value_number?: number;
+  occurred_at: string;
+  contributor_id: string;
+  contributor_name: string;
+  contributor_role: string;
+}
+
 export const recipientApi = {
   // GET /api/v1/recipients - List recipients in a workspace.
   // X-Workspace-ID is mandatory: the API answers 400 without it and 403 if the
@@ -140,6 +154,95 @@ export const recipientApi = {
     workspaceId: string,
     body: { full_name: string; care_type: CareType; enabled_modules: Module[] }
   ) => api.post<Recipient>("/api/v1/recipients", body, { "X-Workspace-ID": workspaceId }),
+
+  // POST /api/v1/recipients/{recipientID}/entries - Add a log entry.
+  createEntry: (
+    workspaceId: string,
+    recipientId: string,
+    body: {
+      category: LogCategory;
+      subcategory?: LogSubcategory;
+      value_text?: string;
+      value_number?: number;
+      occurred_at?: string;
+    }
+  ) =>
+    api.post<ReportEntry>(`/api/v1/recipients/${recipientId}/entries`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+};
+
+// Incidents (PRD §6.5). Severity ordering matters for INC-003 visual weighting.
+export type IncidentSeverity = "low" | "medium" | "high" | "emergency";
+export type IncidentType =
+  | "fall"
+  | "injury"
+  | "medical"
+  | "behavioral"
+  | "environmental"
+  | "other";
+
+export interface Incident {
+  id: string;
+  workspace_id: string;
+  recipient_id: string;
+  reporter_id: string;
+  reporter_name?: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  severity_rank: number;
+  description: string;
+  action_taken?: string;
+  occurred_at: string;
+  created_at: string;
+}
+
+export const incidentApi = {
+  // GET /api/v1/incidents - INC-005 owner incident log.
+  list: (
+    workspaceId: string,
+    params?: { from?: string; to?: string; severity?: IncidentSeverity },
+    extraHeaders?: Record<string, string>
+  ) => {
+    const qs = new URLSearchParams();
+    if (params?.from) qs.set("from", params.from);
+    if (params?.to) qs.set("to", params.to);
+    if (params?.severity) qs.set("severity", params.severity);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return api.get<Incident[]>(`/api/v1/incidents${suffix}`, {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    });
+  },
+
+  // GET /api/v1/recipients/{id}/incidents - RPT-001.6, pinned on the timeline.
+  listForRecipient: (
+    workspaceId: string,
+    recipientId: string,
+    date?: string,
+    extraHeaders?: Record<string, string>
+  ) =>
+    api.get<Incident[]>(
+      `/api/v1/recipients/${recipientId}/incidents${date ? `?date=${date}` : ""}`,
+      { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
+
+  // POST /api/v1/recipients/{id}/incidents - INC-001/INC-002.
+  // Reporter attribution is server-side from the session; never sent here.
+  create: (
+    workspaceId: string,
+    recipientId: string,
+    body: {
+      type: IncidentType;
+      severity: IncidentSeverity;
+      description: string;
+      action_taken?: string;
+      occurred_at?: string;
+    }
+  ) =>
+    api.post<Incident>(`/api/v1/recipients/${recipientId}/incidents`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
 };
 
 // Workspace endpoints
