@@ -43,12 +43,18 @@ export default function OnboardingPage() {
         const list = res.data?.workspaces ?? [];
         const active = list.find((w) => w.active) ?? list[0] ?? null;
         setWorkspace(active);
+        if (!active) {
+          console.warn("onboarding: no workspace found for user");
+        }
       })
       .catch((err) => {
         console.error("onboarding: failed to resolve workspace", err);
+        if (err instanceof APIError && err.status === 401) {
+          router.push(`/${locale}/login`);
+        }
       })
       .finally(() => setWorkspaceLoading(false));
-  }, []);
+  }, [locale, router]);
 
   const handleCareTypeSelect = useCallback((type: CareType) => {
     setCareType(type);
