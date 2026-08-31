@@ -139,6 +139,68 @@
       "other": "Other"
     }
   },
+  "logging": {
+    "title": "Log activity",
+    "open": "Log activity",
+    "close": "Close",
+    "back": "Back",
+    "logged": "Saved!",
+    "errorGeneric": "Could not save. Please try again.",
+    "autoTimestampHint": "Time is filled in automatically.",
+    "subcategories": {
+      "meal": {
+        "breakfast": "Breakfast",
+        "lunch": "Lunch",
+        "dinner": "Dinner",
+        "snack": "Snack",
+        "milk": "Milk",
+        "formula": "Formula"
+      },
+      "sleep": {
+        "morning_nap": "Morning nap",
+        "afternoon_nap": "Afternoon nap",
+        "night_sleep": "Night sleep"
+      },
+      "diaper": {
+        "wet": "Wet",
+        "dirty": "Dirty",
+        "both": "Both",
+        "dry": "Dry"
+      },
+      "medication": {
+        "vitamin_d": "Vitamin D",
+        "iron": "Iron",
+        "multivitamin": "Multivitamin",
+        "custom": "Other"
+      },
+      "activity": {
+        "outdoor_play": "Outdoor play",
+        "indoor_play": "Indoor play",
+        "reading": "Reading",
+        "tv": "TV",
+        "bath": "Bath",
+        "walk": "Walk",
+        "educational_toy": "Educational toy",
+        "drawing": "Drawing",
+        "singing": "Singing"
+      },
+      "mood": {
+        "happy": "Happy",
+        "calm": "Calm",
+        "fussy": "Fussy",
+        "crying": "Crying",
+        "sleepy": "Sleepy",
+        "irritable": "Irritable"
+      },
+      "health": {
+        "sneezing": "Sneezing",
+        "coughing": "Coughing",
+        "vomiting": "Vomiting",
+        "rash": "Rash",
+        "normal": "Normal"
+      }
+    }
+  },
   "incidents": {
     "title": "Incidents",
     "newIncident": "Log new incident",
@@ -159,6 +221,31 @@
       "medium": "Medium",
       "high": "High",
       "emergency": "Emergency"
+    }
+  },
+  "incidentsheet": {
+    "title": "Report Incident",
+    "close": "Close",
+    "selectSeverity": "Select severity level",
+    "changeSeverity": "Change severity",
+    "min": "min. {n} chars",
+    "optional": "optional",
+    "descriptionPlaceholder": "Describe what happened...",
+    "actionTaken": "Action taken",
+    "actionTakenPlaceholder": "Emergency action already taken (optional)",
+    "descriptionTooShort": "Description must be at least {min} characters",
+    "errorGeneric": "Could not save. Please try again.",
+    "back": "Back",
+    "submitting": "Submitting...",
+    "submit": "Submit report",
+    "submitted": "Submitted!",
+    "urgentNotifyTitle": "URGENT INCIDENT",
+    "urgentNotifyBody": "High/emergency incident report submitted. Owner will receive push notification & email immediately.",
+    "severity": {
+      "low": { "label": "Low", "desc": "Log only, not urgent" },
+      "medium": { "label": "Medium", "desc": "Owner needs to know soon" },
+      "high": { "label": "High", "desc": "Emergency — owner & 911 contacted" },
+      "emergency": { "label": "EMERGENCY", "desc": "CALL 911 NOW" }
     }
   },
   "settings": {

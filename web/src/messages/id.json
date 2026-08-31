@@ -139,6 +139,68 @@
       "other": "Lainnya"
     }
   },
+  "logging": {
+    "title": "Catat kegiatan",
+    "open": "Catat kegiatan",
+    "close": "Tutup",
+    "back": "Kembali",
+    "logged": "Tersimpan!",
+    "errorGeneric": "Gagal menyimpan. Coba lagi.",
+    "autoTimestampHint": "Waktu terisi otomatis sekarang.",
+    "subcategories": {
+      "meal": {
+        "breakfast": "Sarapan",
+        "lunch": "Makan siang",
+        "dinner": "Makan malam",
+        "snack": "Camilan",
+        "milk": "Susu",
+        "formula": "Susu formula"
+      },
+      "sleep": {
+        "morning_nap": "Tidur pagi",
+        "afternoon_nap": "Tidur siang",
+        "night_sleep": "Tidur malam"
+      },
+      "diaper": {
+        "wet": "Pipis",
+        "dirty": "Pup",
+        "both": "Pipis & pup",
+        "dry": "Kering"
+      },
+      "medication": {
+        "vitamin_d": "Vitamin D",
+        "iron": "Zat besi",
+        "multivitamin": "Multivitamin",
+        "custom": "Lainnya"
+      },
+      "activity": {
+        "outdoor_play": "Main di luar",
+        "indoor_play": "Main di dalam",
+        "reading": "Membaca",
+        "tv": "Nonton TV",
+        "bath": "Mandi",
+        "walk": "Jalan-jalan",
+        "educational_toy": "Mainan edukasi",
+        "drawing": "Menggambar",
+        "singing": "Bernyanyi"
+      },
+      "mood": {
+        "happy": "Senang",
+        "calm": "Tenang",
+        "fussy": "Rewel",
+        "crying": "Menangis",
+        "sleepy": "Mengantuk",
+        "irritable": "Mudah marah"
+      },
+      "health": {
+        "sneezing": "Bersin",
+        "coughing": "Batuk",
+        "vomiting": "Muntah",
+        "rash": "Ruam",
+        "normal": "Normal"
+      }
+    }
+  },
   "incidents": {
     "title": "Insiden",
     "newIncident": "Catat insiden baru",
@@ -159,6 +221,31 @@
       "medium": "Sedang",
       "high": "Tinggi",
       "emergency": "Darurat"
+    }
+  },
+  "incidentsheet": {
+    "title": "Catat Insiden",
+    "close": "Tutup",
+    "selectSeverity": "Pilih tingkat keparahan",
+    "changeSeverity": "Ubah tingkat",
+    "min": "min. {n} karakter",
+    "optional": "opsional",
+    "descriptionPlaceholder": "Tuliskan apa yang terjadi...",
+    "actionTaken": "Tindakan yang diambil",
+    "actionTakenPlaceholder": "Tindakan darurat yang sudah dilakukan (opsional)",
+    "descriptionTooShort": "Deskripsi minimal {min} karakter",
+    "errorGeneric": "Gagal menyimpan. Coba lagi.",
+    "back": "Kembali",
+    "submitting": "Mengirim...",
+    "submit": "Kirim laporan",
+    "submitted": "Terkirim!",
+    "urgentNotifyTitle": "INSIDEN URGENT",
+    "urgentNotifyBody": "Laporan insiden tingkat tinggi/darurat telah dikirim. Owner akan mendapat notifikasi push & email segera.",
+    "severity": {
+      "low": { "label": "Rendah", "desc": "Perlu dicatat, tidak mendesak" },
+      "medium": { "label": "Sedang", "desc": "Owner perlu tahu segera" },
+      "high": { "label": "Tinggi", "desc": "Darurat — owner & 112 segera dihubungi" },
+      "emergency": { "label": "DARURAT", "desc": "Panggil 119/112 SEKARANG" }
     }
   },
   "settings": {

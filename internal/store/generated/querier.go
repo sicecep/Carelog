@@ -31,15 +31,16 @@ type Querier interface {
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
-	DeactivateCareRecipient(ctx context.Context, id uuid.UUID) error
+	DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error
 	DeleteDailyReport(ctx context.Context, arg DeleteDailyReportParams) error
 	// Retains a day past expiry so a user who clicks a stale link still gets the
 	// "this link expired" path rather than a bare "invalid".
 	DeleteExpiredMagicLinks(ctx context.Context) error
-	DeleteIncident(ctx context.Context, id uuid.UUID) error
+	// Scoped by workspace_id for tenant safety.
+	DeleteIncident(ctx context.Context, arg DeleteIncidentParams) error
 	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
-	GetCareRecipient(ctx context.Context, id uuid.UUID) (CareRecipient, error)
+	GetCareRecipient(ctx context.Context, arg GetCareRecipientParams) (CareRecipient, error)
 	GetDailyReport(ctx context.Context, arg GetDailyReportParams) (DailyReport, error)
 	// Keyed by (recipient_id, report_date, contributor_id) to match the unique constraint.
 	// Returns the specific contributor's report for that recipient on that date.
@@ -47,7 +48,8 @@ type Querier interface {
 	// Convenience query: resolves contributor_id from workspace membership.
 	// Returns the report for the caller (workspace member) for the given recipient/date.
 	GetDailyReportByDateAndWorkspace(ctx context.Context, arg GetDailyReportByDateAndWorkspaceParams) (DailyReport, error)
-	GetIncident(ctx context.Context, id uuid.UUID) (Incident, error)
+	// Scoped by workspace_id for tenant safety.
+	GetIncident(ctx context.Context, arg GetIncidentParams) (Incident, error)
 	GetMagicLinkByHash(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
 	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
@@ -66,13 +68,29 @@ type Querier interface {
 	// RPT-001: Gets ALL contributors' reports for a recipient on a specific date.
 	// Used by the unified timeline to merge entries across contributors.
 	ListDailyReportsByRecipientAndDate(ctx context.Context, arg ListDailyReportsByRecipientAndDateParams) ([]DailyReport, error)
-	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]Incident, error)
+	// The humans who receive the digest: workspace owners (RPT-007 — the digest goes
+	// to the owner, not the caregiver who filed the report). Viewers are excluded
+	// pending OQ-011. Locale drives the ID/EN template choice.
+	ListDigestRecipientsForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]ListDigestRecipientsForWorkspaceRow, error)
+	// Lists incidents for a workspace, filterable by date range.
+	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]ListIncidentsRow, error)
+	// RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
+	ListIncidentsByRecipient(ctx context.Context, arg ListIncidentsByRecipientParams) ([]ListIncidentsByRecipientRow, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
 	ListReportEntriesByRecipientAndDate(ctx context.Context, arg ListReportEntriesByRecipientAndDateParams) ([]ListReportEntriesByRecipientAndDateRow, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
 	ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]Workspace, error)
+	// LOG-004 / RPT-007: queries backing the 17:00 WIB daily email digest.
+	//
+	// The digest job runs outside any HTTP request, so there is no workspace
+	// middleware to lean on: every query here takes workspace_id explicitly and the
+	// job passes the workspace it is currently fanning out for.
+	// Every workspace that has at least one active care recipient. Workspaces with
+	// no recipients have nothing to summarize and are skipped before any per-
+	// recipient work happens.
+	ListWorkspacesForDigest(ctx context.Context) ([]ListWorkspacesForDigestRow, error)
 	ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]ListWorkspacesForUserRow, error)
 	// COALESCE keeps the original verification timestamp: clicking a second magic
 	// link months later is a login, not a re-verification.
@@ -86,8 +104,21 @@ type Querier interface {
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	// Used by logout and by reuse detection; kills every token in the lineage.
 	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
+	// Numeric roll-up (sleep minutes, medication doses) for the categories that
+	// carry a value_number. Kept separate from the count query so a category can
+	// report both "3 entries" and "410 minutes" without a second pass in Go.
+	SumEntryNumbersByRecipientAndDate(ctx context.Context, arg SumEntryNumbersByRecipientAndDateParams) ([]SumEntryNumbersByRecipientAndDateRow, error)
+	// Per-category / per-subcategory counts for one recipient on one date, merged
+	// across every contributor's report. An empty result set is a legitimate answer:
+	// the digest still sends, stating "no entries today" (RPT-007.3).
+	SummarizeEntriesByRecipientAndDate(ctx context.Context, arg SummarizeEntriesByRecipientAndDateParams) ([]SummarizeEntriesByRecipientAndDateRow, error)
+	// One row per contributor report for the day: who logged, how much, and the
+	// window they covered. LEFT JOIN keeps a contributor who opened a report but
+	// logged nothing — that absence is itself information for the owner.
+	SummarizeShiftsByRecipientAndDate(ctx context.Context, arg SummarizeShiftsByRecipientAndDateParams) ([]SummarizeShiftsByRecipientAndDateRow, error)
 	UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipientParams) (CareRecipient, error)
 	UpdateDailyReport(ctx context.Context, arg UpdateDailyReportParams) (DailyReport, error)
+	// Scoped by workspace_id for tenant safety.
 	UpdateIncident(ctx context.Context, arg UpdateIncidentParams) (Incident, error)
 	UpdateReportEntry(ctx context.Context, arg UpdateReportEntryParams) (ReportEntry, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)

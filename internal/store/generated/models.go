@@ -62,6 +62,7 @@ type Incident struct {
 	Type        string             `json:"type"`
 	Severity    string             `json:"severity"`
 	Description string             `json:"description"`
+	ActionTaken pgtype.Text        `json:"action_taken"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

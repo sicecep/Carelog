@@ -142,6 +142,8 @@ func GetOrCreateTodayReport(
 }
 
 // AddEntry adds a single log entry to the contributor's report for today.
+// pool is required because creating the report and appending the entry must
+// commit atomically — a failed entry must not leave a phantom empty report.
 func AddEntry(
 	ctx context.Context,
 	queries store.Querier,
@@ -151,8 +153,11 @@ func AddEntry(
 	contributorID uuid.UUID,
 	input AddEntryInput,
 ) (store.ReportEntry, error) {
-	// 1. Validation
-	recipient, err := queries.GetCareRecipient(ctx, recipientID)
+	// 1. Validation — workspace-scoped lookup prevents cross-tenant writes.
+	recipient, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return store.ReportEntry{}, ErrRecipientNotFound
