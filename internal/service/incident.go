@@ -18,6 +18,18 @@ import (
 // keep the tenant-safety story explicit at the boundary.
 var ErrIncidentNotFound = errors.New("incident not found")
 
+// ErrNotFoundTyped is the typed 404 for mapError: any resource that does not
+// exist inside the caller's workspace. Cross-tenant probes get the same
+// response as true absence — existence must not leak across workspaces.
+type ErrNotFoundTyped struct{ Resource string }
+
+func (e ErrNotFoundTyped) Error() string { return e.Resource + " not found" }
+func (e ErrNotFoundTyped) Code() string  { return "not_found" }
+func (e ErrNotFoundTyped) Message() string {
+	return "The requested " + e.Resource + " does not exist."
+}
+func (e ErrNotFoundTyped) Status() int { return 404 }
+
 // IncidentInput is the validated payload for creating or updating an incident.
 // action_taken and description length rules mirror PRD INC-002 exactly.
 type IncidentInput struct {
@@ -99,4 +111,80 @@ func CreateIncident(
 		return store.Incident{}, fmt.Errorf("create incident: %w", err)
 	}
 	return inc, nil
+}
+
+// ErrIncidentAlreadyAcknowledged is returned when acknowledging an incident
+// that already carries an acknowledgment. First ack wins; later attempts are
+// a conflict, not an overwrite.
+var ErrIncidentAlreadyAcknowledged = errors.New("incident already acknowledged")
+
+// Code implements the typed error interface used by mapError.
+func (e ackConflict) Code() string    { return "already_acknowledged" }
+func (e ackConflict) Message() string { return "This incident has already been acknowledged." }
+func (e ackConflict) Status() int     { return 409 }
+
+type ackConflict struct{}
+
+func (ackConflict) Error() string { return ErrIncidentAlreadyAcknowledged.Error() }
+
+// ErrNotOwner is returned when a non-owner attempts an owner-only action
+// (e.g. acknowledging an incident, PRD §6.5).
+type ErrNotOwner struct{}
+
+func (ErrNotOwner) Error() string   { return "owner role required" }
+func (ErrNotOwner) Code() string    { return "forbidden" }
+func (ErrNotOwner) Message() string { return "Only the workspace owner can do this." }
+func (ErrNotOwner) Status() int     { return 403 }
+
+// AcknowledgeIncident marks an incident acknowledged by the calling owner with
+// an optional comment (INC-ACK, PRD §6.5 P1).
+//
+// Rules:
+//   - callerRole must be "owner" — caregivers/viewers get ErrNotOwner.
+//   - comment is optional, max 500 chars (mirrors the DB CHECK).
+//   - First acknowledgment wins: the UPDATE is guarded by
+//     acknowledged_at IS NULL. A no-rows result means either the incident
+//     doesn't exist in this workspace (not found) or it was already
+//     acknowledged (conflict) — disambiguated with a follow-up read.
+func AcknowledgeIncident(
+	ctx context.Context,
+	q *store.Queries,
+	workspaceID uuid.UUID,
+	incidentID uuid.UUID,
+	callerID uuid.UUID,
+	callerRole string,
+	comment *string,
+) (store.Incident, error) {
+	if callerRole != string(domain.RoleOwner) {
+		return store.Incident{}, ErrNotOwner{}
+	}
+	if comment != nil && len(*comment) > 500 {
+		return store.Incident{}, ErrValidation{Errors: []RecipientError{{
+			Field: "comment", Message: "comment must be at most 500 characters",
+		}}}
+	}
+
+	var ackComment pgtype.Text
+	if comment != nil && *comment != "" {
+		ackComment = pgtype.Text{String: *comment, Valid: true}
+	}
+
+	inc, err := q.AcknowledgeIncident(ctx, store.AcknowledgeIncidentParams{
+		ID:             incidentID,
+		WorkspaceID:    workspaceID,
+		AcknowledgedBy: pgtype.UUID{Bytes: callerID, Valid: true},
+		AckComment:     ackComment,
+	})
+	if err == nil {
+		return inc, nil
+	}
+
+	// No rows: either cross-tenant/nonexistent, or already acknowledged.
+	if _, gerr := q.GetIncident(ctx, store.GetIncidentParams{
+		ID:          incidentID,
+		WorkspaceID: workspaceID,
+	}); gerr != nil {
+		return store.Incident{}, ErrIncidentNotFound
+	}
+	return store.Incident{}, ackConflict{}
 }
