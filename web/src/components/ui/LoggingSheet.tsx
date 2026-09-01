@@ -21,6 +21,8 @@ interface LoggingSheetProps {
 
 type Step = "category" | "subcategory";
 
+const NOTE_MAX = 500;
+
 /**
  * Bottom sheet driving the "zero-typing" quick-tap logging flow (LOG-002):
  * 1. Caregiver taps a category (Meal, Meds, Sleep, ...).
@@ -37,9 +39,10 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   const [step, setStep] = useState<Step>("category");
   const [category, setCategory] = useState<LogCategory | null>(null);
-  const [submitting, setSubmitting] = useState<string | null>(null); // subcategory id being submitted
+  const [submitting, setSubmitting] = useState<string | null>(null); // subcategory id or "__text__"
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState(""); // Free-text note input
 
   const reset = useCallback(() => {
     setStep("category");
@@ -47,6 +50,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setSubmitting(null);
     setSuccess(false);
     setError(null);
+    setNoteText("");
   }, []);
 
   const handleClose = useCallback(() => {
@@ -55,8 +59,8 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   }, [reset, onClose]);
 
   const submitEntry = useCallback(
-    async (cat: LogCategory, sub: LogSubcategory | undefined) => {
-      setSubmitting(sub ?? "__none__");
+    async (cat: LogCategory, sub: LogSubcategory | undefined, text?: string) => {
+      setSubmitting(sub ?? (text ? "__text__" : "__none__"));
       setError(null);
       try {
         // occurred_at is auto-filled to NOW() — zero typing means zero manual
@@ -65,6 +69,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
         await recipientApi.createEntry(workspaceId, recipientId, {
           category: cat,
           subcategory: sub,
+          value_text: text,
           occurred_at: new Date().toISOString(),
         });
         setSuccess(true);
@@ -85,8 +90,11 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setCategory(cat);
     setError(null);
     const subs = LOG_SUBCATEGORIES[cat] ?? [];
-    if (subs.length === 0) {
-      // No sub-classification for this category (e.g. Notes) — log immediately.
+    if (cat === "note") {
+      // Direct to textarea input step for notes
+      setStep("subcategory");
+    } else if (subs.length === 0) {
+      // No sub-classification for this category — log immediately.
       void submitEntry(cat, undefined);
     } else {
       setStep("subcategory");
@@ -130,6 +138,45 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           </div>
         ) : step === "category" ? (
           <CategoryGrid onSelect={handleCategorySelect} />
+        ) : category === "note" ? (
+          // Free-text step: the Note category carries no subcategories, so the
+          // entry's meaning lives entirely in value_text. Without this the tile
+          // logged an empty entry the caregiver could not fill in.
+          <div>
+            <button
+              type="button"
+              onClick={() => setStep("category")}
+              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+            >
+              {t("back")}
+            </button>
+
+            <label htmlFor="note-text" className="sr-only">
+              {t("notePlaceholder")}
+            </label>
+            <textarea
+              id="note-text"
+              autoFocus
+              rows={4}
+              maxLength={NOTE_MAX}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder={t("notePlaceholder")}
+              className="input-base w-full resize-y py-3 text-base"
+            />
+            <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
+              {noteText.length}/{NOTE_MAX}
+            </p>
+
+            <button
+              type="button"
+              disabled={submitting !== null || noteText.trim().length === 0}
+              onClick={() => submitEntry("note", undefined, noteText.trim())}
+              className="btn-base btn-primary touch-target mt-3 min-h-[56px] w-full text-base disabled:opacity-50"
+            >
+              {submitting !== null ? t("noteSaving") : t("noteSave")}
+            </button>
+          </div>
         ) : (
           <div>
             <button

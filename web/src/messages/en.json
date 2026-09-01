@@ -206,7 +206,10 @@
         "rash": "Rash",
         "normal": "Normal"
       }
-    }
+    },
+    "notePlaceholder": "What would you like to note?",
+    "noteSave": "Save note",
+    "noteSaving": "Saving..."
   },
   "incidents": {
     "title": "Incidents",
