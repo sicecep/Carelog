@@ -272,8 +272,12 @@ func (h *ReportHandlers) handleGetTimeline(w http.ResponseWriter, r *http.Reques
 }
 
 // RegisterReportRoutes registers report endpoints on the given router.
-func RegisterReportRoutes(r chi.Router, h *ReportHandlers) {
+// The recipient detail GET also lives here: this "/recipients/{recipientID}"
+// mount shadows the sibling "/recipients" subrouter for any param path, so the
+// detail route must be registered in THIS group or chi 404s it.
+func RegisterReportRoutes(r chi.Router, h *ReportHandlers, rec *RecipientHandlers) {
 	r.Route("/recipients/{recipientID}", func(r chi.Router) {
+		r.Get("/", HandlerFunc(rec.handleGetRecipient).Wrap())
 		r.Post("/entries", HandlerFunc(h.handleCreateEntry).Wrap())
 		r.Get("/timeline", HandlerFunc(h.handleGetTimeline).Wrap())
 	})

@@ -117,7 +117,7 @@ func NewRouter(deps Deps) http.Handler {
 				Queries: deps.Queries,
 				Pool:    deps.Pool,
 			}
-			RegisterReportRoutes(r, reportHandlers)
+			RegisterReportRoutes(r, reportHandlers, recipientHandlers)
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,
