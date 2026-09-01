@@ -32,6 +32,51 @@ func RegisterIncidentRoutes(r chi.Router, h *IncidentHandlers) {
 		r.Post("/", HandlerFunc(h.handleCreateIncident).Wrap())
 		r.Get("/", HandlerFunc(h.handleListRecipientIncidents).Wrap())
 	})
+
+	// INC-ACK (PRD §6.5 P1): owner acknowledges an incident with an optional
+	// comment. Not nested under recipients — the owner acts from the
+	// workspace-wide incident log where recipient_id is already known.
+	r.Post("/incidents/{incidentID}/acknowledge", HandlerFunc(h.handleAcknowledgeIncident).Wrap())
+}
+
+// AcknowledgeIncidentRequest is the JSON body for POST .../acknowledge.
+type AcknowledgeIncidentRequest struct {
+	Comment *string `json:"comment,omitempty"`
+}
+
+// handleAcknowledgeIncident handles POST /api/v1/incidents/{incidentID}/acknowledge.
+// Owner-only; first acknowledgment wins (409 on repeat).
+func (h *IncidentHandlers) handleAcknowledgeIncident(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if workspaceID == uuid.Nil || !ok {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace or user context"}}}
+	}
+
+	incidentID, err := uuid.Parse(chi.URLParam(r, "incidentID"))
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "incident_id", Message: "invalid UUID"}}}
+	}
+
+	// Body is optional entirely — an empty POST is a bare acknowledgment.
+	var req AcknowledgeIncidentRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
+		}
+	}
+
+	role := middleware.GetWorkspaceRole(r.Context())
+	incident, err := service.AcknowledgeIncident(r.Context(), h.Queries, workspaceID, incidentID, userID, role, req.Comment)
+	if err != nil {
+		if errors.Is(err, service.ErrIncidentNotFound) {
+			return service.ErrNotFoundTyped{Resource: "incident"}
+		}
+		return err
+	}
+
+	OK(w, ptr(toIncidentResponse(incident)))
+	return nil
 }
 
 // CreateIncidentRequest is the JSON body for POST .../incidents.
@@ -59,6 +104,10 @@ type IncidentResponse struct {
 	ActionTaken  *string   `json:"action_taken,omitempty"`
 	OccurredAt   string    `json:"occurred_at"`
 	CreatedAt    string    `json:"created_at"`
+	// INC-ACK: present once the owner has acknowledged this incident.
+	AcknowledgedBy *uuid.UUID `json:"acknowledged_by,omitempty"`
+	AcknowledgedAt *string    `json:"acknowledged_at,omitempty"`
+	AckComment     *string    `json:"ack_comment,omitempty"`
 }
 
 func toIncidentResponse(i store.Incident) IncidentResponse {
@@ -76,6 +125,17 @@ func toIncidentResponse(i store.Incident) IncidentResponse {
 	}
 	if i.ActionTaken.Valid {
 		resp.ActionTaken = &i.ActionTaken.String
+	}
+	if i.AcknowledgedBy.Valid {
+		id := uuid.UUID(i.AcknowledgedBy.Bytes)
+		resp.AcknowledgedBy = &id
+	}
+	if i.AcknowledgedAt.Valid {
+		s := i.AcknowledgedAt.Time.Format(time.RFC3339)
+		resp.AcknowledgedAt = &s
+	}
+	if i.AckComment.Valid {
+		resp.AckComment = &i.AckComment.String
 	}
 	return resp
 }
@@ -191,6 +251,17 @@ func (h *IncidentHandlers) handleListWorkspaceIncidents(w http.ResponseWriter, r
 		if row.ReporterName.Valid {
 			item.ReporterName = row.ReporterName.String
 		}
+		if row.AcknowledgedBy.Valid {
+			id := uuid.UUID(row.AcknowledgedBy.Bytes)
+			item.AcknowledgedBy = &id
+		}
+		if row.AcknowledgedAt.Valid {
+			s := row.AcknowledgedAt.Time.Format(time.RFC3339)
+			item.AcknowledgedAt = &s
+		}
+		if row.AckComment.Valid {
+			item.AckComment = &row.AckComment.String
+		}
 		resp = append(resp, item)
 	}
 
@@ -249,6 +320,17 @@ func (h *IncidentHandlers) handleListRecipientIncidents(w http.ResponseWriter, r
 		}
 		if row.ReporterName.Valid {
 			item.ReporterName = row.ReporterName.String
+		}
+		if row.AcknowledgedBy.Valid {
+			id := uuid.UUID(row.AcknowledgedBy.Bytes)
+			item.AcknowledgedBy = &id
+		}
+		if row.AcknowledgedAt.Valid {
+			s := row.AcknowledgedAt.Time.Format(time.RFC3339)
+			item.AcknowledgedAt = &s
+		}
+		if row.AckComment.Valid {
+			item.AckComment = &row.AckComment.String
 		}
 		resp = append(resp, item)
 	}

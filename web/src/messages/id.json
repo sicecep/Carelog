@@ -228,7 +228,13 @@
       "medium": "Sedang",
       "high": "Tinggi",
       "emergency": "Darurat"
-    }
+    },
+    "acknowledge": "Konfirmasi",
+    "acknowledged": "Sudah dikonfirmasi",
+    "ackCommentPlaceholder": "Tambahkan komentar untuk pengasuh (opsional)",
+    "ackCancel": "Batal",
+    "ackSubmitting": "Menyimpan...",
+    "ackErrorGeneric": "Gagal mengonfirmasi insiden ini. Silakan coba lagi."
   },
   "incidentsheet": {
     "title": "Catat Insiden",

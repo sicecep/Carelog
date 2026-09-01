@@ -4,10 +4,20 @@
 // phosphor-react icons read IconContext via useContext, which Server
 // Components can't call. All data arrives as props from the server page.
 
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Baby, User, Users, Heart, WarningCircle, WhatsappLogo } from "phosphor-react";
+import {
+  Baby,
+  User,
+  Users,
+  Heart,
+  WarningCircle,
+  WhatsappLogo,
+  CheckCircle,
+} from "phosphor-react";
 import { CARE_TYPES, MODULES, type CareType, type Module } from "@/lib/constants.generated";
-import type { Incident, Recipient, ReportEntry } from "@/lib/api-client";
+import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 
 const careTypeIcons = {
@@ -88,7 +98,109 @@ export function DetailHeader({ recipient }: { recipient: Recipient }) {
   );
 }
 
-export function IncidentList({ incidents }: { incidents: Incident[] }) {
+// INC-ACK (PRD §6.5): owner-only acknowledge with an optional comment. A tiny
+// inline form rather than a sheet — this is a lightweight, single-field action
+// invoked directly from the timeline card.
+function AckButton({
+  incident,
+  workspaceId,
+}: {
+  incident: Incident;
+  workspaceId: string;
+}) {
+  const t = useTranslations("incidents");
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAcknowledge = useCallback(async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await incidentApi.acknowledge(workspaceId, incident.id, {
+        comment: comment.trim() || undefined,
+      });
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : t("ackErrorGeneric"));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [comment, workspaceId, incident.id, router, t]);
+
+  if (incident.acknowledged_at) {
+    return (
+      <div className="mt-3 flex items-start gap-2 rounded-lg bg-[var(--color-accent-soft)] px-3 py-2 text-sm text-[var(--color-accent-ink)]">
+        <CheckCircle size={18} weight="fill" aria-hidden="true" className="mt-0.5 shrink-0" />
+        <div>
+          <p className="font-medium">{t("acknowledged")}</p>
+          {incident.ack_comment && <p className="mt-0.5">{incident.ack_comment}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+      >
+        <CheckCircle size={20} weight="regular" aria-hidden="true" />
+        <span>{t("acknowledge")}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <textarea
+        rows={2}
+        maxLength={500}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder={t("ackCommentPlaceholder")}
+        className="input-base w-full resize-y py-2 text-sm"
+      />
+      {error && (
+        <p role="alert" className="text-sm text-[var(--color-error-ink)]">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="btn-base btn-secondary touch-target flex-1 text-sm"
+        >
+          {t("ackCancel")}
+        </button>
+        <button
+          type="button"
+          onClick={handleAcknowledge}
+          disabled={submitting}
+          className="btn-base btn-primary touch-target flex-1 text-sm disabled:opacity-50"
+        >
+          {submitting ? t("ackSubmitting") : t("acknowledge")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function IncidentList({
+  incidents,
+  isOwner,
+  workspaceId,
+}: {
+  incidents: Incident[];
+  isOwner?: boolean;
+  workspaceId?: string;
+}) {
   const tIncidents = useTranslations("incidents");
   const tSheet = useTranslations("incidentsheet");
   if (incidents.length === 0) return null;
@@ -147,6 +259,10 @@ export function IncidentList({ incidents }: { incidents: Incident[] }) {
                   <span>{tSheet("shareWhatsApp")}</span>
                 </a>
               )}
+              {/* INC-ACK: owner-only acknowledgment, PRD §6.5 P1. */}
+              {isOwner && workspaceId && (
+                <AckButton incident={incident} workspaceId={workspaceId} />
+              )}
             </div>
           </li>
         );
@@ -158,9 +274,13 @@ export function IncidentList({ incidents }: { incidents: Incident[] }) {
 export function TimelineList({
   entries,
   incidents,
+  isOwner,
+  workspaceId,
 }: {
   entries: ReportEntry[];
   incidents: Incident[];
+  isOwner?: boolean;
+  workspaceId?: string;
 }) {
   const t = useTranslations("recipients");
   const tOnboarding = useTranslations("onboarding");
@@ -177,7 +297,7 @@ export function TimelineList({
   return (
     <div className="space-y-6">
       {/* RPT-001.6: incidents pinned above the day's entries. */}
-      <IncidentList incidents={incidents} />
+      <IncidentList incidents={incidents} isOwner={isOwner} workspaceId={workspaceId} />
 
       {entries.length > 0 && (
         <ul className="space-y-3">

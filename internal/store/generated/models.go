@@ -55,16 +55,19 @@ type DailyReport struct {
 }
 
 type Incident struct {
-	ID          uuid.UUID          `json:"id"`
-	WorkspaceID uuid.UUID          `json:"workspace_id"`
-	RecipientID uuid.UUID          `json:"recipient_id"`
-	ReporterID  uuid.UUID          `json:"reporter_id"`
-	Type        string             `json:"type"`
-	Severity    string             `json:"severity"`
-	Description string             `json:"description"`
-	ActionTaken pgtype.Text        `json:"action_taken"`
-	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID             uuid.UUID          `json:"id"`
+	WorkspaceID    uuid.UUID          `json:"workspace_id"`
+	RecipientID    uuid.UUID          `json:"recipient_id"`
+	ReporterID     uuid.UUID          `json:"reporter_id"`
+	Type           string             `json:"type"`
+	Severity       string             `json:"severity"`
+	Description    string             `json:"description"`
+	ActionTaken    pgtype.Text        `json:"action_taken"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
+	AcknowledgedBy pgtype.UUID        `json:"acknowledged_by"`
+	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
+	AckComment     pgtype.Text        `json:"ack_comment"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type PlanConfig struct {

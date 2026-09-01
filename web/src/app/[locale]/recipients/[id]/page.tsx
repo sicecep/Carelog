@@ -31,6 +31,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   let entries: ReportEntry[] = [];
   let incidents: Incident[] = [];
   let workspaceId: string | null = null;
+  let isOwner = false;
   let redirectToLogin = false;
   let notFound = false;
   let loadFailed = false;
@@ -41,6 +42,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
       me.data?.workspaces.find((w) => w.active) ?? me.data?.workspaces[0] ?? null;
     if (!workspace) redirect(`/${locale}/dashboard`);
     workspaceId = workspace.id;
+    isOwner = workspace.role === "owner";
 
     const res = await recipientApi.get(workspace.id, id, forwarded);
     recipient = res.data;
@@ -111,7 +113,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
               >
                 {t("detailTimelineHeading")}
               </h2>
-              <TimelineList entries={entries} incidents={incidents} />
+              <TimelineList entries={entries} incidents={incidents} isOwner={isOwner} workspaceId={workspaceId!} />
             </section>
 
             {workspaceId && (

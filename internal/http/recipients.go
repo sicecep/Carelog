@@ -199,7 +199,7 @@ func (h *RecipientHandlers) handleGetRecipient(w http.ResponseWriter, r *http.Re
 		WorkspaceID: workspaceID,
 	})
 	if err != nil {
-		return service.ErrRecipientNotFound
+		return service.ErrNotFoundTyped{Resource: "recipient"}
 	}
 
 	OK(w, ptr(toRecipientResponse(recipient)))

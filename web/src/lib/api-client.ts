@@ -225,6 +225,10 @@ export interface Incident {
   action_taken?: string;
   occurred_at: string;
   created_at: string;
+  // INC-ACK: present once the owner has acknowledged this incident.
+  acknowledged_by?: string;
+  acknowledged_at?: string;
+  ack_comment?: string;
 }
 
 export const incidentApi = {
@@ -271,6 +275,16 @@ export const incidentApi = {
     }
   ) =>
     api.post<Incident>(`/api/v1/recipients/${recipientId}/incidents`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/incidents/{id}/acknowledge - INC-ACK (PRD §6.5).
+  acknowledge: (
+    workspaceId: string,
+    incidentId: string,
+    body: { comment?: string }
+  ) =>
+    api.post<Incident>(`/api/v1/incidents/${incidentId}/acknowledge`, body, {
       "X-Workspace-ID": workspaceId,
     }),
 };

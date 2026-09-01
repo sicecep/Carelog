@@ -228,7 +228,13 @@
       "medium": "Medium",
       "high": "High",
       "emergency": "Emergency"
-    }
+    },
+    "acknowledge": "Acknowledge",
+    "acknowledged": "Acknowledged",
+    "ackCommentPlaceholder": "Add a comment for the caregiver (optional)",
+    "ackCancel": "Cancel",
+    "ackSubmitting": "Saving...",
+    "ackErrorGeneric": "Could not acknowledge this incident. Please try again."
   },
   "incidentsheet": {
     "title": "Report Incident",

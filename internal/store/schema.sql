@@ -111,6 +111,9 @@ CREATE TABLE incidents (
     description     TEXT NOT NULL CHECK (char_length(description) >= 20 AND char_length(description) <= 1000),
     action_taken    TEXT CHECK (char_length(action_taken) <= 500),
     occurred_at     TIMESTAMPTZ NOT NULL,
+    acknowledged_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    acknowledged_at TIMESTAMPTZ,
+    ack_comment     TEXT CHECK (char_length(ack_comment) <= 500),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

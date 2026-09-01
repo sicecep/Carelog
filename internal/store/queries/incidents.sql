@@ -49,3 +49,16 @@ RETURNING *;
 -- Scoped by workspace_id for tenant safety.
 DELETE FROM incidents
 WHERE id = $1 AND workspace_id = $2;
+
+-- name: AcknowledgeIncident :one
+-- INC-ACK (PRD §6.5): owner acknowledges an incident with an optional comment.
+-- Idempotency guard: acknowledged_at IS NULL — the first acknowledgment wins,
+-- a second attempt matches zero rows and surfaces as no-rows to the caller.
+-- Scoped by workspace_id for tenant safety.
+UPDATE incidents
+SET
+    acknowledged_by = $3,
+    acknowledged_at = now(),
+    ack_comment = $4
+WHERE id = $1 AND workspace_id = $2 AND acknowledged_at IS NULL
+RETURNING *;

@@ -11,6 +11,11 @@ import (
 )
 
 type Querier interface {
+	// INC-ACK (PRD §6.5): owner acknowledges an incident with an optional comment.
+	// Idempotency guard: acknowledged_at IS NULL — the first acknowledgment wins,
+	// a second attempt matches zero rows and surfaces as no-rows to the caller.
+	// Scoped by workspace_id for tenant safety.
+	AcknowledgeIncident(ctx context.Context, arg AcknowledgeIncidentParams) (Incident, error)
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) error
 	CareRecipientExistsInWorkspace(ctx context.Context, arg CareRecipientExistsInWorkspaceParams) (bool, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
