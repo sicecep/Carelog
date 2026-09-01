@@ -206,7 +206,10 @@
         "rash": "Ruam",
         "normal": "Normal"
       }
-    }
+    },
+    "notePlaceholder": "Apa yang ingin dicatat?",
+    "noteSave": "Simpan catatan",
+    "noteSaving": "Menyimpan..."
   },
   "incidents": {
     "title": "Insiden",
