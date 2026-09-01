@@ -5,10 +5,20 @@ import type { CareType, Module, LogCategory } from "./constants.generated";
 import type { LogSubcategory } from "./log-subcategories";
 
 // Paths are proxied through /api/* to the Go backend by next.config.ts
-// rewrites. Using a relative base means the browser always calls the same
-// origin it loaded the page from — critical when accessed via Tailscale IP
-// or from a phone, where "localhost" would resolve to the device itself.
-const API_BASE = "";
+// rewrites. In the browser a relative base is correct — the request resolves
+// against whatever origin loaded the page (critical when accessed via
+// Tailscale IP or from a phone, where "localhost" would resolve to the
+// device itself). But this module also runs server-side (Server Components
+// call it during SSR), and Node's fetch cannot resolve a relative URL — there
+// is no window.location to anchor it to, so it throws
+// "Failed to parse URL from /api/v1/...". Server-side calls need an absolute
+// origin; API_INTERNAL_URL lets that differ from the public-facing API base
+// (e.g. talking to the Go container directly instead of bouncing back out
+// through Tailscale).
+const API_BASE =
+  typeof window === "undefined"
+    ? process.env.API_INTERNAL_URL || process.env.API_PROXY_TARGET || "http://localhost:8080"
+    : "";
 
 export interface Envelope<T> {
   data: T | null;
@@ -149,11 +159,31 @@ export const recipientApi = {
       "X-Workspace-ID": workspaceId,
     }),
 
+  // GET /api/v1/recipients/{id} - Fetch a single recipient (detail page).
+  get: (workspaceId: string, recipientId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Recipient>(`/api/v1/recipients/${recipientId}`, {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
   // POST /api/v1/recipients - Create a recipient (used by the onboarding wizard).
   create: (
     workspaceId: string,
     body: { full_name: string; care_type: CareType; enabled_modules: Module[] }
   ) => api.post<Recipient>("/api/v1/recipients", body, { "X-Workspace-ID": workspaceId }),
+
+  // GET /api/v1/recipients/{recipientID}/timeline?date=YYYY-MM-DD - unified
+  // day timeline merging all contributors' entries (RPT-001).
+  getTimeline: (
+    workspaceId: string,
+    recipientId: string,
+    date?: string,
+    extraHeaders?: Record<string, string>
+  ) =>
+    api.get<ReportEntry[]>(
+      `/api/v1/recipients/${recipientId}/timeline${date ? `?date=${date}` : ""}`,
+      { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
 
   // POST /api/v1/recipients/{recipientID}/entries - Add a log entry.
   createEntry: (

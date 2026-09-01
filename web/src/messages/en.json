@@ -106,7 +106,14 @@
       "infant": "Infant",
       "elderly": "Elderly",
       "patient": "Patient"
-    }
+    },
+    "detailBack": "Back to dashboard",
+    "detailTimelineHeading": "Today's timeline",
+    "detailTimelineEmpty": "No entries logged today yet.",
+    "detailIncidentsHeading": "Today's incidents",
+    "detailNotFoundTitle": "Recipient not found",
+    "detailNotFoundBody": "This care recipient does not exist or you don't have access to it.",
+    "detailLoadError": "Could not load this recipient. Please try again."
   },
   "reports": {
     "title": "Daily Reports",
@@ -242,10 +249,22 @@
     "urgentNotifyTitle": "URGENT INCIDENT",
     "urgentNotifyBody": "High/emergency incident report submitted. Owner will receive push notification & email immediately.",
     "severity": {
-      "low": { "label": "Low", "desc": "Log only, not urgent" },
-      "medium": { "label": "Medium", "desc": "Owner needs to know soon" },
-      "high": { "label": "High", "desc": "Emergency — owner & 911 contacted" },
-      "emergency": { "label": "EMERGENCY", "desc": "CALL 911 NOW" }
+      "low": {
+        "label": "Low",
+        "desc": "Log only, not urgent"
+      },
+      "medium": {
+        "label": "Medium",
+        "desc": "Owner needs to know soon"
+      },
+      "high": {
+        "label": "High",
+        "desc": "Emergency — owner & 911 contacted"
+      },
+      "emergency": {
+        "label": "EMERGENCY",
+        "desc": "CALL 911 NOW"
+      }
     }
   },
   "settings": {

@@ -180,7 +180,35 @@ func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.
 	return nil
 }
 
+// handleGetRecipient handles GET /api/v1/recipients/{recipientID}.
+//
+// NOTE: registered inside the shared "/recipients/{recipientID}" route group
+// (see RegisterReportRoutes) because chi's param mount there shadows any
+// sibling "/recipients" subrouter pattern — a "/{id}" route in
+// RegisterRecipientRoutes would never match.
+func (h *RecipientHandlers) handleGetRecipient(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+
+	recipientID, err := uuid.Parse(chi.URLParam(r, "recipientID"))
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "id", Message: "invalid recipient ID"}}}
+	}
+
+	recipient, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		return service.ErrRecipientNotFound
+	}
+
+	OK(w, ptr(toRecipientResponse(recipient)))
+	return nil
+}
+
 // RegisterRecipientRoutes registers recipient endpoints on the given router.
+// The single-recipient GET lives in the "/recipients/{recipientID}" group in
+// RegisterReportRoutes to avoid a chi pattern conflict.
 func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
 	r.Route("/recipients", func(r chi.Router) {
 		r.Post("/", HandlerFunc(h.handleCreateRecipient).Wrap())

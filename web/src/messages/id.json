@@ -106,7 +106,14 @@
       "infant": "Bayi",
       "elderly": "Lansia",
       "patient": "Pasien"
-    }
+    },
+    "detailBack": "Kembali ke dasbor",
+    "detailTimelineHeading": "Linimasa hari ini",
+    "detailTimelineEmpty": "Belum ada catatan hari ini.",
+    "detailIncidentsHeading": "Insiden hari ini",
+    "detailNotFoundTitle": "Penerima perawatan tidak ditemukan",
+    "detailNotFoundBody": "Penerima perawatan ini tidak ada atau Anda tidak memiliki akses.",
+    "detailLoadError": "Gagal memuat data penerima perawatan. Silakan coba lagi."
   },
   "reports": {
     "title": "Laporan Harian",
@@ -242,10 +249,22 @@
     "urgentNotifyTitle": "INSIDEN URGENT",
     "urgentNotifyBody": "Laporan insiden tingkat tinggi/darurat telah dikirim. Owner akan mendapat notifikasi push & email segera.",
     "severity": {
-      "low": { "label": "Rendah", "desc": "Perlu dicatat, tidak mendesak" },
-      "medium": { "label": "Sedang", "desc": "Owner perlu tahu segera" },
-      "high": { "label": "Tinggi", "desc": "Darurat — owner & 112 segera dihubungi" },
-      "emergency": { "label": "DARURAT", "desc": "Panggil 119/112 SEKARANG" }
+      "low": {
+        "label": "Rendah",
+        "desc": "Perlu dicatat, tidak mendesak"
+      },
+      "medium": {
+        "label": "Sedang",
+        "desc": "Owner perlu tahu segera"
+      },
+      "high": {
+        "label": "Tinggi",
+        "desc": "Darurat — owner & 112 segera dihubungi"
+      },
+      "emergency": {
+        "label": "DARURAT",
+        "desc": "Panggil 119/112 SEKARANG"
+      }
     }
   },
   "settings": {
