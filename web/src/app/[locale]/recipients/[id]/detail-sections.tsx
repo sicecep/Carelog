@@ -5,9 +5,10 @@
 // Components can't call. All data arrives as props from the server page.
 
 import { useTranslations } from "next-intl";
-import { Baby, User, Users, Heart, WarningCircle } from "phosphor-react";
+import { Baby, User, Users, Heart, WarningCircle, WhatsappLogo } from "phosphor-react";
 import { CARE_TYPES, MODULES, type CareType, type Module } from "@/lib/constants.generated";
 import type { Incident, Recipient, ReportEntry } from "@/lib/api-client";
+import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 
 const careTypeIcons = {
   infant: Baby,
@@ -89,43 +90,67 @@ export function DetailHeader({ recipient }: { recipient: Recipient }) {
 
 export function IncidentList({ incidents }: { incidents: Incident[] }) {
   const tIncidents = useTranslations("incidents");
+  const tSheet = useTranslations("incidentsheet");
   if (incidents.length === 0) return null;
 
   return (
     <ul className="space-y-3">
-      {incidents.map((incident) => (
-        <li key={incident.id} className="card flex items-start gap-3">
-          <WarningCircle
-            size={24}
-            weight="fill"
-            aria-hidden="true"
-            className={
-              incident.severity === "low" ? "text-amber-500" : "text-red-600"
-            }
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-[var(--color-text)]">
-                {tIncidents(`types.${incident.type}`)}
-              </span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityStyles[incident.severity]}`}
-              >
-                {tIncidents(`severities.${incident.severity}`)}
-              </span>
-              <span className="ml-auto text-sm text-[var(--color-text-muted)]">
-                {formatTime(incident.occurred_at)}
-              </span>
+      {incidents.map((incident) => {
+        // INC-003: owners re-share urgent incidents into the family WhatsApp
+        // group straight from the timeline.
+        const urgent = incident.severity === "high" || incident.severity === "emergency";
+        return (
+          <li key={incident.id} className="card flex items-start gap-3">
+            <WarningCircle
+              size={24}
+              weight="fill"
+              aria-hidden="true"
+              className={
+                incident.severity === "low" ? "text-amber-500" : "text-red-600"
+              }
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-[var(--color-text)]">
+                  {tIncidents(`types.${incident.type}`)}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityStyles[incident.severity]}`}
+                >
+                  {tIncidents(`severities.${incident.severity}`)}
+                </span>
+                <span className="ml-auto text-sm text-[var(--color-text-muted)]">
+                  {formatTime(incident.occurred_at)}
+                </span>
+              </div>
+              <p className="mt-1 text-base text-[var(--color-text)]">{incident.description}</p>
+              {incident.reporter_name && (
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                  {incident.reporter_name}
+                </p>
+              )}
+              {urgent && (
+                <a
+                  href={buildWhatsAppShareUrl(
+                    tSheet("shareMessage", {
+                      type: tIncidents(`types.${incident.type}`),
+                      severity: tIncidents(`severities.${incident.severity}`),
+                      description: incident.description,
+                      action: incident.action_taken || "-",
+                    })
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                >
+                  <WhatsappLogo size={20} weight="fill" aria-hidden="true" />
+                  <span>{tSheet("shareWhatsApp")}</span>
+                </a>
+              )}
             </div>
-            <p className="mt-1 text-base text-[var(--color-text)]">{incident.description}</p>
-            {incident.reporter_name && (
-              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                {incident.reporter_name}
-              </p>
-            )}
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }

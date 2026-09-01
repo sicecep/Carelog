@@ -11,6 +11,7 @@ import {
   type Recipient,
   type ReportEntry,
 } from "@/lib/api-client";
+import { DetailActions } from "./detail-actions";
 import { DetailHeader, TimelineList } from "./detail-sections";
 
 interface RecipientPageProps {
@@ -29,6 +30,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   let recipient: Recipient | null = null;
   let entries: ReportEntry[] = [];
   let incidents: Incident[] = [];
+  let workspaceId: string | null = null;
   let redirectToLogin = false;
   let notFound = false;
   let loadFailed = false;
@@ -38,6 +40,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
     const workspace =
       me.data?.workspaces.find((w) => w.active) ?? me.data?.workspaces[0] ?? null;
     if (!workspace) redirect(`/${locale}/dashboard`);
+    workspaceId = workspace.id;
 
     const res = await recipientApi.get(workspace.id, id, forwarded);
     recipient = res.data;
@@ -83,7 +86,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:px-6">
         {notFound || (!recipient && !loadFailed) ? (
           <div className="card px-6 py-12 text-center">
             <h1 className="text-xl font-medium text-[var(--color-text)]">
@@ -110,6 +113,10 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
               </h2>
               <TimelineList entries={entries} incidents={incidents} />
             </section>
+
+            {workspaceId && (
+              <DetailActions recipientId={recipient.id} workspaceId={workspaceId} />
+            )}
           </>
         ) : null}
       </main>

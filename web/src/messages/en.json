@@ -265,7 +265,11 @@
         "label": "EMERGENCY",
         "desc": "CALL 911 NOW"
       }
-    }
+    },
+    "sharePrompt": "Share this urgent report with the family?",
+    "shareWhatsApp": "Share via WhatsApp",
+    "shareSkip": "Done, close",
+    "shareMessage": "🚨 CareLog URGENT INCIDENT\nType: {type}\nSeverity: {severity}\n\nWhat happened:\n{description}\n\nAction taken:\n{action}"
   },
   "settings": {
     "title": "Settings",
