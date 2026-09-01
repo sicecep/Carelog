@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { X, Warning, WarningCircle, WarningOctagon } from "phosphor-react";
+import { X, Warning, WarningCircle, WarningOctagon, WhatsappLogo } from "phosphor-react";
 import { cn } from "@/lib/utils";
 import {
   APIError,
@@ -20,6 +20,14 @@ interface IncidentSheetProps {
   workspaceId: string;
   /** Called after a successful save so the parent can refresh the incident list. */
   onLogged?: (incident: Incident) => void;
+}
+
+// Build the WhatsApp share deep link for high/emergency incidents (INC-003).
+// wa.me with a prefilled text opens the user's WhatsApp with the report ready
+// to forward to the family group — WhatsApp is the coordination channel this
+// product replaces, so urgent incidents must flow back into it.
+export function buildWhatsAppShareUrl(text: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
 type Step = "severity" | "details" | "success";
@@ -122,6 +130,9 @@ export function IncidentSheet({
   const [actionTaken, setActionTaken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set only for high/emergency saves: drives the WhatsApp share block on the
+  // success step (INC-003).
+  const [savedIncident, setSavedIncident] = useState<Incident | null>(null);
 
   const reset = useCallback(() => {
     setStep("severity");
@@ -131,6 +142,7 @@ export function IncidentSheet({
     setActionTaken("");
     setSubmitting(false);
     setError(null);
+    setSavedIncident(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -167,10 +179,15 @@ export function IncidentSheet({
       // are often mid-crisis and will not read a subtle toast.
       if (severity === "high" || severity === "emergency") {
         void notifyUrgent(t("urgentNotifyTitle"), t("urgentNotifyBody"));
+        // INC-003: keep the sheet open on the success step so the caregiver
+        // can forward the report to the family WhatsApp group. No auto-close —
+        // dismissing an urgent share by timeout would lose the handoff moment.
+        setSavedIncident(res.data);
+        setStep("success");
+      } else {
+        setStep("success");
+        setTimeout(handleClose, 1500);
       }
-
-      setStep("success");
-      setTimeout(handleClose, 1500);
     } catch (err) {
       setError(err instanceof APIError ? err.message : t("errorGeneric"));
     } finally {
@@ -341,8 +358,42 @@ export function IncidentSheet({
         )}
 
         {step === "success" && (
-          <div className="toast-success flex items-center gap-2 py-4" role="status">
-            <span className="text-lg font-medium">{t("submitted")}</span>
+          <div className="space-y-4 py-2">
+            <div className="toast-success flex items-center gap-2 py-4" role="status">
+              <span className="text-lg font-medium">{t("submitted")}</span>
+            </div>
+
+            {/* INC-003: WhatsApp handoff for high/emergency. Anchor (not
+                button) so the wa.me deep link works with the OS app chooser;
+                message text is built client-side in the caregiver's locale. */}
+            {savedIncident && (
+              <div className="space-y-3">
+                <p className="text-base text-[var(--color-text)]">{t("sharePrompt")}</p>
+                <a
+                  href={buildWhatsAppShareUrl(
+                    t("shareMessage", {
+                      type: tIncidents(`types.${savedIncident.type}`),
+                      severity: tIncidents(`severities.${savedIncident.severity}`),
+                      description: savedIncident.description,
+                      action: savedIncident.action_taken || "-",
+                    })
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-base touch-target flex min-h-[56px] w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] text-base font-semibold text-white hover:opacity-90"
+                >
+                  <WhatsappLogo size={24} weight="fill" aria-hidden="true" />
+                  <span>{t("shareWhatsApp")}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="btn-base btn-secondary touch-target w-full"
+                >
+                  {t("shareSkip")}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

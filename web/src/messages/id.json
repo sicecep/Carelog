@@ -265,7 +265,11 @@
         "label": "DARURAT",
         "desc": "Panggil 119/112 SEKARANG"
       }
-    }
+    },
+    "sharePrompt": "Bagikan laporan darurat ini ke keluarga?",
+    "shareWhatsApp": "Bagikan via WhatsApp",
+    "shareSkip": "Selesai, tutup",
+    "shareMessage": "🚨 CareLog INSIDEN DARURAT\nJenis: {type}\nTingkat: {severity}\n\nApa yang terjadi:\n{description}\n\nTindakan yang diambil:\n{action}"
   },
   "settings": {
     "title": "Pengaturan",
