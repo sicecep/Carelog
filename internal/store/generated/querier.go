@@ -18,6 +18,13 @@ type Querier interface {
 	AcknowledgeIncident(ctx context.Context, arg AcknowledgeIncidentParams) (Incident, error)
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) error
 	CareRecipientExistsInWorkspace(ctx context.Context, arg CareRecipientExistsInWorkspaceParams) (bool, error)
+	// SFT-001: caregiver starts a shift. No open-shift check here — the service
+	// layer enforces "one active shift per caregiver" before calling this.
+	CheckInShift(ctx context.Context, arg CheckInShiftParams) (Shift, error)
+	// SFT-002: ends the caregiver's active shift with an optional handoff note.
+	// Scoped by workspace_id + caregiver_id so a caregiver can only close their
+	// own shift, and only while it is still open.
+	CheckOutShift(ctx context.Context, arg CheckOutShiftParams) (Shift, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
 	// Single-use is enforced here, not in Go: the predicate and the write are one
 	// statement, so two concurrent verifications of the same link cannot both win.
@@ -45,6 +52,9 @@ type Querier interface {
 	DeleteIncident(ctx context.Context, arg DeleteIncidentParams) error
 	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
+	// The caregiver's currently open shift (checked_out_at IS NULL), if any.
+	// Scoped by workspace_id for tenant safety.
+	GetActiveShift(ctx context.Context, arg GetActiveShiftParams) (Shift, error)
 	GetCareRecipient(ctx context.Context, arg GetCareRecipientParams) (CareRecipient, error)
 	GetDailyReport(ctx context.Context, arg GetDailyReportParams) (DailyReport, error)
 	// Keyed by (recipient_id, report_date, contributor_id) to match the unique constraint.
@@ -55,6 +65,9 @@ type Querier interface {
 	GetDailyReportByDateAndWorkspace(ctx context.Context, arg GetDailyReportByDateAndWorkspaceParams) (DailyReport, error)
 	// Scoped by workspace_id for tenant safety.
 	GetIncident(ctx context.Context, arg GetIncidentParams) (Incident, error)
+	// SFT-003: most recently completed shift in the workspace (any caregiver),
+	// used to build the "Handoff from [Name]" banner for the next check-in.
+	GetLastCompletedShiftForWorkspace(ctx context.Context, workspaceID uuid.UUID) (GetLastCompletedShiftForWorkspaceRow, error)
 	GetMagicLinkByHash(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
 	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
@@ -85,6 +98,9 @@ type Querier interface {
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
 	ListReportEntriesByRecipientAndDate(ctx context.Context, arg ListReportEntriesByRecipientAndDateParams) ([]ListReportEntriesByRecipientAndDateRow, error)
+	// SFT-004: owner's shift history, filterable by caregiver and date range.
+	// sqlc.narg lets each filter be optional independently.
+	ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
 	ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]Workspace, error)
 	// LOG-004 / RPT-007: queries backing the 17:00 WIB daily email digest.

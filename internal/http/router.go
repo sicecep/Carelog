@@ -123,6 +123,12 @@ func NewRouter(deps Deps) http.Handler {
 				Queries: deps.Queries,
 			}
 			RegisterIncidentRoutes(r, incidentHandlers)
+
+			shiftHandlers := &ShiftHandlers{
+				Queries: deps.Queries,
+				Pool:    deps.Pool,
+			}
+			RegisterShiftRoutes(r, shiftHandlers)
 		})
 	})
 

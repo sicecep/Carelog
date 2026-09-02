@@ -9,8 +9,7 @@ import (
 	"net/http"
 )
 
-// HandlerFunc is a handler that returns an error. The middleware chain will
-// convert the error to an appropriate HTTP response.
+// HandlerFunc is a handler that returns an error.
 type HandlerFunc func(w http.ResponseWriter, r *http.Request) error
 
 // ServeHTTP implements http.Handler by calling the function and mapping any
