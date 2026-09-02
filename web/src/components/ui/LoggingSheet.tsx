@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { X, CheckCircle, Clock } from "phosphor-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { type LogCategory } from "@/lib/constants.generated";
 import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories";
 import { recipientApi, APIError } from "@/lib/api-client";
 import { CategoryGrid } from "./CategoryGrid";
+import { buildBackfillOptions, type BackfillOption } from "@/lib/backfill";
 
 interface LoggingSheetProps {
   /** Whether the sheet is open. Controlled by the parent (e.g. a FAB). */
@@ -19,19 +20,10 @@ interface LoggingSheetProps {
   onLogged?: () => void;
 }
 
-type Step = "category" | "subcategory";
+type Step = "category" | "subcategory" | "backfill";
 
 const NOTE_MAX = 500;
 
-/**
- * Bottom sheet driving the "zero-typing" quick-tap logging flow (LOG-002):
- * 1. Caregiver taps a category (Meal, Meds, Sleep, ...).
- * 2. Sheet reveals subcategory chips for that category (if any exist).
- * 3. Tapping a chip immediately POSTs the entry with occurred_at = now().
- *
- * Attribution (contributor id/name/role) is derived server-side from the
- * session cookie — this component never sends a contributor field.
- */
 export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged }: LoggingSheetProps) {
   const t = useTranslations("logging");
   const tCategories = useTranslations("reports.categories");
@@ -39,10 +31,15 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   const [step, setStep] = useState<Step>("category");
   const [category, setCategory] = useState<LogCategory | null>(null);
-  const [submitting, setSubmitting] = useState<string | null>(null); // subcategory id or "__text__"
+  const [submitting, setSubmitting] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState(""); // Free-text note input
+  const [noteText, setNoteText] = useState("");
+  const [occurredAt, setOccurredAt] = useState<Date | undefined>(undefined);
+  const [backfillMode, setBackfillMode] = useState(false);
+  const [pendingSub, setPendingSub] = useState<LogSubcategory | undefined>(undefined);
+
+  const backfillOptions = useMemo(() => buildBackfillOptions(), []);
 
   const reset = useCallback(() => {
     setStep("category");
@@ -51,6 +48,9 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setSuccess(false);
     setError(null);
     setNoteText("");
+    setOccurredAt(undefined);
+    setBackfillMode(false);
+    setPendingSub(undefined);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -59,18 +59,15 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   }, [reset, onClose]);
 
   const submitEntry = useCallback(
-    async (cat: LogCategory, sub: LogSubcategory | undefined, text?: string) => {
+    async (cat: LogCategory, sub: LogSubcategory | undefined, text?: string, time?: Date) => {
       setSubmitting(sub ?? (text ? "__text__" : "__none__"));
       setError(null);
       try {
-        // occurred_at is auto-filled to NOW() — zero typing means zero manual
-        // timestamp entry too. Attribution (contributor) is handled entirely
-        // server-side via the session cookie; we never send it here.
         await recipientApi.createEntry(workspaceId, recipientId, {
           category: cat,
           subcategory: sub,
           value_text: text,
-          occurred_at: new Date().toISOString(),
+          occurred_at: (time ?? occurredAt ?? new Date()).toISOString(),
         });
         setSuccess(true);
         onLogged?.();
@@ -83,7 +80,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
         setSubmitting(null);
       }
     },
-    [workspaceId, recipientId, onLogged, handleClose, t]
+    [workspaceId, recipientId, onLogged, handleClose, t, occurredAt]
   );
 
   const handleCategorySelect = useCallback((cat: LogCategory) => {
@@ -91,15 +88,32 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setError(null);
     const subs = LOG_SUBCATEGORIES[cat] ?? [];
     if (cat === "note") {
-      // Direct to textarea input step for notes
       setStep("subcategory");
     } else if (subs.length === 0) {
-      // No sub-classification for this category — log immediately.
-      void submitEntry(cat, undefined);
+      if (backfillMode) {
+        setPendingSub(undefined);
+        setStep("backfill");
+      } else {
+        void submitEntry(cat, undefined);
+      }
     } else {
       setStep("subcategory");
     }
-  }, [submitEntry]);
+  }, [backfillMode, submitEntry]);
+
+  const handleSubSelect = useCallback((sub: LogSubcategory) => {
+    if (backfillMode) {
+      setPendingSub(sub);
+      setStep("backfill");
+    } else {
+      if (category) void submitEntry(category, sub);
+    }
+  }, [category, backfillMode, submitEntry]);
+
+  const handleBackfillSelect = useCallback((opt: BackfillOption) => {
+    if (!category) return;
+    void submitEntry(category, pendingSub, category === "note" ? noteText : undefined, opt.date);
+  }, [category, pendingSub, noteText, submitEntry]);
 
   if (!open) return null;
 
@@ -138,10 +152,30 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           </div>
         ) : step === "category" ? (
           <CategoryGrid onSelect={handleCategorySelect} />
+        ) : step === "backfill" ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setStep("subcategory")}
+              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+            >
+              {t("back")}
+            </button>
+            <div className="grid grid-cols-2 gap-3">
+              {backfillOptions.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  disabled={submitting !== null}
+                  onClick={() => handleBackfillSelect(opt)}
+                  className="chip touch-target flex min-h-[56px] items-center justify-center rounded-lg border-2 border-[var(--color-border)] px-3 py-3 text-base font-medium transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : category === "note" ? (
-          // Free-text step: the Note category carries no subcategories, so the
-          // entry's meaning lives entirely in value_text. Without this the tile
-          // logged an empty entry the caregiver could not fill in.
           <div>
             <button
               type="button"
@@ -151,11 +185,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
               {t("back")}
             </button>
 
-            <label htmlFor="note-text" className="sr-only">
-              {t("notePlaceholder")}
-            </label>
             <textarea
-              id="note-text"
               autoFocus
               rows={4}
               maxLength={NOTE_MAX}
@@ -168,24 +198,54 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
               {noteText.length}/{NOTE_MAX}
             </p>
 
-            <button
-              type="button"
-              disabled={submitting !== null || noteText.trim().length === 0}
-              onClick={() => submitEntry("note", undefined, noteText.trim())}
-              className="btn-base btn-primary touch-target mt-3 min-h-[56px] w-full text-base disabled:opacity-50"
-            >
-              {submitting !== null ? t("noteSaving") : t("noteSave")}
-            </button>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setBackfillMode(!backfillMode)}
+                className={cn(
+                  "flex-1 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
+                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                )}
+              >
+                {t("backfillToggle")}
+              </button>
+              <button
+                type="button"
+                disabled={submitting !== null || noteText.trim().length === 0}
+                onClick={() => {
+                  if (backfillMode) {
+                    setStep("backfill");
+                  } else {
+                    void submitEntry("note", undefined, noteText.trim());
+                  }
+                }}
+                className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
+              >
+                {submitting !== null ? t("noteSaving") : t("noteSave")}
+              </button>
+            </div>
           </div>
         ) : (
           <div>
-            <button
-              type="button"
-              onClick={() => setStep("category")}
-              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
-            >
-              {t("back")}
-            </button>
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setStep("category")}
+                className="text-sm font-medium text-[var(--color-accent)] touch-target"
+              >
+                {t("back")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBackfillMode(!backfillMode)}
+                className={cn(
+                  "rounded-full border-2 px-3 py-1 text-xs font-medium transition-all touch-target",
+                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                )}
+              >
+                {t("backfillToggle")}
+              </button>
+            </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {subcategories.map((sub) => (
@@ -193,7 +253,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                   key={sub}
                   type="button"
                   disabled={submitting !== null}
-                  onClick={() => category && submitEntry(category, sub as LogSubcategory)}
+                  onClick={() => handleSubSelect(sub as LogSubcategory)}
                   className={cn(
                     "chip touch-target flex min-h-[56px] items-center justify-center rounded-lg border-2 border-[var(--color-border)] px-3 py-3 text-base font-medium transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]",
                     submitting === sub && "opacity-60"
@@ -206,15 +266,11 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           </div>
         )}
 
-        {error && (
-          <p role="alert" className="mt-4 text-sm text-[var(--color-error-ink)]">
-            {error}
-          </p>
-        )}
+        {error && <p role="alert" className="mt-4 text-sm text-[var(--color-error-ink)]">{error}</p>}
 
         <p className="mt-4 flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
           <Clock size={14} aria-hidden="true" />
-          {t("autoTimestampHint")}
+          {backfillMode ? t("backfillHint") : t("autoTimestampHint")}
         </p>
       </div>
     </div>
