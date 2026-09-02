@@ -38,6 +38,16 @@ type CareRecipient struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CaregiverAssignment struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	RecipientID uuid.UUID          `json:"recipient_id"`
+	CaregiverID uuid.UUID          `json:"caregiver_id"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DailyReport struct {
 	ID              uuid.UUID          `json:"id"`
 	WorkspaceID     uuid.UUID          `json:"workspace_id"`
@@ -102,6 +112,17 @@ type ReportEntry struct {
 	ValueJson   []byte             `json:"value_json"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type Shift struct {
+	ID           uuid.UUID          `json:"id"`
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	CaregiverID  uuid.UUID          `json:"caregiver_id"`
+	CheckedInAt  pgtype.Timestamptz `json:"checked_in_at"`
+	CheckedOutAt pgtype.Timestamptz `json:"checked_out_at"`
+	HandoffNote  pgtype.Text        `json:"handoff_note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

@@ -160,3 +160,31 @@ CREATE TABLE auth_magic_links (
 
 CREATE INDEX idx_auth_magic_links_user ON auth_magic_links(user_id);
 CREATE INDEX idx_auth_magic_links_expires ON auth_magic_links(expires_at);
+
+-- caregiver_assignments
+CREATE TABLE caregiver_assignments (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    recipient_id UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
+    caregiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    is_active    BOOLEAN NOT NULL DEFAULT true,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (recipient_id, caregiver_id)
+);
+
+CREATE INDEX idx_caregiver_assignments_caregiver ON caregiver_assignments(caregiver_id) WHERE is_active;
+
+-- shifts
+CREATE TABLE shifts (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id   UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    caregiver_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    checked_in_at  TIMESTAMPTZ NOT NULL,
+    checked_out_at TIMESTAMPTZ,
+    handoff_note   TEXT CHECK (char_length(handoff_note) <= 500),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_shifts_caregiver_active ON shifts(caregiver_id) WHERE checked_out_at IS NULL;
