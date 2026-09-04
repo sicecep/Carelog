@@ -80,6 +80,21 @@ type Incident struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type Invitation struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	RecipientID pgtype.UUID        `json:"recipient_id"`
+	TokenHash   []byte             `json:"token_hash"`
+	InviteeName string             `json:"invitee_name"`
+	Role        string             `json:"role"`
+	InvitedBy   uuid.UUID          `json:"invited_by"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy  pgtype.UUID        `json:"consumed_by"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type ParentNote struct {
 	ID          uuid.UUID          `json:"id"`
 	WorkspaceID uuid.UUID          `json:"workspace_id"`

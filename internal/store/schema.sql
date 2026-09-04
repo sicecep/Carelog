@@ -194,7 +194,7 @@ CREATE TABLE parent_notes (
     recipient_id   UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
     note_type      TEXT NOT NULL CHECK (note_type IN ('standing', 'daily')),
     content        TEXT NOT NULL,
-    note_date      DATE, 
+    note_date      DATE,
     created_by     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -203,3 +203,23 @@ CREATE TABLE parent_notes (
 CREATE UNIQUE INDEX idx_parent_notes_standing_unique ON parent_notes(recipient_id) WHERE note_type = 'standing';
 CREATE UNIQUE INDEX idx_parent_notes_daily_unique ON parent_notes(recipient_id, note_date) WHERE note_type = 'daily';
 CREATE INDEX idx_parent_notes_recipient ON parent_notes(recipient_id);
+
+-- invitations
+CREATE TABLE invitations (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    recipient_id  UUID REFERENCES care_recipients(id) ON DELETE CASCADE,
+    token_hash    BYTEA NOT NULL UNIQUE,
+    invitee_name  TEXT NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'caregiver' CHECK (role IN ('caregiver', 'viewer')),
+    invited_by    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at    TIMESTAMPTZ NOT NULL,
+    consumed_at   TIMESTAMPTZ,
+    consumed_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at    TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_invitations_workspace ON invitations(workspace_id);
+CREATE INDEX idx_invitations_pending ON invitations(workspace_id)
+    WHERE consumed_at IS NULL AND revoked_at IS NULL;
