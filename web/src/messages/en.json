@@ -311,5 +311,12 @@
     "save": "Save Summary",
     "saving": "Saving...",
     "summaryPrefix": "Summary: "
+  },
+  "invite": {
+    "title": "Welcome to CareLog",
+    "description": "You've been invited to join a workspace as a caregiver. Tap the button below to accept and start logging care.",
+    "accept": "Accept Invitation",
+    "claiming": "Joining...",
+    "errorClaiming": "Failed to join. The link may be expired or already used."
   }
 }

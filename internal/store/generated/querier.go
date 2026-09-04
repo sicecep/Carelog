@@ -26,6 +26,10 @@ type Querier interface {
 	// own shift, and only while it is still open.
 	CheckOutShift(ctx context.Context, arg CheckOutShiftParams) (Shift, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
+	// Single-use claim. The WHERE clause is the guard: it only matches a row that
+	// is still unconsumed, unrevoked and unexpired, so a double-claim affects zero
+	// rows and returns ErrNoRows rather than granting access twice.
+	ConsumeInvitation(ctx context.Context, arg ConsumeInvitationParams) (Invitation, error)
 	// Single-use is enforced here, not in Go: the predicate and the write are one
 	// statement, so two concurrent verifications of the same link cannot both win.
 	// A miss means the link was already consumed, expired, or never existed —
@@ -38,6 +42,9 @@ type Querier interface {
 	CreateCareRecipient(ctx context.Context, arg CreateCareRecipientParams) (CareRecipient, error)
 	CreateDailyReport(ctx context.Context, arg CreateDailyReportParams) (DailyReport, error)
 	CreateIncident(ctx context.Context, arg CreateIncidentParams) (Incident, error)
+	// WRK-004: owner invites a caregiver. Only the SHA-256 hash of the token is
+	// stored (SEC-003) — the raw token exists only in the returned WhatsApp link.
+	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (AuthMagicLink, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
@@ -67,6 +74,9 @@ type Querier interface {
 	GetDailyReportByDateAndWorkspace(ctx context.Context, arg GetDailyReportByDateAndWorkspaceParams) (DailyReport, error)
 	// Scoped by workspace_id for tenant safety.
 	GetIncident(ctx context.Context, arg GetIncidentParams) (Incident, error)
+	// Public lookup used by the claim page. Returns the row regardless of state so
+	// the handler can distinguish "expired" from "already used" from "revoked".
+	GetInvitationByHash(ctx context.Context, tokenHash []byte) (GetInvitationByHashRow, error)
 	// SFT-003: most recently completed shift in the workspace (any caregiver),
 	// used to build the "Handoff from [Name]" banner for the next check-in.
 	GetLastCompletedShiftForWorkspace(ctx context.Context, workspaceID uuid.UUID) (GetLastCompletedShiftForWorkspaceRow, error)
@@ -99,6 +109,8 @@ type Querier interface {
 	// Both the persistent standing note and the note for the requested date
 	// (usually today), scoped by workspace for tenant safety.
 	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
+	// Owner-facing list of outstanding invites for the workspace.
+	ListPendingInvitations(ctx context.Context, workspaceID uuid.UUID) ([]Invitation, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
@@ -128,6 +140,9 @@ type Querier interface {
 	MarkRefreshTokenRotated(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+	// WRK-004.2: owner cancels an outstanding invite. Workspace-scoped so an owner
+	// cannot revoke another tenant's invitation.
+	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (Invitation, error)
 	// Used by logout and by reuse detection; kills every token in the lineage.
 	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
 	// Numeric roll-up (sleep minutes, medication doses) for the categories that

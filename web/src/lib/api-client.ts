@@ -289,6 +289,34 @@ export const incidentApi = {
     }),
 };
 
+// Invitations (PRD §6.1, WRK-004)
+export interface Invitation {
+  id: string;
+  workspace_id: string;
+  recipient_id?: string;
+  invitee_name: string;
+  role: "caregiver" | "viewer";
+  expires_at: string;
+  whatsapp_link?: string;
+}
+
+export const invitationApi = {
+  // POST /api/v1/invitations - Owner creates an invite
+  create: (
+    workspaceId: string,
+    body: { invitee_name: string; role: string; recipient_id?: string; whatsapp_phone?: string }
+  ) =>
+    api.post<Invitation>("/api/v1/invitations", body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // GET /api/v1/invites/{token} - Public preview
+  get: (token: string) => api.get<Invitation>(`/api/v1/invites/${token}`),
+
+  // POST /api/v1/invites/{token}/claim - Claim the invite
+  claim: (token: string) => api.post<{ workspace_id: string }>(`/api/v1/invites/${token}/claim`, {}),
+};
+
 // Workspace endpoints
 export const workspaceApi = {
   list: () => api.get<{ id: string; name: string; plan: string }[]>("/api/v1/workspaces"),

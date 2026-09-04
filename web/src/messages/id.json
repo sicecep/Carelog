@@ -311,5 +311,12 @@
     "save": "Simpan Ringkasan",
     "saving": "Menyimpan...",
     "summaryPrefix": "Ringkasan: "
+  },
+  "invite": {
+    "title": "Selamat datang di CareLog",
+    "description": "Anda telah diundang untuk bergabung ke workspace sebagai pengasuh. Ketuk tombol di bawah untuk menerima dan mulai mencatat kegiatan.",
+    "accept": "Terima Undangan",
+    "claiming": "Bergabung...",
+    "errorClaiming": "Gagal bergabung. Tautan mungkin kedaluwarsa atau sudah digunakan."
   }
 }
