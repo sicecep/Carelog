@@ -300,5 +300,16 @@
       "starter": "Starter",
       "pro": "Pro"
     }
+  },
+  "shifts": {
+    "startShift": "Start Shift",
+    "endShift": "End Shift"
+  },
+  "summarysheet": {
+    "title": "Quick Summary",
+    "hint": "What happened today?",
+    "save": "Save Summary",
+    "saving": "Saving...",
+    "summaryPrefix": "Summary: "
   }
 }

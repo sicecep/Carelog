@@ -5,6 +5,13 @@ import { useTranslations } from "next-intl";
 import { CheckCircle, FileText } from "phosphor-react";
 import { api, APIError } from "@/lib/api-client";
 
+interface ParentNote {
+  id: string;
+  note_type: "standing" | "daily";
+  content: string;
+  note_date?: string;
+}
+
 interface ParentNotesProps {
   recipientId: string;
   workspaceId: string;
@@ -21,7 +28,7 @@ export function ParentNotes({ recipientId, workspaceId }: ParentNotesProps) {
   useEffect(() => {
     const fetchNotes = async () => {
       try {
-        const res = await api.get<any[]>(`/api/v1/recipients/${recipientId}/notes`, {
+        const res = await api.get<ParentNote[]>(`/api/v1/recipients/${recipientId}/notes`, {
           "X-Workspace-ID": workspaceId,
         });
         // Parse and set notes from response

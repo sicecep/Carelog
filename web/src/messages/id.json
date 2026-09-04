@@ -300,5 +300,16 @@
       "starter": "Starter",
       "pro": "Pro"
     }
+  },
+  "shifts": {
+    "startShift": "Mulai Shift",
+    "endShift": "Akhiri Shift"
+  },
+  "summarysheet": {
+    "title": "Ringkasan Cepat",
+    "hint": "Apa saja aktivitas hari ini?",
+    "save": "Simpan Ringkasan",
+    "saving": "Menyimpan...",
+    "summaryPrefix": "Ringkasan: "
   }
 }

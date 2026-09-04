@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Play, Square } from "phosphor-react";
 import { api } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
 interface ShiftActionsProps {
   workspaceId: string;
@@ -20,7 +19,7 @@ export function ShiftActions({ workspaceId, caregiverId, isActive, onShiftChange
   const checkIn = useCallback(async () => {
     setLoading(true);
     try {
-      await api.post("/api/shifts/check-in", { caregiver_id: caregiverId });
+      await api.post("/api/v1/shifts/check-in", { caregiver_id: caregiverId }, { "X-Workspace-ID": workspaceId });
       onShiftChange();
     } catch (err) {
       console.error("check-in failed", err);
@@ -32,7 +31,7 @@ export function ShiftActions({ workspaceId, caregiverId, isActive, onShiftChange
   const checkOut = useCallback(async () => {
     setLoading(true);
     try {
-      await api.post("/api/shifts/check-out", { caregiver_id: caregiverId });
+      await api.post("/api/v1/shifts/check-out", { caregiver_id: caregiverId }, { "X-Workspace-ID": workspaceId });
       onShiftChange();
     } catch (err) {
       console.error("check-out failed", err);
