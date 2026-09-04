@@ -156,19 +156,44 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           <div>
             <button
               type="button"
-              onClick={() => setStep("subcategory")}
-              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+              onClick={() => setStep(category === "note" || subcategories.length > 0 ? "subcategory" : "category")}
+              className="mb-4 text-base font-semibold text-[var(--color-accent)] touch-target"
             >
               {t("back")}
             </button>
-            <div className="grid grid-cols-2 gap-3">
-              {backfillOptions.map((opt) => (
+
+            {backfillOptions.blocks.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
+                  {t("backfillBlocksLabel")}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {backfillOptions.blocks.map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      disabled={submitting !== null}
+                      onClick={() => handleBackfillSelect(opt)}
+                      className="touch-target flex min-h-[56px] items-center justify-center rounded-lg border-2 border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
+                    >
+                      {t(`backfillBlocks.${opt.key}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
+              {t("backfillSlotsLabel")}
+            </p>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {backfillOptions.slots.map((opt) => (
                 <button
-                  key={opt.label}
+                  key={opt.key}
                   type="button"
                   disabled={submitting !== null}
                   onClick={() => handleBackfillSelect(opt)}
-                  className="chip touch-target flex min-h-[56px] items-center justify-center rounded-lg border-2 border-[var(--color-border)] px-3 py-3 text-base font-medium transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+                  className="touch-target flex min-h-[56px] items-center justify-center rounded-lg border-2 border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold tabular-nums text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
                 >
                   {opt.label}
                 </button>

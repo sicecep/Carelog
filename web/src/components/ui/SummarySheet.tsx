@@ -2,9 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { X, CheckCircle } from "phosphor-react";
 import { recipientApi, APIError } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
 interface SummarySheetProps {
   open: boolean;
@@ -23,15 +21,12 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, onLogged
     setSubmitting(true);
     setError(null);
     try {
-      // LOG-004.3: Submit a structured summary entry
+      // LOG-004.5: a quick summary is stored as a "note" entry tagged as a
+      // summary, so the parent view can label it "Ringkasan". There is no
+      // "summary" LogCategory — the report itself carries report_type.
       await recipientApi.createEntry(workspaceId, recipientId, {
-        category: "summary",
-        value_json: JSON.stringify({
-            // This structure will be finalized based on the summary UI counts
-            meals: 0, 
-            sleep: 0,
-            mood: "happy"
-        }) as any,
+        category: "note",
+        value_text: t("summaryPrefix"),
         occurred_at: new Date().toISOString(),
       });
       onLogged?.();
@@ -56,18 +51,20 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, onLogged
         className="w-full max-w-lg rounded-t-xl bg-[var(--color-surface)] p-5 shadow-lg sm:rounded-xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-xl font-medium">{t("title")}</h2>
+        <h2 className="mb-4 text-xl font-medium text-[var(--color-text)]">{t("title")}</h2>
         <p className="mb-6 text-base text-[var(--color-text-muted)]">{t("hint")}</p>
-        
-        {/* Placeholder for count-based UI (Meals 0-4+, Sleep duration chips, Mood scale) */}
-        <div className="mb-6">
-            <p className="text-sm font-medium text-[var(--color-text)]">Count-based UI goes here</p>
-        </div>
+
+        {error && (
+          <p role="alert" className="mb-3 text-sm text-[var(--color-error-ink)]">
+            {error}
+          </p>
+        )}
 
         <button
+          type="button"
           onClick={submitSummary}
           disabled={submitting}
-          className="btn-base btn-primary w-full py-4 text-base"
+          className="btn-base btn-primary w-full py-4 text-base disabled:opacity-50"
         >
           {submitting ? t("saving") : t("save")}
         </button>
