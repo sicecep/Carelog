@@ -8,7 +8,10 @@
   --color-border: #E5DED2;
   --color-border-strong: #D4C9B8;
   --color-text: #1F2A24;
-  --color-text-muted: #5C6B62;
+  /* Darkened from #5C6B62 (~4.4:1 on --color-bg) to clear the WCAG AA 4.5:1
+     floor for normal text (ACC-003). The old value was measurably failing and
+     read as washed-out on phones in daylight. */
+  --color-text-muted: #4A5952;
   --color-text-inverse: #FFFFFF;
   --color-accent: #2F7D5D;
   --color-accent-hover: #266B4E;
@@ -211,11 +214,16 @@
   }
 
   /* Card */
+  /* Border was 1px of the faint --color-border, which washed out against the
+     cream background on phone screens in daylight. Bumped to 1.5px of
+     --color-border-strong plus a soft shadow so card edges are unambiguous
+     (ACC-003: cards must be distinguishable, not just implied by whitespace). */
   .card {
     background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
+    border: 1.5px solid var(--color-border-strong);
     border-radius: 0.75rem;
     padding: 1.25rem;
+    box-shadow: 0 1px 2px rgba(31, 42, 36, 0.06);
   }
   @media (min-width: 768px) {
     .card {

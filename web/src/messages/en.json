@@ -209,7 +209,16 @@
     },
     "notePlaceholder": "What would you like to note?",
     "noteSave": "Save note",
-    "noteSaving": "Saving..."
+    "noteSaving": "Saving...",
+    "backfillToggle": "When?",
+    "backfillHint": "Select a time block below.",
+    "backfillBlocksLabel": "Time of day",
+    "backfillSlotsLabel": "Time",
+    "backfillBlocks": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    }
   },
   "incidents": {
     "title": "Incidents",

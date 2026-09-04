@@ -209,7 +209,16 @@
     },
     "notePlaceholder": "Apa yang ingin dicatat?",
     "noteSave": "Simpan catatan",
-    "noteSaving": "Menyimpan..."
+    "noteSaving": "Menyimpan...",
+    "backfillToggle": "Kapan?",
+    "backfillHint": "Pilih blok waktu di bawah.",
+    "backfillBlocksLabel": "Waktu",
+    "backfillSlotsLabel": "Jam",
+    "backfillBlocks": {
+      "morning": "Pagi",
+      "afternoon": "Siang",
+      "evening": "Sore"
+    }
   },
   "incidents": {
     "title": "Insiden",
