@@ -62,8 +62,6 @@ CREATE INDEX idx_care_recipients_workspace_id ON care_recipients(workspace_id);
 CREATE INDEX idx_care_recipients_workspace_active ON care_recipients(workspace_id) WHERE is_active;
 
 -- daily_reports
--- One report per (recipient, date, contributor): morning nanny, night nanny and
--- the owner each get their own row for the same child on the same day.
 CREATE TABLE daily_reports (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -188,3 +186,20 @@ CREATE TABLE shifts (
 );
 
 CREATE INDEX idx_shifts_caregiver_active ON shifts(caregiver_id) WHERE checked_out_at IS NULL;
+
+-- parent_notes
+CREATE TABLE parent_notes (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id   UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    recipient_id   UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
+    note_type      TEXT NOT NULL CHECK (note_type IN ('standing', 'daily')),
+    content        TEXT NOT NULL,
+    note_date      DATE, 
+    created_by     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_parent_notes_standing_unique ON parent_notes(recipient_id) WHERE note_type = 'standing';
+CREATE UNIQUE INDEX idx_parent_notes_daily_unique ON parent_notes(recipient_id, note_date) WHERE note_type = 'daily';
+CREATE INDEX idx_parent_notes_recipient ON parent_notes(recipient_id);
