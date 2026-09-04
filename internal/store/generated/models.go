@@ -80,6 +80,18 @@ type Incident struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type ParentNote struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	RecipientID uuid.UUID          `json:"recipient_id"`
+	NoteType    string             `json:"note_type"`
+	Content     string             `json:"content"`
+	NoteDate    pgtype.Date        `json:"note_date"`
+	CreatedBy   uuid.UUID          `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PlanConfig struct {
 	Plan            string      `json:"plan"`
 	MaxRecipients   pgtype.Int4 `json:"max_recipients"`

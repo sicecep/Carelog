@@ -129,6 +129,12 @@ func NewRouter(deps Deps) http.Handler {
 				Pool:    deps.Pool,
 			}
 			RegisterShiftRoutes(r, shiftHandlers)
+
+			noteHandlers := &NoteHandlers{
+				Queries: deps.Queries,
+				Pool:    deps.Pool,
+			}
+			RegisterNoteRoutes(r, noteHandlers)
 		})
 	})
 

@@ -50,6 +50,8 @@ type Querier interface {
 	DeleteExpiredMagicLinks(ctx context.Context) error
 	// Scoped by workspace_id for tenant safety.
 	DeleteIncident(ctx context.Context, arg DeleteIncidentParams) error
+	// 'standing' before 'daily'
+	DeleteParentNote(ctx context.Context, arg DeleteParentNoteParams) error
 	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 	// The caregiver's currently open shift (checked_out_at IS NULL), if any.
@@ -94,6 +96,9 @@ type Querier interface {
 	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]ListIncidentsRow, error)
 	// RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
 	ListIncidentsByRecipient(ctx context.Context, arg ListIncidentsByRecipientParams) ([]ListIncidentsByRecipientRow, error)
+	// Both the persistent standing note and the note for the requested date
+	// (usually today), scoped by workspace for tenant safety.
+	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
@@ -145,6 +150,10 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 	UpdateWorkspaceMemberRole(ctx context.Context, arg UpdateWorkspaceMemberRoleParams) error
+	// Daily note: one slot per recipient per calendar date (WRK-003.1).
+	UpsertDailyNote(ctx context.Context, arg UpsertDailyNoteParams) (ParentNote, error)
+	// Standing note: one persistent slot per recipient (WRK-003.1).
+	UpsertStandingNote(ctx context.Context, arg UpsertStandingNoteParams) (ParentNote, error)
 	// Magic-link sign-up and sign-in are the same request (RFC §8.1, AUTH-001/002):
 	// the caller does not get to learn whether the account already existed, so the
 	// insert and the lookup have to be one statement. Conflict inference targets
