@@ -119,6 +119,43 @@ func CreateInvitation(
 		}}}
 	}
 
+	// Plan gate (WRK-005): caregiver seats are a paid feature. Counting BOTH
+	// existing members and still-pending invites prevents an owner from
+	// over-provisioning by firing off N invites before anyone accepts.
+	members, err := q.ListWorkspaceMembers(ctx, workspaceID)
+	if err != nil {
+		return CreateInvitationResult{}, fmt.Errorf("list workspace members: %w", err)
+	}
+	pending, err := q.ListPendingInvitations(ctx, workspaceID)
+	if err != nil {
+		return CreateInvitationResult{}, fmt.Errorf("list pending invitations: %w", err)
+	}
+
+	ws, err := q.GetWorkspace(ctx, workspaceID)
+	if err != nil {
+		return CreateInvitationResult{}, fmt.Errorf("get workspace: %w", err)
+	}
+	limits, ok := domain.LimitsFor(domain.Plan(ws.Plan))
+	if !ok {
+		limits = domain.PlanLimits[domain.PlanFree]
+	}
+
+	if limits.MaxCaregivers != nil {
+		// Owners don't consume a caregiver seat; only non-owner members do.
+		seats := 0
+		for _, m := range members {
+			if m.Role != string(domain.RoleOwner) {
+				seats++
+			}
+		}
+		seats += len(pending)
+		if seats >= *limits.MaxCaregivers {
+			return CreateInvitationResult{}, ErrUpgradeRequired{
+				Limit: fmt.Sprintf("%d caregiver", *limits.MaxCaregivers),
+			}
+		}
+	}
+
 	raw := make([]byte, InviteTokenBytes)
 	if _, err := rand.Read(raw); err != nil {
 		return CreateInvitationResult{}, fmt.Errorf("random invite token: %w", err)

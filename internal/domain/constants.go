@@ -406,6 +406,12 @@ func IsValidLocale(s string) bool { return isValid(Locales, s) }
 type PlanLimit struct {
 	MaxRecipients  *int `json:"maxRecipients"`
 	MaxCaregivers  *int `json:"maxCaregivers"`
+	// MaxWorkspaces caps how many workspaces a single owner may create. Free
+	// owners get one household; paid plans unlock running several (e.g. a
+	// nanny agency, or one household per elderly parent). Checked against the
+	// HIGHEST plan among the workspaces the caller already owns — upgrading
+	// any one workspace unlocks the ability to create more (WRK-005).
+	MaxWorkspaces  *int `json:"maxWorkspaces"`
 	HistoryDays    *int `json:"historyDays"`
 	StorageMB      *int `json:"storageMB"`
 	MaxBackfillDay int  `json:"maxBackfillDays"`
@@ -418,6 +424,7 @@ var PlanLimits = map[Plan]PlanLimit{
 	PlanFree: {
 		MaxRecipients:  intPtr(2),
 		MaxCaregivers:  intPtr(3),
+		MaxWorkspaces:  intPtr(1),
 		HistoryDays:    intPtr(7),
 		StorageMB:      intPtr(500),
 		MaxBackfillDay: 1,
@@ -425,6 +432,7 @@ var PlanLimits = map[Plan]PlanLimit{
 	PlanStarter: {
 		MaxRecipients:  intPtr(5),
 		MaxCaregivers:  intPtr(10),
+		MaxWorkspaces:  intPtr(3),
 		HistoryDays:    intPtr(90),
 		StorageMB:      intPtr(5120),
 		MaxBackfillDay: 3,
@@ -432,10 +440,29 @@ var PlanLimits = map[Plan]PlanLimit{
 	PlanPro: {
 		MaxRecipients:  nil,
 		MaxCaregivers:  nil,
+		MaxWorkspaces:  nil,
 		HistoryDays:    nil,
 		StorageMB:      intPtr(20480),
 		MaxBackfillDay: 7,
 	},
+}
+
+// HighestPlan returns whichever of the given plans ranks highest in Plans
+// order (free < starter < pro). Unknown plan strings sort as free. Used to
+// decide an owner's effective quota across all workspaces they own — upgrading
+// ANY one workspace unlocks the higher limit everywhere for that owner.
+func HighestPlan(plans []Plan) Plan {
+	best := PlanFree
+	bestRank := 0
+	for _, p := range plans {
+		for i, known := range Plans {
+			if known == p && i > bestRank {
+				bestRank = i
+				best = p
+			}
+		}
+	}
+	return best
 }
 
 // LimitsFor returns the quota for a plan and whether the plan is known.

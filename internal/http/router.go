@@ -110,6 +110,18 @@ func NewRouter(deps Deps) http.Handler {
 		}
 		RegisterPublicInvitationRoutes(api, invitationHandlers, middleware.AuthMiddleware(deps.Signer.Verifier()))
 
+		// Workspace create/list: authenticated but NOT workspace-scoped. A user
+		// creating their first workspace has no X-Workspace-ID to send yet, and
+		// listing is how the client discovers which IDs exist at all.
+		workspaceHandlers := &WorkspaceHandlers{
+			Queries: deps.Queries,
+			Pool:    deps.Pool,
+		}
+		api.With(middleware.AuthMiddleware(deps.Signer.Verifier())).
+			Group(func(r chi.Router) {
+				RegisterWorkspaceRoutes(r, workspaceHandlers)
+			})
+
 		// Protected routes with Auth + Workspace middleware
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
