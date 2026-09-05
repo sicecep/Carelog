@@ -26,19 +26,19 @@ WHERE wm.workspace_id = $1
   AND u.email_verified_at IS NOT NULL
 ORDER BY u.email;
 
--- name: SummarizeEntriesByRecipientAndDate :many
--- Per-category / per-subcategory counts for one recipient on one date, merged
--- across every contributor's report. An empty result set is a legitimate answer:
--- the digest still sends, stating "no entries today" (RPT-007.3).
+-- name: GetSummaryForRecipientAndDate :many
+-- Fetches all entries for a recipient on a specific date, grouped by category
+-- for a clean, WhatsApp-friendly text summary.
 SELECT
-    e.category AS category,
-    COALESCE(e.subcategory, '') AS subcategory,
-    COUNT(*) AS entry_count
+    category,
+    COALESCE(subcategory, '') AS subcategory,
+    COUNT(*) AS entry_count,
+    SUM(value_number)::numeric AS total_number
 FROM report_entries e
 JOIN daily_reports r ON r.id = e.report_id
-WHERE r.workspace_id = $1 AND r.recipient_id = $2 AND r.report_date = $3::date
-GROUP BY e.category, COALESCE(e.subcategory, '')
-ORDER BY e.category, 2;
+WHERE r.recipient_id = $1 AND r.report_date = $2::date
+GROUP BY category, subcategory
+ORDER BY category, subcategory;
 
 -- name: SummarizeShiftsByRecipientAndDate :many
 -- One row per contributor report for the day: who logged, how much, and the

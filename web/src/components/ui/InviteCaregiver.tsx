@@ -44,10 +44,10 @@ export function InviteCaregiver({ workspaceId }: InviteCaregiverProps) {
       const res = await invitationApi.create(workspaceId, {
         invitee_name: name.trim(),
         role: "caregiver",
-        whatsapp_phone: phone.trim() || undefined,
+        phone: phone.trim() || undefined,
       });
-      if (res.data?.whatsapp_link) {
-        setWhatsappUrl(res.data.whatsapp_link);
+      if (res.data?.whatsapp_url) {
+        setWhatsappUrl(res.data.whatsapp_url);
       }
     } catch (err) {
       setError(err instanceof APIError ? err.message : t("errorGeneric"));

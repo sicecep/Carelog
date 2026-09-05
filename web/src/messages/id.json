@@ -92,7 +92,8 @@
     "emptyCta": "Buat profil pertama",
     "loadError": "Tidak dapat memuat data Anda. Silakan muat ulang halaman.",
     "loadingRecipients": "Memuat penerima perawatan",
-    "loggingOut": "Keluar..."
+    "loggingOut": "Keluar...",
+    "invitationsHeading": "Undangan Tertunda"
   },
   "recipients": {
     "title": "Penerima Perawatan",
@@ -216,8 +217,8 @@
     "backfillSlotsLabel": "Jam",
     "backfillBlocks": {
       "morning": "Pagi",
-      "afternoon": "Siang",
-      "evening": "Sore"
+      "midday": "Siang",
+      "afternoon": "Sore"
     }
   },
   "incidents": {
@@ -306,11 +307,15 @@
     "endShift": "Akhiri Shift"
   },
   "summarysheet": {
-    "title": "Ringkasan Cepat",
-    "hint": "Apa saja aktivitas hari ini?",
+    "title": "Ringkasan Harian",
+    "hint": "Tinjau aktivitas hari ini dan bagikan ke orang tua.",
     "save": "Simpan Ringkasan",
     "saving": "Menyimpan...",
-    "summaryPrefix": "Ringkasan: "
+    "summaryPrefix": "Ringkasan:",
+    "errorGeneric": "Gagal memuat ringkasan.",
+    "copySummary": "Salin Ringkasan untuk WhatsApp",
+    "copied": "Tersalin!",
+    "preview": "Pratinjau"
   },
   "invite": {
     "title": "Selamat datang di CareLog",
@@ -318,5 +323,32 @@
     "accept": "Terima Undangan",
     "claiming": "Bergabung...",
     "errorClaiming": "Gagal bergabung. Tautan mungkin kedaluwarsa atau sudah digunakan."
+  },
+  "invitecaregiver": {
+    "inviteButton": "Undang Pengasuh",
+    "title": "Undang Pengasuh",
+    "nameLabel": "Nama Pengasuh",
+    "namePlaceholder": "contoh: Mbak Yuni",
+    "phoneLabel": "Nomor WhatsApp (opsional)",
+    "phonePlaceholder": "0812...",
+    "phoneHint": "Memasukkan nomor memungkinkan pembuatan link WhatsApp langsung.",
+    "generateLink": "Buat Tautan Undangan",
+    "generating": "Membuat...",
+    "errorGeneric": "Gagal membuat undangan.",
+    "readyToSend": "Siap dikirim lewat WhatsApp:",
+    "sendWhatsApp": "Buka WhatsApp",
+    "expiryHint": "Tautan kedaluwarsa dalam 72 jam.",
+    "close": "Tutup",
+    "manageInvitations": "Kelola Undangan",
+    "pendingInvitations": "Undangan Tertunda",
+    "loading": "Memuat...",
+    "noPending": "Tidak ada undangan tertunda.",
+    "role": "Peran",
+    "caregiverRole": "Pengasuh",
+    "viewerRole": "Pemantau",
+    "expires": "Kedaluwarsa",
+    "created": "Dikirim",
+    "revoke": "Batalkan",
+    "confirmRevoke": "Batalkan undangan ini? Tautan akan langsung berhenti berfungsi."
   }
 }

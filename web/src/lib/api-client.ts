@@ -148,6 +148,13 @@ export interface ReportEntry {
   contributor_role: string;
 }
 
+export interface SummaryItem {
+  category: string;
+  subcategory: string;
+  count: number;
+  total: number;
+}
+
 export const recipientApi = {
   // GET /api/v1/recipients - List recipients in a workspace.
   // X-Workspace-ID is mandatory: the API answers 400 without it and 403 if the
@@ -183,6 +190,13 @@ export const recipientApi = {
     api.get<ReportEntry[]>(
       `/api/v1/recipients/${recipientId}/timeline${date ? `?date=${date}` : ""}`,
       { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
+
+  // GET /api/v1/recipients/{id}/summary - WhatsApp-friendly text summary.
+  getSummary: (workspaceId: string, recipientId: string, date?: string) =>
+    api.get<SummaryItem[]>(
+      `/api/v1/recipients/${recipientId}/summary${date ? `?date=${date}` : ""}`,
+      { "X-Workspace-ID": workspaceId }
     ),
 
   // POST /api/v1/recipients/{recipientID}/entries - Add a log entry.
@@ -297,16 +311,29 @@ export interface Invitation {
   invitee_name: string;
   role: "caregiver" | "viewer";
   expires_at: string;
-  whatsapp_link?: string;
+  created_at: string;
+  whatsapp_url?: string;
 }
 
 export const invitationApi = {
   // POST /api/v1/invitations - Owner creates an invite
   create: (
     workspaceId: string,
-    body: { invitee_name: string; role: string; recipient_id?: string; whatsapp_phone?: string }
+    body: { invitee_name: string; role: string; recipient_id?: string; phone?: string }
   ) =>
     api.post<Invitation>("/api/v1/invitations", body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // GET /api/v1/invitations - Owner lists active invites
+  list: (workspaceId: string) =>
+    api.get<Invitation[]>("/api/v1/invitations", {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/invitations/{id}/revoke - Owner revokes an invite
+  revoke: (workspaceId: string, id: string) =>
+    api.post<void>(`/api/v1/invitations/${id}/revoke`, {}, {
       "X-Workspace-ID": workspaceId,
     }),
 
