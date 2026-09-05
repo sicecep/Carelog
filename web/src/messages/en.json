@@ -92,7 +92,8 @@
     "emptyCta": "Create first profile",
     "loadError": "We couldn't load your data. Please refresh the page.",
     "loadingRecipients": "Loading care recipients",
-    "loggingOut": "Signing out..."
+    "loggingOut": "Signing out...",
+    "invitationsHeading": "Pending Invitations"
   },
   "recipients": {
     "title": "Care Recipients",
@@ -216,8 +217,8 @@
     "backfillSlotsLabel": "Time",
     "backfillBlocks": {
       "morning": "Morning",
-      "afternoon": "Afternoon",
-      "evening": "Evening"
+      "midday": "Midday",
+      "afternoon": "Afternoon"
     }
   },
   "incidents": {
@@ -306,11 +307,15 @@
     "endShift": "End Shift"
   },
   "summarysheet": {
-    "title": "Quick Summary",
-    "hint": "What happened today?",
+    "title": "Daily Summary",
+    "hint": "Review today's activities and share with parents.",
     "save": "Save Summary",
     "saving": "Saving...",
-    "summaryPrefix": "Summary: "
+    "summaryPrefix": "Summary:",
+    "errorGeneric": "Could not load summary.",
+    "copySummary": "Copy Summary for WhatsApp",
+    "copied": "Copied!",
+    "preview": "Preview"
   },
   "invite": {
     "title": "Welcome to CareLog",
@@ -318,5 +323,32 @@
     "accept": "Accept Invitation",
     "claiming": "Joining...",
     "errorClaiming": "Failed to join. The link may be expired or already used."
+  },
+  "invitecaregiver": {
+    "inviteButton": "Invite Caregiver",
+    "title": "Invite Caregiver",
+    "nameLabel": "Caregiver Name",
+    "namePlaceholder": "e.g. Mbak Yuni",
+    "phoneLabel": "WhatsApp Number (optional)",
+    "phonePlaceholder": "0812...",
+    "phoneHint": "Including the phone number allows for direct WhatsApp link generation.",
+    "generateLink": "Generate Invite Link",
+    "generating": "Generating...",
+    "errorGeneric": "Could not create invitation.",
+    "readyToSend": "Ready to send via WhatsApp:",
+    "sendWhatsApp": "Open WhatsApp",
+    "expiryHint": "Link expires in 72 hours.",
+    "close": "Close",
+    "manageInvitations": "Manage Invitations",
+    "pendingInvitations": "Pending Invitations",
+    "loading": "Loading...",
+    "noPending": "No pending invitations.",
+    "role": "Role",
+    "caregiverRole": "Caregiver",
+    "viewerRole": "Viewer",
+    "expires": "Expires",
+    "created": "Sent",
+    "revoke": "Revoke",
+    "confirmRevoke": "Cancel this invitation? The link will stop working immediately."
   }
 }

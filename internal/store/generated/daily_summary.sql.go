@@ -12,6 +12,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getSummaryForRecipientAndDate = `-- name: GetSummaryForRecipientAndDate :many
+SELECT
+    category,
+    COALESCE(subcategory, '') AS subcategory,
+    COUNT(*) AS entry_count,
+    SUM(value_number)::numeric AS total_number
+FROM report_entries e
+JOIN daily_reports r ON r.id = e.report_id
+WHERE r.recipient_id = $1 AND r.report_date = $2::date
+GROUP BY category, subcategory
+ORDER BY category, subcategory
+`
+
+type GetSummaryForRecipientAndDateParams struct {
+	RecipientID uuid.UUID   `json:"recipient_id"`
+	Column2     pgtype.Date `json:"column_2"`
+}
+
+type GetSummaryForRecipientAndDateRow struct {
+	Category    string         `json:"category"`
+	Subcategory string         `json:"subcategory"`
+	EntryCount  int64          `json:"entry_count"`
+	TotalNumber pgtype.Numeric `json:"total_number"`
+}
+
+// Fetches all entries for a recipient on a specific date, grouped by category
+// for a clean, WhatsApp-friendly text summary.
+func (q *Queries) GetSummaryForRecipientAndDate(ctx context.Context, arg GetSummaryForRecipientAndDateParams) ([]GetSummaryForRecipientAndDateRow, error) {
+	rows, err := q.db.Query(ctx, getSummaryForRecipientAndDate, arg.RecipientID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSummaryForRecipientAndDateRow{}
+	for rows.Next() {
+		var i GetSummaryForRecipientAndDateRow
+		if err := rows.Scan(
+			&i.Category,
+			&i.Subcategory,
+			&i.EntryCount,
+			&i.TotalNumber,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDigestRecipientsForWorkspace = `-- name: ListDigestRecipientsForWorkspace :many
 SELECT u.id, u.email, u.full_name, u.locale
 FROM workspace_members wm
@@ -146,53 +198,6 @@ func (q *Queries) SumEntryNumbersByRecipientAndDate(ctx context.Context, arg Sum
 	for rows.Next() {
 		var i SumEntryNumbersByRecipientAndDateRow
 		if err := rows.Scan(&i.Category, &i.TotalNumber, &i.ValuedCount); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const summarizeEntriesByRecipientAndDate = `-- name: SummarizeEntriesByRecipientAndDate :many
-SELECT
-    e.category AS category,
-    COALESCE(e.subcategory, '') AS subcategory,
-    COUNT(*) AS entry_count
-FROM report_entries e
-JOIN daily_reports r ON r.id = e.report_id
-WHERE r.workspace_id = $1 AND r.recipient_id = $2 AND r.report_date = $3::date
-GROUP BY e.category, COALESCE(e.subcategory, '')
-ORDER BY e.category, 2
-`
-
-type SummarizeEntriesByRecipientAndDateParams struct {
-	WorkspaceID uuid.UUID   `json:"workspace_id"`
-	RecipientID uuid.UUID   `json:"recipient_id"`
-	Column3     pgtype.Date `json:"column_3"`
-}
-
-type SummarizeEntriesByRecipientAndDateRow struct {
-	Category    string `json:"category"`
-	Subcategory string `json:"subcategory"`
-	EntryCount  int64  `json:"entry_count"`
-}
-
-// Per-category / per-subcategory counts for one recipient on one date, merged
-// across every contributor's report. An empty result set is a legitimate answer:
-// the digest still sends, stating "no entries today" (RPT-007.3).
-func (q *Queries) SummarizeEntriesByRecipientAndDate(ctx context.Context, arg SummarizeEntriesByRecipientAndDateParams) ([]SummarizeEntriesByRecipientAndDateRow, error) {
-	rows, err := q.db.Query(ctx, summarizeEntriesByRecipientAndDate, arg.WorkspaceID, arg.RecipientID, arg.Column3)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SummarizeEntriesByRecipientAndDateRow{}
-	for rows.Next() {
-		var i SummarizeEntriesByRecipientAndDateRow
-		if err := rows.Scan(&i.Category, &i.Subcategory, &i.EntryCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

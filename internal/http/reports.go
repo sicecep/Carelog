@@ -271,6 +271,28 @@ func (h *ReportHandlers) handleGetTimeline(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
+// handleGetWhatsAppSummary handles GET /api/v1/recipients/{recipientID}/summary?date=YYYY-MM-DD
+func (h *ReportHandlers) handleGetWhatsAppSummary(w http.ResponseWriter, r *http.Request) error {
+	recipientIDStr := chi.URLParam(r, "recipientID")
+	recipientID, err := uuid.Parse(recipientIDStr)
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
+	}
+
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+
+	summary, err := service.GetWhatsAppSummary(r.Context(), h.Queries, recipientID, date)
+	if err != nil {
+		return err
+	}
+
+	OK(w, ptr(summary))
+	return nil
+}
+
 // RegisterReportRoutes registers report endpoints on the given router.
 // The recipient detail GET also lives here: this "/recipients/{recipientID}"
 // mount shadows the sibling "/recipients" subrouter for any param path, so the
@@ -280,5 +302,6 @@ func RegisterReportRoutes(r chi.Router, h *ReportHandlers, rec *RecipientHandler
 		r.Get("/", HandlerFunc(rec.handleGetRecipient).Wrap())
 		r.Post("/entries", HandlerFunc(h.handleCreateEntry).Wrap())
 		r.Get("/timeline", HandlerFunc(h.handleGetTimeline).Wrap())
+		r.Get("/summary", HandlerFunc(h.handleGetWhatsAppSummary).Wrap())
 	})
 }

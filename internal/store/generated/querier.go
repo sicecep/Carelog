@@ -85,6 +85,9 @@ type Querier interface {
 	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
 	GetReportEntry(ctx context.Context, arg GetReportEntryParams) (ReportEntry, error)
+	// Fetches all entries for a recipient on a specific date, grouped by category
+	// for a clean, WhatsApp-friendly text summary.
+	GetSummaryForRecipientAndDate(ctx context.Context, arg GetSummaryForRecipientAndDateParams) ([]GetSummaryForRecipientAndDateRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
@@ -149,10 +152,6 @@ type Querier interface {
 	// carry a value_number. Kept separate from the count query so a category can
 	// report both "3 entries" and "410 minutes" without a second pass in Go.
 	SumEntryNumbersByRecipientAndDate(ctx context.Context, arg SumEntryNumbersByRecipientAndDateParams) ([]SumEntryNumbersByRecipientAndDateRow, error)
-	// Per-category / per-subcategory counts for one recipient on one date, merged
-	// across every contributor's report. An empty result set is a legitimate answer:
-	// the digest still sends, stating "no entries today" (RPT-007.3).
-	SummarizeEntriesByRecipientAndDate(ctx context.Context, arg SummarizeEntriesByRecipientAndDateParams) ([]SummarizeEntriesByRecipientAndDateRow, error)
 	// One row per contributor report for the day: who logged, how much, and the
 	// window they covered. LEFT JOIN keeps a contributor who opened a report but
 	// logged nothing — that absence is itself information for the owner.

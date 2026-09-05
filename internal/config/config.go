@@ -62,6 +62,14 @@ type Config struct {
 	// Default timezone for cron schedules (e.g. "Asia/Jakarta")
 	DefaultTimezone string
 
+	// Payment gateway (P1). Empty PaymentProvider means payments are disabled
+	// for this deployment — pilots run fine without it (ErrUpgradeRequired
+	// paths are just unreachable). Switching provider is a config change only:
+	// no code path branches on which one is active outside internal/payment.
+	PaymentProvider string // "doku" | "mayar" | "" (disabled)
+	PaymentAPIKey   string
+	PaymentSecret   string
+
 	// Internal: parsed location for cron
 	location *time.Location
 }
@@ -88,6 +96,9 @@ func Load() (*Config, error) {
 		AppBaseURL:           getenv("APP_BASE_URL", "http://localhost:8080"),
 		WebBaseURL:           getenv("WEB_BASE_URL", "http://localhost:3000"),
 		DefaultTimezone:      getenv("DEFAULT_TIMEZONE", "Asia/Jakarta"),
+		PaymentProvider:      strings.ToLower(strings.TrimSpace(os.Getenv("PAYMENT_PROVIDER"))),
+		PaymentAPIKey:        os.Getenv("PAYMENT_API_KEY"),
+		PaymentSecret:        os.Getenv("PAYMENT_SECRET"),
 	}
 
 	if err := c.validate(); err != nil {

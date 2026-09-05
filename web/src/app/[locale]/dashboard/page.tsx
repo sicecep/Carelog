@@ -8,6 +8,8 @@ import {
   type MeResponse,
   type Recipient,
 } from "@/lib/api-client";
+import { InviteCaregiver } from "@/components/ui/InviteCaregiver";
+import { InvitationList } from "@/components/ui/InvitationList";
 import { LogoutButton } from "./logout-button";
 import { RecipientsSection } from "./recipients-section";
 
@@ -90,12 +92,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 {t("welcome", { name: displayName })}
               </h1>
               {workspace && (
-                <p className="mt-2">
-                  <span className="sr-only">{t("workspaceLabel")}: </span>
-                  <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
-                    {workspace.name}
-                  </span>
-                </p>
+                <div className="mt-2 flex items-center justify-between">
+                  <p>
+                    <span className="sr-only">{t("workspaceLabel")}: </span>
+                    <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
+                      {workspace.name}
+                    </span>
+                  </p>
+                  {workspace.role === "owner" && <InviteCaregiver workspaceId={workspace.id} />}
+                </div>
               )}
             </div>
 
@@ -115,6 +120,19 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 <RecipientsSection recipients={recipients} />
               )}
             </section>
+
+            {workspace && workspace.role === "owner" && (
+              <section aria-labelledby="invitations-heading" className="mt-8">
+                <h2
+                  id="invitations-heading"
+                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
+                >
+                  {t("invitationsHeading")}
+                </h2>
+                <InvitationList workspaceId={workspace.id} />
+              </section>
+            )}
+
           </>
         ) : (
           <p role="alert" className="card text-base text-[var(--color-error-ink)]">

@@ -102,6 +102,14 @@ func NewRouter(deps Deps) http.Handler {
 		}
 		RegisterAuthRoutes(api, authHandlers)
 
+		// Public invitation routes (must NOT sit behind WorkspaceMiddleware as invitees aren't members yet)
+		invitationHandlers := &InvitationHandlers{
+			Queries:    deps.Queries,
+			Pool:       deps.Pool,
+			WebBaseURL: deps.WebBaseURL,
+		}
+		RegisterPublicInvitationRoutes(api, invitationHandlers, middleware.AuthMiddleware(deps.Signer.Verifier()))
+
 		// Protected routes with Auth + Workspace middleware
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
@@ -135,6 +143,13 @@ func NewRouter(deps Deps) http.Handler {
 				Pool:    deps.Pool,
 			}
 			RegisterNoteRoutes(r, noteHandlers)
+
+			invitationHandlers := &InvitationHandlers{
+				Queries:    deps.Queries,
+				Pool:       deps.Pool,
+				WebBaseURL: deps.WebBaseURL,
+			}
+			RegisterInvitationRoutes(r, invitationHandlers)
 		})
 	})
 

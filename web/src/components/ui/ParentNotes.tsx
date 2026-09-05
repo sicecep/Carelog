@@ -111,9 +111,9 @@ export function ParentNotes({ recipientId, workspaceId }: ParentNotesProps) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] py-2 text-sm font-semibold text-white shadow hover:opacity-90 disabled:opacity-50"
+        className="btn-base btn-primary mt-3 w-full touch-target"
       >
-        {saving ? t("saving") : <><CheckCircle size={16} weight="fill" /> {t("save")}</>}
+        {saving ? t("saving") : <><CheckCircle size={20} weight="fill" /> {t("save")}</>}
       </button>
     </div>
   );
