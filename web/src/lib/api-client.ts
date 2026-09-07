@@ -179,6 +179,13 @@ export const recipientApi = {
     body: { full_name: string; care_type: CareType; enabled_modules: Module[] }
   ) => api.post<Recipient>("/api/v1/recipients", body, { "X-Workspace-ID": workspaceId }),
 
+  // PATCH /api/v1/recipients/{id} - Edit a recipient.
+  update: (
+    workspaceId: string,
+    recipientId: string,
+    body: { full_name?: string; display_name?: string }
+  ) => api.patch<Recipient>(`/api/v1/recipients/${recipientId}`, body, { "X-Workspace-ID": workspaceId }),
+
   // GET /api/v1/recipients/{recipientID}/timeline?date=YYYY-MM-DD - unified
   // day timeline merging all contributors' entries (RPT-001).
   getTimeline: (

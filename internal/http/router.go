@@ -116,10 +116,9 @@ func NewRouter(deps Deps) http.Handler {
 			middleware.WorkspaceMiddleware(deps.Queries),
 		).Group(func(r chi.Router) {
 			recipientHandlers := &RecipientHandlers{
-				Queries: deps.Queries,
-				Pool:    deps.Pool,
-			}
-			RegisterRecipientRoutes(r, recipientHandlers)
+						Queries: deps.Queries,
+					}
+					RegisterRecipientRoutes(r, recipientHandlers)
 
 			reportHandlers := &ReportHandlers{
 				Queries: deps.Queries,

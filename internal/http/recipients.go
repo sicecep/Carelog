@@ -1,105 +1,130 @@
-// Package http provides the HTTP layer: routing, middleware, and response helpers.
 package http
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/http/middleware"
+	"github.com/sicecep/carelog/internal/response"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
-// RecipientHandlers holds the dependencies for recipient endpoints.
+// RecipientHandlers serves care recipient endpoints.
 type RecipientHandlers struct {
 	Queries *store.Queries
-	Pool    *pgxpool.Pool
 }
 
-// CreateRecipientRequest is the JSON request body for creating a care recipient.
+// RegisterRecipientRoutes mounts routes behind Auth+Workspace middleware.
+func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
+	r.Route("/recipients", func(r chi.Router) {
+		r.Post("/", HandlerFunc(h.handleCreateRecipient).Wrap())
+		r.Get("/", HandlerFunc(h.handleListRecipients).Wrap())
+		r.Route("/{recipientID}", func(r chi.Router) {
+			r.Get("/", HandlerFunc(h.handleGetRecipient).Wrap())
+			r.Patch("/", HandlerFunc(h.handleUpdateRecipient).Wrap())
+			r.Delete("/", HandlerFunc(h.handleDeleteRecipient).Wrap())
+		})
+	})
+}
+
 type CreateRecipientRequest struct {
-	FullName       string          `json:"full_name"`
-	DisplayName    *string         `json:"display_name,omitempty"`
-	CareType       string          `json:"care_type"`
-	DateOfBirth    *string         `json:"date_of_birth,omitempty"` // ISO 8601 date
-	Gender         *string         `json:"gender,omitempty"`
-	PhotoURL       *string         `json:"photo_url,omitempty"`
-	Notes          *string         `json:"notes,omitempty"`
-	MedicalNotes   *string         `json:"medical_notes,omitempty"`
-	EnabledModules []domain.Module `json:"enabled_modules"`
+	FullName        string   `json:"full_name"`
+	DisplayName     string   `json:"display_name,omitempty"`
+	CareType        string   `json:"care_type"`
+	DateOfBirth     string   `json:"date_of_birth,omitempty"`
+	Gender          string   `json:"gender,omitempty"`
+	PhotoURL        string   `json:"photo_url,omitempty"`
+	Notes           string   `json:"notes,omitempty"`
+	MedicalNotes    string   `json:"medical_notes,omitempty"`
+	EnabledModules  []string `json:"enabled_modules,omitempty"`
 }
 
-// RecipientResponse is the JSON response for a care recipient.
+type UpdateRecipientRequest struct {
+	FullName        string   `json:"full_name,omitempty"`
+	DisplayName     string   `json:"display_name,omitempty"`
+	CareType        string   `json:"care_type,omitempty"`
+	DateOfBirth     string   `json:"date_of_birth,omitempty"`
+	Gender          string   `json:"gender,omitempty"`
+	PhotoURL        string   `json:"photo_url,omitempty"`
+	Notes           string   `json:"notes,omitempty"`
+	MedicalNotes    string   `json:"medical_notes,omitempty"`
+	EnabledModules  []string `json:"enabled_modules,omitempty"`
+}
+
 type RecipientResponse struct {
-	ID             uuid.UUID       `json:"id"`
-	WorkspaceID    uuid.UUID       `json:"workspace_id"`
-	FullName       string          `json:"full_name"`
-	DisplayName    *string         `json:"display_name,omitempty"`
-	CareType       string          `json:"care_type"`
-	DateOfBirth    *string         `json:"date_of_birth,omitempty"`
-	Gender         *string         `json:"gender,omitempty"`
-	PhotoURL       *string         `json:"photo_url,omitempty"`
-	Notes          *string         `json:"notes,omitempty"`
-	MedicalNotes   *string         `json:"medical_notes,omitempty"`
-	IsActive       bool            `json:"is_active"`
-	CreatedBy      uuid.UUID       `json:"created_by"`
-	EnabledModules []domain.Module `json:"enabled_modules"`
-	CreatedAt      string          `json:"created_at"`
-	UpdatedAt      string          `json:"updated_at"`
+	ID              uuid.UUID `json:"id"`
+	WorkspaceID     uuid.UUID `json:"workspace_id"`
+	FullName        string    `json:"full_name"`
+	DisplayName     string    `json:"display_name,omitempty"`
+	CareType        string    `json:"care_type"`
+	DateOfBirth     string    `json:"date_of_birth,omitempty"`
+	Gender          string    `json:"gender,omitempty"`
+	PhotoURL        string    `json:"photo_url,omitempty"`
+	Notes           string    `json:"notes,omitempty"`
+	MedicalNotes    string    `json:"medical_notes,omitempty"`
+	EnabledModules  []string  `json:"enabled_modules"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       string    `json:"created_at"`
+	CreatedBy       uuid.UUID `json:"created_by"`
 }
 
-// toRecipientResponse converts a store CareRecipient to the API response shape.
+func pgText(s string) pgtype.Text {
+	if s == "" {
+		return pgtype.Text{String: "", Valid: false}
+	}
+	return pgtype.Text{String: s, Valid: true}
+}
+
+func pgTextFrom(t pgtype.Text) string {
+	if t.Valid {
+		return t.String
+	}
+	return ""
+}
+
+func pgUUID(u pgtype.UUID) uuid.UUID {
+	if u.Valid {
+		return u.Bytes
+	}
+	return uuid.Nil
+}
+
 func toRecipientResponse(r store.CareRecipient) RecipientResponse {
-	resp := RecipientResponse{
-		ID:          r.ID,
-		WorkspaceID: r.WorkspaceID,
-		FullName:    r.FullName,
-		CareType:    r.CareType,
-		IsActive:    r.IsActive,
-		CreatedBy:   r.CreatedBy.Bytes,
-		CreatedAt:   r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:   r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-	}
-
-	if r.DisplayName.Valid {
-		resp.DisplayName = &r.DisplayName.String
-	}
-	if r.DateOfBirth.Valid {
-		s := r.DateOfBirth.Time.Format("2006-01-02")
-		resp.DateOfBirth = &s
-	}
-	if r.Gender.Valid {
-		resp.Gender = &r.Gender.String
-	}
-	if r.PhotoUrl.Valid {
-		resp.PhotoURL = &r.PhotoUrl.String
-	}
-	if r.Notes.Valid {
-		resp.Notes = &r.Notes.String
-	}
-	if r.MedicalNotes.Valid {
-		resp.MedicalNotes = &r.MedicalNotes.String
-	}
-
-	// Parse enabled_modules JSON
-	var modules []domain.Module
+	var modules []string
 	if len(r.EnabledModules) > 0 {
 		_ = json.Unmarshal(r.EnabledModules, &modules)
 	}
-	resp.EnabledModules = modules
+	if modules == nil {
+		modules = []string{}
+	}
 
-	return resp
+	return RecipientResponse{
+		ID:              r.ID,
+		WorkspaceID:     r.WorkspaceID,
+		FullName:        r.FullName,
+		DisplayName:     pgTextFrom(r.DisplayName),
+		CareType:        r.CareType,
+		DateOfBirth:     "",
+		Gender:          pgTextFrom(r.Gender),
+		PhotoURL:        pgTextFrom(r.PhotoUrl),
+		Notes:           pgTextFrom(r.Notes),
+		MedicalNotes:    pgTextFrom(r.MedicalNotes),
+		EnabledModules:  modules,
+		IsActive:        r.IsActive,
+		CreatedAt:       r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedBy:       pgUUID(r.CreatedBy),
+	}
 }
 
-// handleCreateRecipient handles POST /api/v1/recipients.
 func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http.Request) error {
-	// Workspace and user come from the auth + workspace middleware chain.
 	workspaceID := middleware.GetWorkspaceID(r.Context())
 	userID, ok := middleware.UserIDFromContext(r.Context())
 	if workspaceID == uuid.Nil || !ok {
@@ -111,55 +136,47 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
 
-	// Parse care type
-	careType := domain.CareType(req.CareType)
-	if !domain.IsValidCareType(careType.String()) {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "care_type", Message: "invalid care type"}}}
+	if req.FullName == "" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "full_name", Message: "required"}}}
+	}
+	if req.CareType == "" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "care_type", Message: "required"}}}
 	}
 
-	// Parse date of birth if provided
-	var dateOfBirth *pgtype.Date
-	if req.DateOfBirth != nil && *req.DateOfBirth != "" {
-		// Parse ISO 8601 date
-		var dob pgtype.Date
-		if err := dob.Scan(*req.DateOfBirth); err != nil {
+	var dob pgtype.Date
+	if req.DateOfBirth != "" {
+		if err := dob.Scan(req.DateOfBirth); err != nil {
 			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
 		}
-		dateOfBirth = &dob
 	}
 
-	input := service.CreateRecipientInput{
+	modules := req.EnabledModules
+	if modules == nil {
+		modules = []string{}
+	}
+	modsJSON, _ := json.Marshal(modules)
+
+	recipient, err := h.Queries.CreateCareRecipient(r.Context(), store.CreateCareRecipientParams{
+		WorkspaceID:    workspaceID,
 		FullName:       req.FullName,
-		DisplayName:    req.DisplayName,
-		CareType:       careType,
-		DateOfBirth:    dateOfBirth,
-		Gender:         req.Gender,
-		PhotoURL:       req.PhotoURL,
-		Notes:          req.Notes,
-		MedicalNotes:   req.MedicalNotes,
-		EnabledModules: req.EnabledModules,
-	}
-
-	// Call service layer
-	recipientID, err := service.CreateRecipient(r.Context(), h.Queries, h.Pool, workspaceID, userID, input)
-	if err != nil {
-		return err // Will be mapped by middleware
-	}
-
-	// Fetch the created recipient to return it
-	recipient, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
-		ID:          recipientID,
-		WorkspaceID: workspaceID,
+		DisplayName:    pgText(req.DisplayName),
+		CareType:       req.CareType,
+		DateOfBirth:    dob,
+		Gender:         pgText(req.Gender),
+		PhotoUrl:       pgText(req.PhotoURL),
+		Notes:          pgText(req.Notes),
+		MedicalNotes:   pgText(req.MedicalNotes),
+		EnabledModules: modsJSON,
+		CreatedBy:      pgtype.UUID{Bytes: userID, Valid: true},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("create care recipient: %w", err)
 	}
 
 	Created(w, ptr(toRecipientResponse(recipient)))
 	return nil
 }
 
-// handleListRecipients handles GET /api/v1/recipients.
 func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.Request) error {
 	workspaceID := middleware.GetWorkspaceID(r.Context())
 	if workspaceID == uuid.Nil {
@@ -168,30 +185,27 @@ func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.
 
 	recipients, err := h.Queries.ListCareRecipientsByWorkspace(r.Context(), workspaceID)
 	if err != nil {
-		return err
+		return fmt.Errorf("list recipients: %w", err)
 	}
 
 	resp := make([]RecipientResponse, len(recipients))
-	for i, r := range recipients {
-		resp[i] = toRecipientResponse(r)
+	for i, rc := range recipients {
+		resp[i] = toRecipientResponse(rc)
 	}
-
 	OK(w, ptr(resp))
 	return nil
 }
 
-// handleGetRecipient handles GET /api/v1/recipients/{recipientID}.
-//
-// NOTE: registered inside the shared "/recipients/{recipientID}" route group
-// (see RegisterReportRoutes) because chi's param mount there shadows any
-// sibling "/recipients" subrouter pattern — a "/{id}" route in
-// RegisterRecipientRoutes would never match.
 func (h *RecipientHandlers) handleGetRecipient(w http.ResponseWriter, r *http.Request) error {
 	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID == uuid.Nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
+	}
 
-	recipientID, err := uuid.Parse(chi.URLParam(r, "recipientID"))
+	recipientIDStr := chi.URLParam(r, "recipientID")
+	recipientID, err := uuid.Parse(recipientIDStr)
 	if err != nil {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "id", Message: "invalid recipient ID"}}}
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
 	}
 
 	recipient, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
@@ -199,19 +213,134 @@ func (h *RecipientHandlers) handleGetRecipient(w http.ResponseWriter, r *http.Re
 		WorkspaceID: workspaceID,
 	})
 	if err != nil {
-		return service.ErrNotFoundTyped{Resource: "recipient"}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.ErrRecipientNotFound
+		}
+		return fmt.Errorf("get recipient: %w", err)
 	}
 
 	OK(w, ptr(toRecipientResponse(recipient)))
 	return nil
 }
 
-// RegisterRecipientRoutes registers recipient endpoints on the given router.
-// The single-recipient GET lives in the "/recipients/{recipientID}" group in
-// RegisterReportRoutes to avoid a chi pattern conflict.
-func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
-	r.Route("/recipients", func(r chi.Router) {
-		r.Post("/", HandlerFunc(h.handleCreateRecipient).Wrap())
-		r.Get("/", HandlerFunc(h.handleListRecipients).Wrap())
+func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID == uuid.Nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
+	}
+
+	recipientIDStr := chi.URLParam(r, "recipientID")
+	recipientID, err := uuid.Parse(recipientIDStr)
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
+	}
+
+	var req UpdateRecipientRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
+	}
+
+	// Get existing
+	existing, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
 	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return service.ErrRecipientNotFound
+		}
+		return fmt.Errorf("get recipient: %w", err)
+	}
+
+	// Merge fields
+	fullName := req.FullName
+	if fullName == "" {
+		fullName = existing.FullName
+	}
+	displayName := req.DisplayName
+	if displayName == "" {
+		displayName = pgTextFrom(existing.DisplayName)
+	}
+	careType := req.CareType
+	if careType == "" {
+		careType = existing.CareType
+	}
+	gender := req.Gender
+	if gender == "" {
+		gender = pgTextFrom(existing.Gender)
+	}
+	photoURL := req.PhotoURL
+	if photoURL == "" {
+		photoURL = pgTextFrom(existing.PhotoUrl)
+	}
+	notes := req.Notes
+	if notes == "" {
+		notes = pgTextFrom(existing.Notes)
+	}
+	medicalNotes := req.MedicalNotes
+	if medicalNotes == "" {
+		medicalNotes = pgTextFrom(existing.MedicalNotes)
+	}
+	enabledModules := req.EnabledModules
+	if enabledModules == nil {
+		var m []string
+		_ = json.Unmarshal(existing.EnabledModules, &m)
+		enabledModules = m
+	}
+	var dob pgtype.Date = existing.DateOfBirth
+	if req.DateOfBirth != "" {
+		if err := dob.Scan(req.DateOfBirth); err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
+		}
+	}
+
+	modsJSON, _ := json.Marshal(enabledModules)
+
+	updated, err := h.Queries.UpdateCareRecipient(r.Context(), store.UpdateCareRecipientParams{
+		ID:              recipientID,
+		FullName:        fullName,
+		DisplayName:     pgText(displayName),
+		CareType:        careType,
+		DateOfBirth:     dob,
+		Gender:          pgText(gender),
+		PhotoUrl:        pgText(photoURL),
+		Notes:           pgText(notes),
+		MedicalNotes:    pgText(medicalNotes),
+		EnabledModules:  modsJSON,
+		WorkspaceID:     workspaceID,
+	})
+	if err != nil {
+		return fmt.Errorf("update recipient: %w", err)
+	}
+
+	OK(w, ptr(toRecipientResponse(updated)))
+	return nil
+}
+
+func (h *RecipientHandlers) handleDeleteRecipient(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID == uuid.Nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
+	}
+	role := middleware.GetWorkspaceRole(r.Context())
+	if role != "owner" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "only owners can delete recipients"}}}
+	}
+
+	recipientIDStr := chi.URLParam(r, "recipientID")
+	recipientID, err := uuid.Parse(recipientIDStr)
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
+	}
+
+	err = h.Queries.DeactivateCareRecipient(r.Context(), store.DeactivateCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		return fmt.Errorf("deactivate recipient: %w", err)
+	}
+
+	response.OK(w, ptr(map[string]string{"message": "deleted"}))
+	return nil
 }

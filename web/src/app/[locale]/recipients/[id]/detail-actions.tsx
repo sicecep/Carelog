@@ -10,23 +10,31 @@ import { useTranslations } from "next-intl";
 import { Plus, WarningOctagon } from "phosphor-react";
 import { LoggingSheet } from "@/components/ui/LoggingSheet";
 import { IncidentSheet } from "@/components/ui/IncidentSheet";
+import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
+import { Recipient } from "@/lib/api-client";
 
 interface DetailActionsProps {
   recipientId: string;
   workspaceId: string;
+  recipient: Recipient;
 }
 
-export function DetailActions({ recipientId, workspaceId }: DetailActionsProps) {
+export function DetailActions({ recipientId, workspaceId, recipient }: DetailActionsProps) {
   const t = useTranslations("logging");
   const tIncidents = useTranslations("incidents");
   const router = useRouter();
 
   const [loggingOpen, setLoggingOpen] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   // Server Component page owns the timeline data; refresh re-runs its fetches
   // so a new entry/incident appears without a manual reload.
   const handleLogged = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  const handleUpdated = useCallback(() => {
     router.refresh();
   }, [router]);
 
@@ -41,16 +49,16 @@ export function DetailActions({ recipientId, workspaceId }: DetailActionsProps) 
             onClick={() => setLoggingOpen(true)}
             className="btn-base btn-primary touch-target min-h-[56px] flex-[2] text-base"
           >
-            <Plus size={22} weight="bold" aria-hidden="true" />
-            <span>{t("open")}</span>
+            <Plus size={22} weight="bold" />
+            <span className="ml-1">{t("logActivity")}</span>
           </button>
           <button
             type="button"
             onClick={() => setIncidentOpen(true)}
-            className="btn-base touch-target min-h-[56px] flex-1 border-2 border-red-600 bg-red-50 text-base font-semibold text-red-700 hover:bg-red-100"
+            className="btn-base btn-danger touch-target min-h-[56px] flex-[1] text-base"
           >
-            <WarningOctagon size={22} weight="fill" aria-hidden="true" />
-            <span>{tIncidents("title")}</span>
+            <WarningOctagon size={22} weight="bold" />
+            <span className="ml-1">{tIncidents("report")}</span>
           </button>
         </div>
       </div>
@@ -68,6 +76,13 @@ export function DetailActions({ recipientId, workspaceId }: DetailActionsProps) 
         recipientId={recipientId}
         workspaceId={workspaceId}
         onLogged={handleLogged}
+      />
+      <EditRecipientSheet
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        recipient={recipient}
+        workspaceId={workspaceId}
+        onUpdated={handleUpdated}
       />
     </>
   );

@@ -96,7 +96,7 @@
     "invitationsHeading": "Pending Invitations"
   },
   "recipients": {
-    "title": "Care Recipients",
+    "title": "Edit Profile",
     "add": "Add recipient",
     "name": "Name",
     "careType": "Care type",
@@ -114,7 +114,7 @@
     "detailIncidentsHeading": "Today's incidents",
     "detailNotFoundTitle": "Recipient not found",
     "detailNotFoundBody": "This care recipient does not exist or you don't have access to it.",
-    "detailLoadError": "Could not load this recipient. Please try again."
+    "detailLoadError": "Failed to load recipient details."
   },
   "reports": {
     "title": "Daily Reports",
