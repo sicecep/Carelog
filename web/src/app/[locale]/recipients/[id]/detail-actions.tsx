@@ -34,7 +34,7 @@ export function DetailActions({ recipientId, workspaceId, recipient }: DetailAct
     router.refresh();
   }, [router]);
 
-  const handleUpdated = useCallback((updated: Recipient) => {
+  const handleUpdated = useCallback(() => {
     router.refresh();
   }, [router]);
 

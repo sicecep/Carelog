@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { X, PencilSimple } from "phosphor-react";
+import { X } from "phosphor-react";
 import { recipientApi, APIError, Recipient } from "@/lib/api-client";
 
 interface EditRecipientSheetProps {
