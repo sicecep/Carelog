@@ -96,7 +96,7 @@
     "invitationsHeading": "Undangan Tertunda"
   },
   "recipients": {
-    "title": "Penerima Perawatan",
+    "title": "Edit Profil",
     "add": "Tambah penerima",
     "name": "Nama",
     "careType": "Jenis perawatan",
@@ -114,7 +114,7 @@
     "detailIncidentsHeading": "Insiden hari ini",
     "detailNotFoundTitle": "Penerima perawatan tidak ditemukan",
     "detailNotFoundBody": "Penerima perawatan ini tidak ada atau Anda tidak memiliki akses.",
-    "detailLoadError": "Gagal memuat data penerima perawatan. Silakan coba lagi."
+    "detailLoadError": "Gagal memuat detail penerima."
   },
   "reports": {
     "title": "Laporan Harian",

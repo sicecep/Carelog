@@ -117,7 +117,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
             </section>
 
             {workspaceId && (
-              <DetailActions recipientId={recipient.id} workspaceId={workspaceId} />
+              <DetailActions recipientId={recipient.id} workspaceId={workspaceId} recipient={recipient} />
             )}
           </>
         ) : null}
