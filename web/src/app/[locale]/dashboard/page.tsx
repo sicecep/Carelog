@@ -10,6 +10,7 @@ import {
 } from "@/lib/api-client";
 import { InviteCaregiver } from "@/components/ui/InviteCaregiver";
 import { InvitationList } from "@/components/ui/InvitationList";
+import { CareTeamList } from "@/components/ui/CareTeamList";
 import { LogoutButton } from "./logout-button";
 import { RecipientsSection } from "./recipients-section";
 
@@ -120,6 +121,22 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 <RecipientsSection recipients={recipients} />
               )}
             </section>
+
+            {workspace && (
+              <section aria-labelledby="careteam-heading" className="mt-8">
+                <h2
+                  id="careteam-heading"
+                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
+                >
+                  {t("careTeamHeading")}
+                </h2>
+                <CareTeamList
+                  workspaceId={workspace.id}
+                  currentUserId={me.user.id}
+                  canManage={workspace.role === "owner"}
+                />
+              </section>
+            )}
 
             {workspace && workspace.role === "owner" && (
               <section aria-labelledby="invitations-heading" className="mt-8">

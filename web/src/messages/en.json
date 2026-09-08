@@ -93,7 +93,8 @@
     "loadError": "We couldn't load your data. Please refresh the page.",
     "loadingRecipients": "Loading care recipients",
     "loggingOut": "Signing out...",
-    "invitationsHeading": "Pending Invitations"
+    "invitationsHeading": "Pending Invitations",
+    "careTeamHeading": "Care Team"
   },
   "recipients": {
     "title": "Edit Profile",
@@ -350,5 +351,27 @@
     "created": "Sent",
     "revoke": "Revoke",
     "confirmRevoke": "Cancel this invitation? The link will stop working immediately."
+  },
+  "careteam": {
+    "title": "Care Team",
+    "manage": "Manage Care Team",
+    "loading": "Loading...",
+    "empty": "No caregivers yet.",
+    "you": "You",
+    "inactive": "Inactive",
+    "joined": "Joined",
+    "roleOwner": "Owner",
+    "roleCaregiver": "Caregiver",
+    "roleViewer": "Viewer",
+    "changeRole": "Change Role",
+    "changeRoleFor": "Change role for {name}",
+    "remove": "Remove",
+    "removing": "Removing...",
+    "saving": "Saving...",
+    "confirmRemove": "Remove this person from the workspace? They will lose access immediately.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close"
   }
 }

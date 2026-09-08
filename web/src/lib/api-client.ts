@@ -351,6 +351,43 @@ export const invitationApi = {
   claim: (token: string) => api.post<{ workspace_id: string }>(`/api/v1/invites/${token}/claim`, {}),
 };
 
+// A workspace member: a membership row joined with the identity behind it.
+// Distinct from Invitation — an invitation is someone who has no account yet.
+export interface Member {
+  user_id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  role: "owner" | "caregiver" | "viewer";
+  is_active: boolean;
+  joined_at: string;
+}
+
+// Caregiver (workspace member) management endpoints.
+export const memberApi = {
+  // GET /api/v1/workspace/members - Any member may see the care team.
+  // See authApi.me for why `extraHeaders` exists (server-side cookie forward).
+  list: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Member[]>("/api/v1/workspace/members", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // PATCH /api/v1/workspace/members/{userId} - Owner changes a member's role.
+  updateRole: (workspaceId: string, userId: string, role: Member["role"]) =>
+    api.patch<{ status: string; role: string }>(
+      `/api/v1/workspace/members/${userId}`,
+      { role },
+      { "X-Workspace-ID": workspaceId }
+    ),
+
+  // DELETE /api/v1/workspace/members/{userId} - Owner removes a member.
+  remove: (workspaceId: string, userId: string) =>
+    api.delete<{ status: string }>(`/api/v1/workspace/members/${userId}`, {
+      "X-Workspace-ID": workspaceId,
+    }),
+};
+
 // Workspace endpoints
 export const workspaceApi = {
   list: () => api.get<{ id: string; name: string; plan: string }[]>("/api/v1/workspaces"),

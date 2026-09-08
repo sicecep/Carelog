@@ -149,6 +149,11 @@ func NewRouter(deps Deps) http.Handler {
 				WebBaseURL: deps.WebBaseURL,
 			}
 			RegisterInvitationRoutes(r, invitationHandlers)
+
+			memberHandlers := &MemberHandlers{
+				Queries: deps.Queries,
+			}
+			RegisterMemberRoutes(r, memberHandlers)
 		})
 	})
 

@@ -287,7 +287,7 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 		_ = json.Unmarshal(existing.EnabledModules, &m)
 		enabledModules = m
 	}
-	var dob pgtype.Date = existing.DateOfBirth
+	dob := existing.DateOfBirth
 	if req.DateOfBirth != "" {
 		if err := dob.Scan(req.DateOfBirth); err != nil {
 			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
