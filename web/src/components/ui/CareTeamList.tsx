@@ -177,6 +177,9 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           id={`role-${m.user_id}`}
                           value={m.role}
                           disabled={busy}
+                          // The Family role is read-only; the hint tells an owner
+                          // what they are actually granting before they grant it.
+                          title={m.role === "viewer" ? t("roleViewerHint") : undefined}
                           onChange={(e) =>
                             handleRoleChange(m.user_id, e.target.value as Member["role"])
                           }
