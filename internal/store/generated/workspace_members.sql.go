@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addWorkspaceMember = `-- name: AddWorkspaceMember :exec
@@ -36,6 +37,20 @@ WHERE user_id = $1
 // workspace + owner membership (RFC §8.2).
 func (q *Queries) CountWorkspaceMembershipsForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countWorkspaceMembershipsForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWorkspaceOwners = `-- name: CountWorkspaceOwners :one
+SELECT COUNT(*) FROM workspace_members
+WHERE workspace_id = $1 AND role = 'owner'
+`
+
+// Guards the last-owner invariant: demoting or removing the final owner would
+// strand the workspace with nobody able to manage it.
+func (q *Queries) CountWorkspaceOwners(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspaceOwners, workspaceID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -105,6 +120,66 @@ func (q *Queries) ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUI
 			&i.UserID,
 			&i.Role,
 			&i.JoinedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkspaceMembersWithUser = `-- name: ListWorkspaceMembersWithUser :many
+SELECT
+    wm.workspace_id,
+    wm.user_id,
+    wm.role,
+    wm.joined_at,
+    u.email,
+    u.full_name,
+    u.avatar_url,
+    u.is_active
+FROM workspace_members wm
+JOIN users u ON u.id = wm.user_id
+WHERE wm.workspace_id = $1
+ORDER BY wm.joined_at
+`
+
+type ListWorkspaceMembersWithUserRow struct {
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Role        string             `json:"role"`
+	JoinedAt    pgtype.Timestamptz `json:"joined_at"`
+	Email       string             `json:"email"`
+	FullName    pgtype.Text        `json:"full_name"`
+	AvatarUrl   pgtype.Text        `json:"avatar_url"`
+	IsActive    bool               `json:"is_active"`
+}
+
+// The membership row alone carries no identity, so the caregiver management UI
+// cannot say who a member actually is. Joining users is what turns a member
+// list into a people list. Inactive users are kept visible so an owner can
+// still see (and remove) a deactivated account.
+func (q *Queries) ListWorkspaceMembersWithUser(ctx context.Context, workspaceID uuid.UUID) ([]ListWorkspaceMembersWithUserRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspaceMembersWithUser, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorkspaceMembersWithUserRow{}
+	for rows.Next() {
+		var i ListWorkspaceMembersWithUserRow
+		if err := rows.Scan(
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Role,
+			&i.JoinedAt,
+			&i.Email,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.IsActive,
 		); err != nil {
 			return nil, err
 		}

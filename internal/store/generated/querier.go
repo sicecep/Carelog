@@ -39,6 +39,9 @@ type Querier interface {
 	// Zero means this is a first login and the verify handler must provision a
 	// workspace + owner membership (RFC §8.2).
 	CountWorkspaceMembershipsForUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Guards the last-owner invariant: demoting or removing the final owner would
+	// strand the workspace with nobody able to manage it.
+	CountWorkspaceOwners(ctx context.Context, workspaceID uuid.UUID) (int64, error)
 	CreateCareRecipient(ctx context.Context, arg CreateCareRecipientParams) (CareRecipient, error)
 	CreateDailyReport(ctx context.Context, arg CreateDailyReportParams) (DailyReport, error)
 	CreateIncident(ctx context.Context, arg CreateIncidentParams) (Incident, error)
@@ -122,6 +125,11 @@ type Querier interface {
 	// sqlc.narg lets each filter be optional independently.
 	ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
+	// The membership row alone carries no identity, so the caregiver management UI
+	// cannot say who a member actually is. Joining users is what turns a member
+	// list into a people list. Inactive users are kept visible so an owner can
+	// still see (and remove) a deactivated account.
+	ListWorkspaceMembersWithUser(ctx context.Context, workspaceID uuid.UUID) ([]ListWorkspaceMembersWithUserRow, error)
 	ListWorkspaces(ctx context.Context, arg ListWorkspacesParams) ([]Workspace, error)
 	// LOG-004 / RPT-007: queries backing the 17:00 WIB daily email digest.
 	//

@@ -93,7 +93,8 @@
     "loadError": "Tidak dapat memuat data Anda. Silakan muat ulang halaman.",
     "loadingRecipients": "Memuat penerima perawatan",
     "loggingOut": "Keluar...",
-    "invitationsHeading": "Undangan Tertunda"
+    "invitationsHeading": "Undangan Tertunda",
+    "careTeamHeading": "Tim Perawat"
   },
   "recipients": {
     "title": "Edit Profil",
@@ -350,5 +351,27 @@
     "created": "Dikirim",
     "revoke": "Batalkan",
     "confirmRevoke": "Batalkan undangan ini? Tautan akan langsung berhenti berfungsi."
+  },
+  "careteam": {
+    "title": "Tim Perawat",
+    "manage": "Kelola Tim Perawat",
+    "loading": "Memuat...",
+    "empty": "Belum ada perawat.",
+    "you": "Anda",
+    "inactive": "Nonaktif",
+    "joined": "Bergabung",
+    "roleOwner": "Pemilik",
+    "roleCaregiver": "Perawat",
+    "roleViewer": "Pemantau",
+    "changeRole": "Ubah Peran",
+    "changeRoleFor": "Ubah peran untuk {name}",
+    "remove": "Hapus",
+    "removing": "Menghapus...",
+    "saving": "Menyimpan...",
+    "confirmRemove": "Hapus orang ini dari workspace? Akses mereka akan langsung dicabut.",
+    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "close": "Tutup"
   }
 }
