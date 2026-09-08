@@ -110,10 +110,16 @@ func NewRouter(deps Deps) http.Handler {
 		}
 		RegisterPublicInvitationRoutes(api, invitationHandlers, middleware.AuthMiddleware(deps.Signer.Verifier()))
 
-		// Protected routes with Auth + Workspace middleware
+		// Protected routes with Auth + Workspace + Writer middleware.
+		// RequireWriter is a layer-level guard that blocks viewer role on unsafe
+		// HTTP methods (POST/PUT/PATCH/DELETE) regardless of route — so a viewer
+		// account cannot mutate workspace data even if a future handler forgets
+		// its own check. Function-level guards (owner-only in members and
+		// invitations) still apply on top.
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
 			middleware.WorkspaceMiddleware(deps.Queries),
+			middleware.RequireWriter,
 		).Group(func(r chi.Router) {
 			recipientHandlers := &RecipientHandlers{
 						Queries: deps.Queries,

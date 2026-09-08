@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"net/url"
 	"os"
 	"testing"
 
@@ -19,10 +20,17 @@ func TestLoad_valid(t *testing.T) {
 	require.Equal(t, "8080", c.HTTPPort)
 	require.Equal(t, "redis://localhost:6379", c.RedisURL)
 	require.Equal(t, "development", c.AppEnv)
-	// AppBaseURL is derived from the TAILSCALE_IP environment in dev, which is
-	// 100.120.83.114 in our test runner. The exact value doesn't matter as long
-	// as it's a valid absolute URL — we just assert it parses correctly.
-	require.Equal(t, "http://100.120.83.114:8080", c.AppBaseURL)
+	// AppBaseURL is derived from the runtime environment in dev (typically a
+	// TAILSCALE_IP:port when the phone is testing against a laptop, or
+	// localhost:port when running in a container). The exact value depends on
+	// the test host, so we assert only that it parses as a valid absolute URL
+	// on the expected port.
+	require.NotEmpty(t, c.AppBaseURL)
+	u, err := url.Parse(c.AppBaseURL)
+	require.NoError(t, err)
+	require.Equal(t, "http", u.Scheme)
+	require.NotEmpty(t, u.Host)
+	require.Contains(t, u.Host, ":8080")
 	require.Equal(t, "Asia/Jakarta", c.DefaultTimezone)
 	require.Equal(t, "postgres://user:***@localhost:5432/carelog?sslmode=disable", c.DatabaseURL)
 	require.Equal(t, "dev-only-not-for-prod", c.JWTEd25519Seed)
