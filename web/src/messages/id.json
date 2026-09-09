@@ -374,5 +374,36 @@
     "cancel": "Batal",
     "save": "Simpan",
     "close": "Tutup"
+  },
+  "pending": {
+    "titlePending": "Akun menunggu persetujuan",
+    "bodyPending": "Terima kasih telah mendaftar. Administrator perlu menyetujui akun Anda sebelum Anda dapat menggunakan CareLog. Anda dapat masuk segera setelah disetujui.",
+    "titleRejected": "Akun tidak disetujui",
+    "bodyRejected": "Administrator tidak menyetujui akun ini.",
+    "reasonLabel": "Alasan",
+    "emailVerified": "Alamat email Anda telah terverifikasi.",
+    "backToLogin": "Kembali ke halaman masuk"
+  },
+  "admin": {
+    "title": "Administrasi",
+    "pendingHeading": "Menunggu persetujuan",
+    "approvedHeading": "Disetujui",
+    "rejectedHeading": "Ditolak",
+    "tabPending": "Menunggu",
+    "tabApproved": "Disetujui",
+    "tabRejected": "Ditolak",
+    "loading": "Memuat...",
+    "empty": "Tidak ada data.",
+    "emptyPending": "Tidak ada akun yang menunggu persetujuan.",
+    "signedUp": "Mendaftar",
+    "approve": "Setujui",
+    "reject": "Tolak",
+    "approving": "Menyetujui...",
+    "rejecting": "Menolak...",
+    "confirmReject": "Tolak akun ini? Mereka tidak akan dapat masuk.",
+    "reasonPrompt": "Alasan (opsional, ditampilkan kepada pengguna)",
+    "superAdminBadge": "Admin",
+    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
+    "accessDenied": "Anda tidak memiliki akses ke halaman ini."
   }
 }

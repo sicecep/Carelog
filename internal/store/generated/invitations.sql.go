@@ -19,7 +19,7 @@ WHERE token_hash = $1
   AND consumed_at IS NULL
   AND revoked_at IS NULL
   AND expires_at > now()
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
 `
 
 type ConsumeInvitationParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) ConsumeInvitation(ctx context.Context, arg ConsumeInvitationPa
 		&i.RecipientID,
 		&i.TokenHash,
 		&i.InviteeName,
+		&i.InviteeEmail,
 		&i.Role,
 		&i.InvitedBy,
 		&i.ExpiresAt,
@@ -52,29 +53,33 @@ func (q *Queries) ConsumeInvitation(ctx context.Context, arg ConsumeInvitationPa
 
 const createInvitation = `-- name: CreateInvitation :one
 INSERT INTO invitations (
-    workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
 `
 
 type CreateInvitationParams struct {
-	WorkspaceID uuid.UUID          `json:"workspace_id"`
-	RecipientID pgtype.UUID        `json:"recipient_id"`
-	TokenHash   []byte             `json:"token_hash"`
-	InviteeName string             `json:"invitee_name"`
-	Role        string             `json:"role"`
-	InvitedBy   uuid.UUID          `json:"invited_by"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	RecipientID  pgtype.UUID        `json:"recipient_id"`
+	TokenHash    []byte             `json:"token_hash"`
+	InviteeName  string             `json:"invitee_name"`
+	InviteeEmail pgtype.Text        `json:"invitee_email"`
+	Role         string             `json:"role"`
+	InvitedBy    uuid.UUID          `json:"invited_by"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
 }
 
 // WRK-004: owner invites a caregiver. Only the SHA-256 hash of the token is
 // stored (SEC-003) — the raw token exists only in the returned WhatsApp link.
+// invitee_email is optional; when set, the verify handler uses it to exempt
+// the invitee from the approval gate on their magic-link click.
 func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error) {
 	row := q.db.QueryRow(ctx, createInvitation,
 		arg.WorkspaceID,
 		arg.RecipientID,
 		arg.TokenHash,
 		arg.InviteeName,
+		arg.InviteeEmail,
 		arg.Role,
 		arg.InvitedBy,
 		arg.ExpiresAt,
@@ -86,6 +91,7 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 		&i.RecipientID,
 		&i.TokenHash,
 		&i.InviteeName,
+		&i.InviteeEmail,
 		&i.Role,
 		&i.InvitedBy,
 		&i.ExpiresAt,
@@ -98,7 +104,7 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 }
 
 const getInvitationByHash = `-- name: GetInvitationByHash :one
-SELECT i.id, i.workspace_id, i.recipient_id, i.token_hash, i.invitee_name, i.role, i.invited_by, i.expires_at, i.consumed_at, i.consumed_by, i.revoked_at, i.created_at, w.name AS workspace_name
+SELECT i.id, i.workspace_id, i.recipient_id, i.token_hash, i.invitee_name, i.invitee_email, i.role, i.invited_by, i.expires_at, i.consumed_at, i.consumed_by, i.revoked_at, i.created_at, w.name AS workspace_name
 FROM invitations i
 JOIN workspaces w ON w.id = i.workspace_id
 WHERE i.token_hash = $1
@@ -110,6 +116,7 @@ type GetInvitationByHashRow struct {
 	RecipientID   pgtype.UUID        `json:"recipient_id"`
 	TokenHash     []byte             `json:"token_hash"`
 	InviteeName   string             `json:"invitee_name"`
+	InviteeEmail  pgtype.Text        `json:"invitee_email"`
 	Role          string             `json:"role"`
 	InvitedBy     uuid.UUID          `json:"invited_by"`
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
@@ -131,6 +138,7 @@ func (q *Queries) GetInvitationByHash(ctx context.Context, tokenHash []byte) (Ge
 		&i.RecipientID,
 		&i.TokenHash,
 		&i.InviteeName,
+		&i.InviteeEmail,
 		&i.Role,
 		&i.InvitedBy,
 		&i.ExpiresAt,
@@ -144,7 +152,7 @@ func (q *Queries) GetInvitationByHash(ctx context.Context, tokenHash []byte) (Ge
 }
 
 const listPendingInvitations = `-- name: ListPendingInvitations :many
-SELECT id, workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at FROM invitations
+SELECT id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at FROM invitations
 WHERE workspace_id = $1
   AND consumed_at IS NULL
   AND revoked_at IS NULL
@@ -168,6 +176,7 @@ func (q *Queries) ListPendingInvitations(ctx context.Context, workspaceID uuid.U
 			&i.RecipientID,
 			&i.TokenHash,
 			&i.InviteeName,
+			&i.InviteeEmail,
 			&i.Role,
 			&i.InvitedBy,
 			&i.ExpiresAt,
@@ -190,7 +199,7 @@ const revokeInvitation = `-- name: RevokeInvitation :one
 UPDATE invitations
 SET revoked_at = now()
 WHERE id = $1 AND workspace_id = $2 AND consumed_at IS NULL AND revoked_at IS NULL
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
 `
 
 type RevokeInvitationParams struct {
@@ -209,6 +218,7 @@ func (q *Queries) RevokeInvitation(ctx context.Context, arg RevokeInvitationPara
 		&i.RecipientID,
 		&i.TokenHash,
 		&i.InviteeName,
+		&i.InviteeEmail,
 		&i.Role,
 		&i.InvitedBy,
 		&i.ExpiresAt,

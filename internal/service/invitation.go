@@ -92,6 +92,7 @@ func CreateInvitation(
 	inviterID uuid.UUID,
 	inviterRole string,
 	inviteeName string,
+	inviteeEmail string,
 	role string,
 	recipientID *uuid.UUID,
 ) (CreateInvitationResult, error) {
@@ -132,13 +133,14 @@ func CreateInvitation(
 	}
 
 	inv, err := q.CreateInvitation(ctx, store.CreateInvitationParams{
-		WorkspaceID: workspaceID,
-		RecipientID: recip,
-		TokenHash:   sum[:],
-		InviteeName: inviteeName,
-		Role:        role,
-		InvitedBy:   inviterID,
-		ExpiresAt:   pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		WorkspaceID:  workspaceID,
+		RecipientID:  recip,
+		TokenHash:    sum[:],
+		InviteeName:  inviteeName,
+		InviteeEmail: pgtype.Text{String: strings.ToLower(strings.TrimSpace(inviteeEmail)), Valid: strings.TrimSpace(inviteeEmail) != ""},
+		Role:         role,
+		InvitedBy:    inviterID,
+		ExpiresAt:    pgtype.Timestamptz{Time: expiresAt, Valid: true},
 	})
 	if err != nil {
 		return CreateInvitationResult{}, fmt.Errorf("create invitation: %w", err)

@@ -388,6 +388,43 @@ export const memberApi = {
     }),
 };
 
+// A user awaiting (or having received) a platform-admin decision on signup.
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  locale: string;
+  approval_status: "pending" | "approved" | "rejected";
+  approved_at?: string;
+  rejection_reason?: string;
+  is_super_admin: boolean;
+  created_at: string;
+}
+
+// Super-admin endpoints. Not workspace-scoped: platform administration sits
+// above workspaces, so these send no X-Workspace-ID header.
+export const adminApi = {
+  // GET /api/v1/admin/users?status=... - list users by approval status.
+  // See authApi.me for why `extraHeaders` exists (server-side cookie forward).
+  listUsers: (
+    status: AdminUser["approval_status"] = "pending",
+    extraHeaders?: Record<string, string>
+  ) => api.get<AdminUser[]>(`/api/v1/admin/users?status=${status}`, { ...extraHeaders }),
+
+  // GET /api/v1/admin/users/pending/count - badge count.
+  pendingCount: (extraHeaders?: Record<string, string>) =>
+    api.get<{ count: number }>("/api/v1/admin/users/pending/count", { ...extraHeaders }),
+
+  // POST /api/v1/admin/users/{id}/approve
+  approve: (userId: string) =>
+    api.post<{ status: string }>(`/api/v1/admin/users/${userId}/approve`, {}),
+
+  // POST /api/v1/admin/users/{id}/reject - reason is optional.
+  reject: (userId: string, reason?: string) =>
+    api.post<{ status: string }>(`/api/v1/admin/users/${userId}/reject`, { reason }),
+};
+
 // Workspace endpoints
 export const workspaceApi = {
   list: () => api.get<{ id: string; name: string; plan: string }[]>("/api/v1/workspaces"),

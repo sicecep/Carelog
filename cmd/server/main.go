@@ -108,6 +108,7 @@ func main() {
 		CookieDomain: cfg.CookieDomain,
 
 		Version: "0.0.0", // TODO: inject from build / git tag
+		Config:  cfg,
 	})
 
 	// HTTP server
