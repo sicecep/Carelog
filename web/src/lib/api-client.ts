@@ -191,6 +191,31 @@ export const recipientApi = {
     body: { full_name?: string; display_name?: string }
   ) => api.patch<Recipient>(`/api/v1/recipients/${recipientId}`, body, { "X-Workspace-ID": workspaceId }),
 
+  // GET /api/v1/recipients?archived=true - List archived (soft-deleted)
+  // recipients. Separate call from list() so the active view never carries
+  // archived rows.
+  listArchived: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Recipient[]>("/api/v1/recipients?archived=true", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // DELETE /api/v1/recipients/{id} - Archive (soft-delete) a recipient.
+  // Owner-only; the record and its history are retained, just hidden.
+  archive: (workspaceId: string, recipientId: string) =>
+    api.delete<{ status: string }>(`/api/v1/recipients/${recipientId}`, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/recipients/{id}/reactivate - Restore an archived recipient.
+  // Owner-only, mirroring archive.
+  reactivate: (workspaceId: string, recipientId: string) =>
+    api.post<{ status: string }>(
+      `/api/v1/recipients/${recipientId}/reactivate`,
+      {},
+      { "X-Workspace-ID": workspaceId }
+    ),
+
   // GET /api/v1/recipients/{recipientID}/timeline?date=YYYY-MM-DD - unified
   // day timeline merging all contributors' entries (RPT-001).
   getTimeline: (

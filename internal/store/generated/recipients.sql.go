@@ -144,6 +144,51 @@ func (q *Queries) GetCareRecipient(ctx context.Context, arg GetCareRecipientPara
 	return i, err
 }
 
+const listArchivedCareRecipientsByWorkspace = `-- name: ListArchivedCareRecipientsByWorkspace :many
+SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
+WHERE workspace_id = $1 AND is_active = false
+ORDER BY updated_at DESC
+`
+
+// The archived view. Kept as a separate query rather than a parameterised
+// filter so the common active-list path stays a plain, index-friendly scan and
+// can never accidentally leak archived rows.
+func (q *Queries) ListArchivedCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error) {
+	rows, err := q.db.Query(ctx, listArchivedCareRecipientsByWorkspace, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CareRecipient{}
+	for rows.Next() {
+		var i CareRecipient
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.FullName,
+			&i.DisplayName,
+			&i.DateOfBirth,
+			&i.CareType,
+			&i.Gender,
+			&i.PhotoUrl,
+			&i.Notes,
+			&i.MedicalNotes,
+			&i.IsActive,
+			&i.CreatedBy,
+			&i.EnabledModules,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCareRecipientsByWorkspace = `-- name: ListCareRecipientsByWorkspace :many
 SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
 WHERE workspace_id = $1 AND is_active = true
@@ -184,6 +229,25 @@ func (q *Queries) ListCareRecipientsByWorkspace(ctx context.Context, workspaceID
 		return nil, err
 	}
 	return items, nil
+}
+
+const reactivateCareRecipient = `-- name: ReactivateCareRecipient :exec
+UPDATE care_recipients
+SET is_active = true, updated_at = now()
+WHERE id = $1 AND workspace_id = $2
+`
+
+type ReactivateCareRecipientParams struct {
+	ID          uuid.UUID `json:"id"`
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+}
+
+// Restores an archived recipient. The workspace_id predicate is the tenant
+// guard: it makes restoring another workspace's recipient impossible even with
+// a guessed ID.
+func (q *Queries) ReactivateCareRecipient(ctx context.Context, arg ReactivateCareRecipientParams) error {
+	_, err := q.db.Exec(ctx, reactivateCareRecipient, arg.ID, arg.WorkspaceID)
+	return err
 }
 
 const updateCareRecipient = `-- name: UpdateCareRecipient :one

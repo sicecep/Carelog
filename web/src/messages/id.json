@@ -115,7 +115,11 @@
     "detailIncidentsHeading": "Insiden hari ini",
     "detailNotFoundTitle": "Penerima perawatan tidak ditemukan",
     "detailNotFoundBody": "Penerima perawatan ini tidak ada atau Anda tidak memiliki akses.",
-    "detailLoadError": "Gagal memuat detail penerima."
+    "detailLoadError": "Gagal memuat detail penerima.",
+    "archive": "Arsipkan",
+    "reactivate": "Pulihkan",
+    "confirmArchive": "Arsipkan penerima ini? Mereka akan disembunyikan dari dasbor tetapi riwayat mereka tetap tersimpan.",
+    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi."
   },
   "reports": {
     "title": "Laporan Harian",
@@ -350,7 +354,10 @@
     "expires": "Kedaluwarsa",
     "created": "Dikirim",
     "revoke": "Batalkan",
-    "confirmRevoke": "Batalkan undangan ini? Tautan akan langsung berhenti berfungsi."
+    "confirmRevoke": "Batalkan undangan ini? Tautan akan langsung berhenti berfungsi.",
+    "archive": "Arsipkan",
+    "reactivate": "Pulihkan",
+    "confirmArchive": "Arsipkan penerima ini? Mereka akan disembunyikan dari dasbor tetapi riwayat mereka tetap tersimpan."
   },
   "careteam": {
     "title": "Tim Perawat",

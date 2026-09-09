@@ -12,6 +12,14 @@ SELECT * FROM care_recipients
 WHERE workspace_id = $1 AND is_active = true
 ORDER BY created_at;
 
+-- name: ListArchivedCareRecipientsByWorkspace :many
+-- The archived view. Kept as a separate query rather than a parameterised
+-- filter so the common active-list path stays a plain, index-friendly scan and
+-- can never accidentally leak archived rows.
+SELECT * FROM care_recipients
+WHERE workspace_id = $1 AND is_active = false
+ORDER BY updated_at DESC;
+
 -- name: CountActiveRecipientsByWorkspace :one
 SELECT COUNT(*) FROM care_recipients
 WHERE workspace_id = $1 AND is_active = true;
@@ -25,6 +33,14 @@ RETURNING *;
 -- name: DeactivateCareRecipient :exec
 UPDATE care_recipients
 SET is_active = false, updated_at = now()
+WHERE id = $1 AND workspace_id = $2;
+
+-- name: ReactivateCareRecipient :exec
+-- Restores an archived recipient. The workspace_id predicate is the tenant
+-- guard: it makes restoring another workspace's recipient impossible even with
+-- a guessed ID.
+UPDATE care_recipients
+SET is_active = true, updated_at = now()
 WHERE id = $1 AND workspace_id = $2;
 
 -- name: CareRecipientExistsInWorkspace :one

@@ -115,7 +115,11 @@
     "detailIncidentsHeading": "Today's incidents",
     "detailNotFoundTitle": "Recipient not found",
     "detailNotFoundBody": "This care recipient does not exist or you don't have access to it.",
-    "detailLoadError": "Failed to load recipient details."
+    "detailLoadError": "Failed to load recipient details.",
+    "archive": "Archive",
+    "reactivate": "Restore",
+    "confirmArchive": "Archive this recipient? They will be hidden from the dashboard but their history is retained.",
+    "errorGeneric": "Something went wrong. Please try again."
   },
   "reports": {
     "title": "Daily Reports",
@@ -350,7 +354,10 @@
     "expires": "Expires",
     "created": "Sent",
     "revoke": "Revoke",
-    "confirmRevoke": "Cancel this invitation? The link will stop working immediately."
+    "confirmRevoke": "Cancel this invitation? The link will stop working immediately.",
+    "archive": "Archive",
+    "reactivate": "Restore",
+    "confirmArchive": "Archive this recipient? They will be hidden from the dashboard but their history is retained."
   },
   "careteam": {
     "title": "Care Team",

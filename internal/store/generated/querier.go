@@ -118,6 +118,10 @@ type Querier interface {
 	// claim (claiming requires an authenticated session, and pending users don't
 	// get one). Comparison is case-insensitive to match the users email index.
 	HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error)
+	// The archived view. Kept as a separate query rather than a parameterised
+	// filter so the common active-list path stays a plain, index-friendly scan and
+	// can never accidentally leak archived rows.
+	ListArchivedCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error)
 	ListCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error)
 	ListDailyReports(ctx context.Context, arg ListDailyReportsParams) ([]DailyReport, error)
 	// RPT-001: Gets ALL contributors' reports for a recipient on a specific date.
@@ -177,6 +181,10 @@ type Querier interface {
 	// so an allow-listed operator can never be locked out by the very gate they
 	// are supposed to administer.
 	PromoteSuperAdminByEmail(ctx context.Context, email string) (User, error)
+	// Restores an archived recipient. The workspace_id predicate is the tenant
+	// guard: it makes restoring another workspace's recipient impossible even with
+	// a guessed ID.
+	ReactivateCareRecipient(ctx context.Context, arg ReactivateCareRecipientParams) error
 	// Rejection is reversible (an admin can approve later), so the row is kept
 	// rather than deleted — the audit trail is the point.
 	RejectUser(ctx context.Context, arg RejectUserParams) (User, error)
