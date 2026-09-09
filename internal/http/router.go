@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sicecep/carelog/internal/auth"
+	"github.com/sicecep/carelog/internal/config"
 	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/mail"
 	store "github.com/sicecep/carelog/internal/store/generated"
@@ -44,6 +45,10 @@ type Deps struct {
 
 	// Version is the build-time version string reported by /api/v1/version.
 	Version string
+
+	// Config carries deployment configuration the handlers need at request
+	// time — currently the super-admin allow-list consulted during verify.
+	Config *config.Config
 }
 
 // readyTimeout bounds each dependency check so a hung backend can't wedge the
@@ -99,6 +104,7 @@ func NewRouter(deps Deps) http.Handler {
 			WebBaseURL:    deps.WebBaseURL,
 			APIBaseURL:    deps.APIBaseURL,
 			CookieDomain:  deps.CookieDomain,
+			Config:        deps.Config,
 		}
 		RegisterAuthRoutes(api, authHandlers)
 
@@ -110,6 +116,20 @@ func NewRouter(deps Deps) http.Handler {
 		}
 		RegisterPublicInvitationRoutes(api, invitationHandlers, middleware.AuthMiddleware(deps.Signer.Verifier()))
 
+		// Super-admin routes. Auth only — deliberately NOT behind
+		// WorkspaceMiddleware: platform administration is not scoped to a
+		// workspace, and requiring an X-Workspace-ID header would force an
+		// admin to belong to one just to review signups.
+		api.With(
+			middleware.AuthMiddleware(deps.Signer.Verifier()),
+			middleware.RequireSuperAdmin(deps.Queries),
+		).Group(func(r chi.Router) {
+			adminHandlers := &AdminHandlers{
+				Queries: deps.Queries,
+			}
+			RegisterAdminRoutes(r, adminHandlers)
+		})
+
 		// Protected routes with Auth + Workspace + Writer middleware.
 		// RequireWriter is a layer-level guard that blocks viewer role on unsafe
 		// HTTP methods (POST/PUT/PATCH/DELETE) regardless of route — so a viewer
@@ -118,6 +138,7 @@ func NewRouter(deps Deps) http.Handler {
 		// invitations) still apply on top.
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
+			middleware.RequireApproved(deps.Queries),
 			middleware.WorkspaceMiddleware(deps.Queries),
 			middleware.RequireWriter,
 		).Group(func(r chi.Router) {

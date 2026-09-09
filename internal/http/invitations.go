@@ -47,6 +47,9 @@ func RegisterPublicInvitationRoutes(r chi.Router, h *InvitationHandlers, authMW 
 
 type CreateInvitationRequest struct {
 	InviteeName string  `json:"invitee_name"`
+	// Optional. When supplied, the invitee is exempted from the signup
+	// approval gate on their magic-link click — the invitation is the approval.
+	InviteeEmail string  `json:"invitee_email,omitempty"`
 	Role        string  `json:"role,omitempty"`
 	RecipientID *string `json:"recipient_id,omitempty"`
 	Phone       *string `json:"phone,omitempty"` // optional, for the wa.me deep link
@@ -123,7 +126,7 @@ func (h *InvitationHandlers) handleCreateInvitation(w http.ResponseWriter, r *ht
 	}
 
 	res, err := service.CreateInvitation(
-		r.Context(), h.Queries, workspaceID, userID, role, req.InviteeName, req.Role, recipientID,
+		r.Context(), h.Queries, workspaceID, userID, role, req.InviteeName, req.InviteeEmail, req.Role, recipientID,
 	)
 	if err != nil {
 		return err

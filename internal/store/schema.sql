@@ -33,11 +33,23 @@ CREATE TABLE users (
     locale               TEXT NOT NULL DEFAULT 'id' CHECK (locale IN ('id', 'en')),
     is_active            BOOLEAN NOT NULL DEFAULT true,
     onboarding_completed BOOLEAN NOT NULL DEFAULT false,
+    -- Signup approval gate. Defaults to 'approved' so invited caregivers and
+    -- every pre-existing account stay unblocked; only self-registering owners
+    -- are explicitly set to 'pending' at creation time.
+    approval_status      TEXT NOT NULL DEFAULT 'approved'
+        CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    approved_at          TIMESTAMPTZ,
+    approved_by          UUID REFERENCES users(id) ON DELETE SET NULL,
+    rejection_reason     TEXT CHECK (char_length(rejection_reason) <= 500),
+    is_super_admin       BOOLEAN NOT NULL DEFAULT false,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX idx_users_email_lower ON users (LOWER(email));
+CREATE INDEX idx_users_pending_approval ON users (created_at)
+    WHERE approval_status = 'pending';
+CREATE INDEX idx_users_super_admin ON users (id) WHERE is_super_admin;
 
 -- care_recipients
 CREATE TABLE care_recipients (
@@ -211,6 +223,10 @@ CREATE TABLE invitations (
     recipient_id  UUID REFERENCES care_recipients(id) ON DELETE CASCADE,
     token_hash    BYTEA NOT NULL UNIQUE,
     invitee_name  TEXT NOT NULL,
+    -- Optional email hint. When present, the verify handler exempts a matching
+    -- magic-link click from the approval gate so an invitee who lands on their
+    -- magic link before their invite link can still complete the claim.
+    invitee_email TEXT,
     role          TEXT NOT NULL DEFAULT 'caregiver' CHECK (role IN ('caregiver', 'viewer')),
     invited_by    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at    TIMESTAMPTZ NOT NULL,
@@ -223,3 +239,7 @@ CREATE TABLE invitations (
 CREATE INDEX idx_invitations_workspace ON invitations(workspace_id);
 CREATE INDEX idx_invitations_pending ON invitations(workspace_id)
     WHERE consumed_at IS NULL AND revoked_at IS NULL;
+CREATE INDEX idx_invitations_invitee_email_pending ON invitations (LOWER(invitee_email))
+    WHERE invitee_email IS NOT NULL
+      AND consumed_at IS NULL
+      AND revoked_at IS NULL;

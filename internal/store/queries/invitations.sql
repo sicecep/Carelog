@@ -1,9 +1,11 @@
 -- name: CreateInvitation :one
 -- WRK-004: owner invites a caregiver. Only the SHA-256 hash of the token is
 -- stored (SEC-003) — the raw token exists only in the returned WhatsApp link.
+-- invitee_email is optional; when set, the verify handler uses it to exempt
+-- the invitee from the approval gate on their magic-link click.
 INSERT INTO invitations (
-    workspace_id, recipient_id, token_hash, invitee_name, role, invited_by, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetInvitationByHash :one

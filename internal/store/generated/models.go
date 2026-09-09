@@ -81,18 +81,19 @@ type Incident struct {
 }
 
 type Invitation struct {
-	ID          uuid.UUID          `json:"id"`
-	WorkspaceID uuid.UUID          `json:"workspace_id"`
-	RecipientID pgtype.UUID        `json:"recipient_id"`
-	TokenHash   []byte             `json:"token_hash"`
-	InviteeName string             `json:"invitee_name"`
-	Role        string             `json:"role"`
-	InvitedBy   uuid.UUID          `json:"invited_by"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
-	ConsumedBy  pgtype.UUID        `json:"consumed_by"`
-	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           uuid.UUID          `json:"id"`
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	RecipientID  pgtype.UUID        `json:"recipient_id"`
+	TokenHash    []byte             `json:"token_hash"`
+	InviteeName  string             `json:"invitee_name"`
+	InviteeEmail pgtype.Text        `json:"invitee_email"`
+	Role         string             `json:"role"`
+	InvitedBy    uuid.UUID          `json:"invited_by"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt   pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy   pgtype.UUID        `json:"consumed_by"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type ParentNote struct {
@@ -162,6 +163,11 @@ type User struct {
 	Locale              string             `json:"locale"`
 	IsActive            bool               `json:"is_active"`
 	OnboardingCompleted bool               `json:"onboarding_completed"`
+	ApprovalStatus      string             `json:"approval_status"`
+	ApprovedAt          pgtype.Timestamptz `json:"approved_at"`
+	ApprovedBy          pgtype.UUID        `json:"approved_by"`
+	RejectionReason     pgtype.Text        `json:"rejection_reason"`
+	IsSuperAdmin        bool               `json:"is_super_admin"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }

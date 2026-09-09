@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -15,9 +16,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sicecep/carelog/internal/auth"
+	"github.com/sicecep/carelog/internal/config"
 	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/mail"
 	"github.com/sicecep/carelog/internal/http/middleware"
@@ -37,6 +40,9 @@ type AuthHandlers struct {
 	WebBaseURL   string
 	APIBaseURL   string
 	CookieDomain string
+	// Config carries the super-admin allow-list consulted on every verify.
+	// Never nil in production; guarded at the call site so tests may omit it.
+	Config *config.Config
 }
 
 // RegisterAuthRoutes registers auth endpoints on the given router.
@@ -155,6 +161,82 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	// Fetch user first — everything downstream (allow-list reconciliation, the
+	// approval gate, provisioning) needs to inspect the account before we
+	// decide whether to issue a session.
+	user, err := h.Queries.GetUser(r.Context(), userID)
+	if err != nil {
+		return err
+	}
+
+	// Super-admin allow-list reconciliation. Runs on every login so the DB
+	// tracks whatever SUPER_ADMIN_EMAILS currently says. Config is optional
+	// for tests that construct a bare AuthHandlers; production always sets it.
+	if h.Config != nil && h.Config.IsSuperAdminEmail(user.Email) {
+		if promoted, perr := h.Queries.PromoteSuperAdminByEmail(r.Context(), user.Email); perr == nil {
+			user = promoted
+		} else if !errors.Is(perr, pgx.ErrNoRows) {
+			// The reconciliation is best-effort — a failure here must not
+			// block a legitimate login, but should be visible in logs.
+			slog.Error("promote super-admin failed", "user_id", userID, "error", perr)
+		}
+	}
+	// Demote anyone whose privilege has been revoked in config. Runs each
+	// login so a stale super-admin loses access on their next request.
+	if h.Config != nil {
+		if err := h.Queries.DemoteSuperAdminsNotIn(r.Context(), h.Config.SuperAdminEmails); err != nil {
+			slog.Error("demote super-admins failed", "error", err)
+		}
+	}
+
+	// Approval gate. A user with no workspace memberships is either
+	//   (a) an invited caregiver who just clicked their magic link but has not
+	//       yet been added to a workspace (rare race — the invite claim adds
+	//       them), or
+	//   (b) a self-registering owner: this is the case the gate exists for.
+	// We conservatively treat any zero-membership account as a self-registrant
+	// and mark them pending on their very first verify — the SetUserPendingApproval
+	// query is a no-op for anyone whose status is already anything but 'approved',
+	// so a subsequent invite claim still works normally (invites go through a
+	// different endpoint and were never blocked here).
+	//
+	// A super-admin is never gated, even on their first login — the promote
+	// step above already force-approved them.
+	memberships, err := h.Queries.CountWorkspaceMembershipsForUser(r.Context(), userID)
+	if err != nil {
+		return err
+	}
+	if memberships == 0 && !user.IsSuperAdmin {
+		// Invitee-exemption: if there's an outstanding invitation for this
+		// email, treat the click as an invitee flow — otherwise an invitee
+		// who lands on their magic link first would be marked pending and
+		// unable to reach the claim endpoint (claim requires a session,
+		// pending users don't get one). The invitation itself IS the approval.
+		hasInvite, invErr := h.Queries.HasPendingInvitationForEmail(r.Context(), user.Email)
+		if invErr != nil {
+			// A lookup failure here must not silently open the gate: log and
+			// fall through to marking pending. That's the safe direction.
+			slog.Error("pending invitation lookup failed", "user_id", userID, "error", invErr)
+			hasInvite = false
+		}
+		if !hasInvite {
+			if pending, perr := h.Queries.SetUserPendingApproval(r.Context(), userID); perr == nil {
+				user = pending
+			} else if !errors.Is(perr, pgx.ErrNoRows) {
+				return perr
+			}
+		}
+	}
+
+	// Refuse to issue a session for pending or rejected accounts. The user
+	// still consumed their magic link (fine — they authenticated their email),
+	// but we send them to a landing page explaining the gate rather than into
+	// the app. NO cookies are set on this path.
+	if user.ApprovalStatus == "pending" || user.ApprovalStatus == "rejected" {
+		http.Redirect(w, r, h.WebBaseURL+"/"+localeOrDefault(user.Locale)+"/pending?status="+user.ApprovalStatus, http.StatusSeeOther)
+		return nil
+	}
+
 	// Create a new refresh token family
 	familyID := uuid.New()
 
@@ -175,12 +257,6 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 	// Set HttpOnly cookies
 	setAuthCookies(w, r, accessToken, rawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
 
-	// Fetch user to return
-	user, err := h.Queries.GetUser(r.Context(), userID)
-	if err != nil {
-		return err
-	}
-
 	// Mark email as verified (idempotent)
 	_, _ = h.Queries.MarkEmailVerified(r.Context(), userID)
 
@@ -188,7 +264,11 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 	// create one and make them its owner in a single transaction. A partial
 	// failure here must not leave a workspace with no owner, so both writes
 	// commit together or not at all.
-	memberships, err := h.Queries.CountWorkspaceMembershipsForUser(r.Context(), userID)
+	//
+	// Only reached for approved users — pending/rejected accounts were sent to
+	// /pending above without any workspace being created. The membership
+	// re-check is not redundant: the earlier count preceded the approval gate.
+	memberships, err = h.Queries.CountWorkspaceMembershipsForUser(r.Context(), userID)
 	if err != nil {
 		return err
 	}

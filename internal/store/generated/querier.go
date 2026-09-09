@@ -17,6 +17,9 @@ type Querier interface {
 	// Scoped by workspace_id for tenant safety.
 	AcknowledgeIncident(ctx context.Context, arg AcknowledgeIncidentParams) (Incident, error)
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) error
+	// Records who approved and when, so the decision is auditable after the fact.
+	// Clears any previous rejection_reason: approving supersedes a past rejection.
+	ApproveUser(ctx context.Context, arg ApproveUserParams) (User, error)
 	CareRecipientExistsInWorkspace(ctx context.Context, arg CareRecipientExistsInWorkspaceParams) (bool, error)
 	// SFT-001: caregiver starts a shift. No open-shift check here — the service
 	// layer enforces "one active shift per caregiver" before calling this.
@@ -36,6 +39,8 @@ type Querier interface {
 	// GetMagicLinkByHash tells the three apart for logging.
 	ConsumeMagicLink(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	CountActiveRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	// Drives the pending badge count in the admin nav.
+	CountUsersByApprovalStatus(ctx context.Context, approvalStatus string) (int64, error)
 	// Zero means this is a first login and the verify handler must provision a
 	// workspace + owner membership (RFC §8.2).
 	CountWorkspaceMembershipsForUser(ctx context.Context, userID uuid.UUID) (int64, error)
@@ -47,6 +52,8 @@ type Querier interface {
 	CreateIncident(ctx context.Context, arg CreateIncidentParams) (Incident, error)
 	// WRK-004: owner invites a caregiver. Only the SHA-256 hash of the token is
 	// stored (SEC-003) — the raw token exists only in the returned WhatsApp link.
+	// invitee_email is optional; when set, the verify handler uses it to exempt
+	// the invitee from the approval gate on their magic-link click.
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (AuthMagicLink, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
@@ -64,6 +71,10 @@ type Querier interface {
 	DeleteParentNote(ctx context.Context, arg DeleteParentNoteParams) error
 	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
+	// Removing an email from SUPER_ADMIN_EMAILS must actually revoke the privilege,
+	// otherwise the allow-list is write-only and a removed operator keeps access
+	// forever. Approval status is left untouched — demotion is not rejection.
+	DemoteSuperAdminsNotIn(ctx context.Context, emails []string) error
 	// The caregiver's currently open shift (checked_out_at IS NULL), if any.
 	// Scoped by workspace_id for tenant safety.
 	GetActiveShift(ctx context.Context, arg GetActiveShiftParams) (Shift, error)
@@ -99,6 +110,14 @@ type Querier interface {
 	// (RFC §8.4), so a demotion or removal takes effect on the very next request.
 	// The join on users is what makes "active member" mean active *user*.
 	GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceRoleForUserParams) (string, error)
+	// ─── Invitation email hint (approval-gate exemption) ─────────────────────────
+	// Returns true if the email has an outstanding, unclaimed invitation. Used by
+	// the auth verify handler to skip the approval gate for a magic link that
+	// belongs to an invitee — otherwise an invitee who happens to click the magic
+	// link before the invite link gets marked pending and can never complete the
+	// claim (claiming requires an authenticated session, and pending users don't
+	// get one). Comparison is case-insensitive to match the users email index.
+	HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error)
 	ListCareRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]CareRecipient, error)
 	ListDailyReports(ctx context.Context, arg ListDailyReportsParams) ([]DailyReport, error)
 	// RPT-001: Gets ALL contributors' reports for a recipient on a specific date.
@@ -124,6 +143,9 @@ type Querier interface {
 	// SFT-004: owner's shift history, filterable by caregiver and date range.
 	// sqlc.narg lets each filter be optional independently.
 	ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error)
+	// Backs the super-admin dashboard. Oldest first: the person who has been
+	// waiting longest should be the first one an admin sees.
+	ListUsersByApprovalStatus(ctx context.Context, arg ListUsersByApprovalStatusParams) ([]ListUsersByApprovalStatusRow, error)
 	ListWorkspaceMembers(ctx context.Context, workspaceID uuid.UUID) ([]WorkspaceMember, error)
 	// The membership row alone carries no identity, so the caregiver management UI
 	// cannot say who a member actually is. Joining users is what turns a member
@@ -149,6 +171,15 @@ type Querier interface {
 	// valid token both reach this statement, exactly one updates a row, and the
 	// loser is indistinguishable from a replay — which is the desired outcome.
 	MarkRefreshTokenRotated(ctx context.Context, tokenHash []byte) (RefreshToken, error)
+	// ─── Super-admin bootstrap ───────────────────────────────────────────────────
+	// Idempotent reconciliation of the SUPER_ADMIN_EMAILS allow-list against the
+	// database, run at login. A super-admin is force-approved in the same statement
+	// so an allow-listed operator can never be locked out by the very gate they
+	// are supposed to administer.
+	PromoteSuperAdminByEmail(ctx context.Context, email string) (User, error)
+	// Rejection is reversible (an admin can approve later), so the row is kept
+	// rather than deleted — the audit trail is the point.
+	RejectUser(ctx context.Context, arg RejectUserParams) (User, error)
 	RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	// WRK-004.2: owner cancels an outstanding invite. Workspace-scoped so an owner
@@ -156,6 +187,17 @@ type Querier interface {
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (Invitation, error)
 	// Used by logout and by reuse detection; kills every token in the lineage.
 	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
+	// Marks a brand-new self-registering user as awaiting admin approval.
+	//
+	// This is deliberately NOT folded into UpsertUserByEmail: that statement runs on
+	// every magic-link request including logins by long-approved users, and must
+	// never reset an existing user's status. The caller applies this only when it
+	// has established the account is new AND has no workspace membership (i.e. is
+	// not an invited caregiver).
+	//
+	// The status guard makes it idempotent: re-clicking a magic link while pending
+	// is a no-op, and an already-approved or rejected user is never regressed.
+	SetUserPendingApproval(ctx context.Context, id uuid.UUID) (User, error)
 	// Numeric roll-up (sleep minutes, medication doses) for the categories that
 	// carry a value_number. Kept separate from the count query so a category can
 	// report both "3 entries" and "410 minutes" without a second pass in Go.

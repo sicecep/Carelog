@@ -70,6 +70,15 @@ type Config struct {
 	PaymentAPIKey   string
 	PaymentSecret   string
 
+	// SuperAdminEmails is the platform-admin allow-list, parsed from a
+	// comma-separated SUPER_ADMIN_EMAILS. Reconciled against the database on
+	// each login: emails present here are promoted and force-approved, and
+	// super-admins absent from it are demoted. Config is the source of truth,
+	// so revoking access is a deploy rather than a database edit.
+	//
+	// Stored lowercased because the email uniqueness index is on LOWER(email).
+	SuperAdminEmails []string
+
 	// Internal: parsed location for cron
 	location *time.Location
 }
@@ -99,6 +108,7 @@ func Load() (*Config, error) {
 		PaymentProvider:      strings.ToLower(strings.TrimSpace(os.Getenv("PAYMENT_PROVIDER"))),
 		PaymentAPIKey:        os.Getenv("PAYMENT_API_KEY"),
 		PaymentSecret:        os.Getenv("PAYMENT_SECRET"),
+		SuperAdminEmails:     parseEmailList(os.Getenv("SUPER_ADMIN_EMAILS")),
 	}
 
 	if err := c.validate(); err != nil {
@@ -203,6 +213,47 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// parseEmailList splits a comma-separated env value into a normalised email
+// slice. Entries are trimmed, lowercased (the email index is on LOWER(email)),
+// and blanks dropped so a trailing comma or a value of "," yields an empty
+// list rather than a phantom entry that could never match a real account.
+//
+// Returns nil for empty input: no allow-list means no super-admins, which is
+// the correct default for a deployment that has not opted in.
+func parseEmailList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		e := strings.ToLower(strings.TrimSpace(p))
+		if e != "" {
+			out = append(out, e)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// IsSuperAdminEmail reports whether the email is on the platform-admin
+// allow-list. Comparison is case-insensitive: the caller may pass an address
+// exactly as the user typed it.
+func (c *Config) IsSuperAdminEmail(email string) bool {
+	target := strings.ToLower(strings.TrimSpace(email))
+	if target == "" {
+		return false
+	}
+	for _, e := range c.SuperAdminEmails {
+		if e == target {
+			return true
+		}
+	}
+	return false
 }
 
 // parseDuration parses a duration string with a fallback.

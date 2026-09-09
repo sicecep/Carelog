@@ -12,10 +12,65 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveUser = `-- name: ApproveUser :one
+UPDATE users
+SET approval_status  = 'approved',
+    approved_at      = now(),
+    approved_by      = $1,
+    rejection_reason = NULL,
+    updated_at       = now()
+WHERE id = $2
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+type ApproveUserParams struct {
+	ApprovedBy pgtype.UUID `json:"approved_by"`
+	ID         uuid.UUID   `json:"id"`
+}
+
+// Records who approved and when, so the decision is auditable after the fact.
+// Clears any previous rejection_reason: approving supersedes a past rejection.
+func (q *Queries) ApproveUser(ctx context.Context, arg ApproveUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, approveUser, arg.ApprovedBy, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const countUsersByApprovalStatus = `-- name: CountUsersByApprovalStatus :one
+SELECT COUNT(*) FROM users
+WHERE approval_status = $1
+`
+
+// Drives the pending badge count in the admin nav.
+func (q *Queries) CountUsersByApprovalStatus(ctx context.Context, approvalStatus string) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsersByApprovalStatus, approvalStatus)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, full_name, avatar_url, google_id, locale)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -45,14 +100,34 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
+const demoteSuperAdminsNotIn = `-- name: DemoteSuperAdminsNotIn :exec
+UPDATE users
+SET is_super_admin = false, updated_at = now()
+WHERE is_super_admin
+  AND LOWER(email) <> ALL ($1::text[])
+`
+
+// Removing an email from SUPER_ADMIN_EMAILS must actually revoke the privilege,
+// otherwise the allow-list is write-only and a removed operator keeps access
+// forever. Approval status is left untouched — demotion is not rejection.
+func (q *Queries) DemoteSuperAdminsNotIn(ctx context.Context, emails []string) error {
+	_, err := q.db.Exec(ctx, demoteSuperAdminsNotIn, emails)
+	return err
+}
+
 const getUser = `-- name: GetUser :one
-SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -69,6 +144,11 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -76,7 +156,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
 WHERE LOWER(email) = LOWER($1)
 `
 
@@ -93,17 +173,109 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
+const hasPendingInvitationForEmail = `-- name: HasPendingInvitationForEmail :one
+
+SELECT EXISTS (
+    SELECT 1 FROM invitations
+    WHERE LOWER(invitee_email) = LOWER($1)
+      AND consumed_at IS NULL
+      AND revoked_at IS NULL
+      AND expires_at > now()
+)
+`
+
+// ─── Invitation email hint (approval-gate exemption) ─────────────────────────
+// Returns true if the email has an outstanding, unclaimed invitation. Used by
+// the auth verify handler to skip the approval gate for a magic link that
+// belongs to an invitee — otherwise an invitee who happens to click the magic
+// link before the invite link gets marked pending and can never complete the
+// claim (claiming requires an authenticated session, and pending users don't
+// get one). Comparison is case-insensitive to match the users email index.
+func (q *Queries) HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error) {
+	row := q.db.QueryRow(ctx, hasPendingInvitationForEmail, lower)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listUsersByApprovalStatus = `-- name: ListUsersByApprovalStatus :many
+SELECT id, email, full_name, avatar_url, locale, approval_status,
+       approved_at, approved_by, rejection_reason, is_super_admin, created_at
+FROM users
+WHERE approval_status = $1
+ORDER BY created_at
+LIMIT $2
+`
+
+type ListUsersByApprovalStatusParams struct {
+	ApprovalStatus string `json:"approval_status"`
+	ResultLimit    int32  `json:"result_limit"`
+}
+
+type ListUsersByApprovalStatusRow struct {
+	ID              uuid.UUID          `json:"id"`
+	Email           string             `json:"email"`
+	FullName        pgtype.Text        `json:"full_name"`
+	AvatarUrl       pgtype.Text        `json:"avatar_url"`
+	Locale          string             `json:"locale"`
+	ApprovalStatus  string             `json:"approval_status"`
+	ApprovedAt      pgtype.Timestamptz `json:"approved_at"`
+	ApprovedBy      pgtype.UUID        `json:"approved_by"`
+	RejectionReason pgtype.Text        `json:"rejection_reason"`
+	IsSuperAdmin    bool               `json:"is_super_admin"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+// Backs the super-admin dashboard. Oldest first: the person who has been
+// waiting longest should be the first one an admin sees.
+func (q *Queries) ListUsersByApprovalStatus(ctx context.Context, arg ListUsersByApprovalStatusParams) ([]ListUsersByApprovalStatusRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByApprovalStatus, arg.ApprovalStatus, arg.ResultLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUsersByApprovalStatusRow{}
+	for rows.Next() {
+		var i ListUsersByApprovalStatusRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.Locale,
+			&i.ApprovalStatus,
+			&i.ApprovedAt,
+			&i.ApprovedBy,
+			&i.RejectionReason,
+			&i.IsSuperAdmin,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE users
 SET email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 // COALESCE keeps the original verification timestamp: clicking a second magic
@@ -121,6 +293,11 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, er
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -138,11 +315,136 @@ func (q *Queries) MarkOnboardingCompleted(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const promoteSuperAdminByEmail = `-- name: PromoteSuperAdminByEmail :one
+
+UPDATE users
+SET is_super_admin  = true,
+    approval_status = 'approved',
+    approved_at     = COALESCE(approved_at, now()),
+    updated_at      = now()
+WHERE LOWER(email) = LOWER($1)
+  AND (NOT is_super_admin OR approval_status <> 'approved')
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+// ─── Super-admin bootstrap ───────────────────────────────────────────────────
+// Idempotent reconciliation of the SUPER_ADMIN_EMAILS allow-list against the
+// database, run at login. A super-admin is force-approved in the same statement
+// so an allow-listed operator can never be locked out by the very gate they
+// are supposed to administer.
+func (q *Queries) PromoteSuperAdminByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, promoteSuperAdminByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const rejectUser = `-- name: RejectUser :one
+UPDATE users
+SET approval_status  = 'rejected',
+    approved_at      = now(),
+    approved_by      = $1,
+    rejection_reason = $2,
+    updated_at       = now()
+WHERE id = $3
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+type RejectUserParams struct {
+	ApprovedBy      pgtype.UUID `json:"approved_by"`
+	RejectionReason pgtype.Text `json:"rejection_reason"`
+	ID              uuid.UUID   `json:"id"`
+}
+
+// Rejection is reversible (an admin can approve later), so the row is kept
+// rather than deleted — the audit trail is the point.
+func (q *Queries) RejectUser(ctx context.Context, arg RejectUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, rejectUser, arg.ApprovedBy, arg.RejectionReason, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setUserPendingApproval = `-- name: SetUserPendingApproval :one
+UPDATE users
+SET approval_status = 'pending', updated_at = now()
+WHERE id = $1 AND approval_status = 'approved' AND NOT is_super_admin
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+// Marks a brand-new self-registering user as awaiting admin approval.
+//
+// This is deliberately NOT folded into UpsertUserByEmail: that statement runs on
+// every magic-link request including logins by long-approved users, and must
+// never reset an existing user's status. The caller applies this only when it
+// has established the account is new AND has no workspace membership (i.e. is
+// not an invited caregiver).
+//
+// The status guard makes it idempotent: re-clicking a magic link while pending
+// is a no-op, and an already-approved or rejected user is never regressed.
+func (q *Queries) SetUserPendingApproval(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, setUserPendingApproval, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET email = $2, full_name = $3, avatar_url = $4, google_id = $5, locale = $6, email_verified_at = $7, is_active = $8, updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type UpdateUserParams struct {
@@ -178,6 +480,11 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -189,7 +496,7 @@ INSERT INTO users (email, locale)
 VALUES (LOWER($1), $2)
 ON CONFLICT (LOWER(email)) DO UPDATE
     SET updated_at = now()
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, created_at, updated_at
+RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type UpsertUserByEmailParams struct {
@@ -214,6 +521,11 @@ func (q *Queries) UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailPa
 		&i.Locale,
 		&i.IsActive,
 		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

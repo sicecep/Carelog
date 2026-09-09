@@ -374,5 +374,36 @@
     "cancel": "Cancel",
     "save": "Save",
     "close": "Close"
+  },
+  "pending": {
+    "titlePending": "Account awaiting approval",
+    "bodyPending": "Thanks for signing up. An administrator needs to approve your account before you can start using CareLog. You'll be able to sign in as soon as that's done.",
+    "titleRejected": "Account not approved",
+    "bodyRejected": "An administrator did not approve this account.",
+    "reasonLabel": "Reason",
+    "emailVerified": "Your email address has been verified.",
+    "backToLogin": "Back to sign in"
+  },
+  "admin": {
+    "title": "Administration",
+    "pendingHeading": "Pending approvals",
+    "approvedHeading": "Approved",
+    "rejectedHeading": "Rejected",
+    "tabPending": "Pending",
+    "tabApproved": "Approved",
+    "tabRejected": "Rejected",
+    "loading": "Loading...",
+    "empty": "Nothing here.",
+    "emptyPending": "No accounts are waiting for approval.",
+    "signedUp": "Signed up",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approving": "Approving...",
+    "rejecting": "Rejecting...",
+    "confirmReject": "Reject this account? They will not be able to sign in.",
+    "reasonPrompt": "Reason (optional, shown to the user)",
+    "superAdminBadge": "Admin",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "accessDenied": "You do not have access to this page."
   }
 }
