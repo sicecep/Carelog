@@ -405,5 +405,33 @@
     "superAdminBadge": "Admin",
     "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
     "accessDenied": "Anda tidak memiliki akses ke halaman ini."
+  },
+  "workspaceSettings": {
+    "title": "Pengaturan Workspace",
+    "manage": "Pengaturan Workspace",
+    "generalHeading": "Umum",
+    "nameLabel": "Nama workspace",
+    "namePlaceholder": "mis. Keluarga Sari",
+    "localeLabel": "Bahasa",
+    "localeID": "Bahasa Indonesia",
+    "localeEN": "English",
+    "timezoneLabel": "Zona waktu",
+    "timezoneHint": "Digunakan untuk ringkasan harian dan tanggal laporan.",
+    "planLabel": "Paket",
+    "planReadOnly": "Dikelola oleh penagihan",
+    "save": "Simpan perubahan",
+    "saving": "Menyimpan...",
+    "saved": "Pengaturan tersimpan.",
+    "readOnlyNotice": "Hanya pemilik workspace yang dapat mengubah pengaturan ini.",
+    "dangerHeading": "Zona berbahaya",
+    "deleteTitle": "Hapus workspace ini",
+    "deleteWarning": "Ini akan menghapus permanen workspace beserta semua penerima perawatan, laporan, dan insiden di dalamnya. Tindakan ini tidak dapat dibatalkan.",
+    "deleteButton": "Hapus workspace",
+    "deleting": "Menghapus...",
+    "deleteConfirmLabel": "Ketik {name} untuk konfirmasi",
+    "deleteConfirmPlaceholder": "Nama workspace",
+    "deleteConfirmButton": "Saya mengerti, hapus",
+    "cancel": "Batal",
+    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi."
   }
 }

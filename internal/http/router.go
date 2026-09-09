@@ -181,6 +181,11 @@ func NewRouter(deps Deps) http.Handler {
 				Queries: deps.Queries,
 			}
 			RegisterMemberRoutes(r, memberHandlers)
+
+			workspaceHandlers := &WorkspaceHandlers{
+				Queries: deps.Queries,
+			}
+			RegisterWorkspaceRoutes(r, workspaceHandlers)
 		})
 	})
 

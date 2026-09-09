@@ -218,6 +218,14 @@ type Querier interface {
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 	UpdateWorkspaceMemberRole(ctx context.Context, arg UpdateWorkspaceMemberRoleParams) error
+	// Settings-scoped update: deliberately cannot touch `plan`. The full
+	// UpdateWorkspace above sets plan too, so routing the user-facing settings form
+	// through it would let a workspace upgrade its own tier for free — billing is
+	// the payment flow's business, not the settings form's.
+	//
+	// COALESCE makes every field optional: a PATCH that sends only `name` leaves
+	// locale and timezone untouched rather than blanking them.
+	UpdateWorkspaceSettings(ctx context.Context, arg UpdateWorkspaceSettingsParams) (Workspace, error)
 	// Daily note: one slot per recipient per calendar date (WRK-003.1).
 	UpsertDailyNote(ctx context.Context, arg UpsertDailyNoteParams) (ParentNote, error)
 	// Standing note: one persistent slot per recipient (WRK-003.1).

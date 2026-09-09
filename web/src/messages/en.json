@@ -405,5 +405,33 @@
     "superAdminBadge": "Admin",
     "errorGeneric": "Something went wrong. Please try again.",
     "accessDenied": "You do not have access to this page."
+  },
+  "workspaceSettings": {
+    "title": "Workspace Settings",
+    "manage": "Workspace Settings",
+    "generalHeading": "General",
+    "nameLabel": "Workspace name",
+    "namePlaceholder": "e.g. Keluarga Sari",
+    "localeLabel": "Language",
+    "localeID": "Bahasa Indonesia",
+    "localeEN": "English",
+    "timezoneLabel": "Time zone",
+    "timezoneHint": "Used for daily summaries and report dates.",
+    "planLabel": "Plan",
+    "planReadOnly": "Managed by billing",
+    "save": "Save changes",
+    "saving": "Saving...",
+    "saved": "Settings saved.",
+    "readOnlyNotice": "Only the workspace owner can change these settings.",
+    "dangerHeading": "Danger zone",
+    "deleteTitle": "Delete this workspace",
+    "deleteWarning": "This permanently deletes the workspace and every recipient, report, and incident inside it. This cannot be undone.",
+    "deleteButton": "Delete workspace",
+    "deleting": "Deleting...",
+    "deleteConfirmLabel": "Type {name} to confirm",
+    "deleteConfirmPlaceholder": "Workspace name",
+    "deleteConfirmButton": "I understand, delete it",
+    "cancel": "Cancel",
+    "errorGeneric": "Something went wrong. Please try again."
   }
 }
