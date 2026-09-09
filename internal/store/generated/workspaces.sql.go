@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createWorkspace = `-- name: CreateWorkspace :one
@@ -135,6 +136,50 @@ func (q *Queries) UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams
 		arg.Plan,
 		arg.Locale,
 		arg.Timezone,
+	)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Plan,
+		&i.Locale,
+		&i.Timezone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateWorkspaceSettings = `-- name: UpdateWorkspaceSettings :one
+UPDATE workspaces
+SET name     = COALESCE($1, name),
+    locale   = COALESCE($2, locale),
+    timezone = COALESCE($3, timezone),
+    updated_at = now()
+WHERE id = $4
+RETURNING id, name, plan, locale, timezone, created_at, updated_at
+`
+
+type UpdateWorkspaceSettingsParams struct {
+	Name     pgtype.Text `json:"name"`
+	Locale   pgtype.Text `json:"locale"`
+	Timezone pgtype.Text `json:"timezone"`
+	ID       uuid.UUID   `json:"id"`
+}
+
+// Settings-scoped update: deliberately cannot touch `plan`. The full
+// UpdateWorkspace above sets plan too, so routing the user-facing settings form
+// through it would let a workspace upgrade its own tier for free — billing is
+// the payment flow's business, not the settings form's.
+//
+// COALESCE makes every field optional: a PATCH that sends only `name` leaves
+// locale and timezone untouched rather than blanking them.
+func (q *Queries) UpdateWorkspaceSettings(ctx context.Context, arg UpdateWorkspaceSettingsParams) (Workspace, error) {
+	row := q.db.QueryRow(ctx, updateWorkspaceSettings,
+		arg.Name,
+		arg.Locale,
+		arg.Timezone,
+		arg.ID,
 	)
 	var i Workspace
 	err := row.Scan(

@@ -69,6 +69,11 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(body), headers }),
   delete: <T>(path: string, headers?: Record<string, string>) =>
     request<T>(path, { method: "DELETE", headers }),
+  // DELETE with a body. Uncommon, but destructive endpoints use one to carry a
+  // typed confirmation — putting that in a query string would leak it into
+  // server logs and browser history.
+  deleteWithBody: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: "DELETE", body: JSON.stringify(body), headers }),
 };
 
 // Shapes returned by the Go API. Kept here so components import one canonical
@@ -425,13 +430,43 @@ export const adminApi = {
     api.post<{ status: string }>(`/api/v1/admin/users/${userId}/reject`, { reason }),
 };
 
-// Workspace endpoints
+// Workspace settings. Singular /workspace: the target is established by the
+// X-Workspace-ID header, not a path segment.
+export interface Workspace {
+  id: string;
+  name: string;
+  locale: "id" | "en";
+  timezone: string;
+  // Read-only here — owned by the payment flow, not the settings form.
+  plan: string;
+  created_at: string;
+  // The caller's role, so the UI can render read-only without a second request.
+  role: "owner" | "caregiver" | "viewer";
+}
+
 export const workspaceApi = {
-  list: () => api.get<{ id: string; name: string; plan: string }[]>("/api/v1/workspaces"),
-  get: (id: string) => api.get<{ id: string; name: string; plan: string }>(`/api/v1/workspaces/${id}`),
-  create: (name: string) => api.post<{ id: string; name: string }>("/api/v1/workspaces", { name }),
-  update: (id: string, name: string) => api.patch<{ id: string; name: string }>(`/api/v1/workspaces/${id}`, { name }),
-  delete: (id: string) => api.delete<void>(`/api/v1/workspaces/${id}`),
+  // GET /api/v1/workspace - current settings. Any member may read.
+  // See authApi.me for why `extraHeaders` exists (server-side cookie forward).
+  get: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Workspace>("/api/v1/workspace", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // PATCH /api/v1/workspace - owner only. Omitted fields are left unchanged.
+  update: (
+    workspaceId: string,
+    body: { name?: string; locale?: "id" | "en"; timezone?: string }
+  ) => api.patch<Workspace>("/api/v1/workspace", body, { "X-Workspace-ID": workspaceId }),
+
+  // DELETE /api/v1/workspace - owner only. Requires the exact workspace name
+  // as confirmation; the delete cascades to all workspace data.
+  delete: (workspaceId: string, confirmName: string) =>
+    api.deleteWithBody<{ status: string }>(
+      "/api/v1/workspace",
+      { confirm_name: confirmName },
+      { "X-Workspace-ID": workspaceId }
+    ),
 };
 
 // Health check

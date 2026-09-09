@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
   APIError,
@@ -22,6 +23,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "dashboard" });
   const common = await getTranslations({ locale, namespace: "common" });
+  const settings = await getTranslations({ locale, namespace: "workspaceSettings" });
 
   // Fetched server-side rather than in a client effect. `credentials: "include"`
   // is a browser-only concept — a server fetch has no cookie jar — so the
@@ -81,7 +83,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           <span className="text-lg font-semibold text-[var(--color-text)]">
             {common("appName")}
           </span>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/${locale}/settings`}
+              className="btn-base btn-ghost touch-target px-3 text-sm"
+            >
+              {settings("title")}
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
