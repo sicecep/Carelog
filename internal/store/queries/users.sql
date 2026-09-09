@@ -67,11 +67,18 @@ SELECT EXISTS (
 -- has established the account is new AND has no workspace membership (i.e. is
 -- not an invited caregiver).
 --
--- The status guard makes it idempotent: re-clicking a magic link while pending
--- is a no-op, and an already-approved or rejected user is never regressed.
+-- The approved_at IS NULL guard is what makes admin approval stick. A user the
+-- admin just approved is 'approved' with zero memberships (their workspace is
+-- only provisioned AFTER this gate), so a status-only guard would re-pend them
+-- on their very next login and approval would never take effect. approved_at is
+-- stamped by ApproveUser and never cleared, so it distinguishes "never
+-- reviewed" from "reviewed and approved" — only the former is gated.
 UPDATE users
 SET approval_status = 'pending', updated_at = now()
-WHERE id = $1 AND approval_status = 'approved' AND NOT is_super_admin
+WHERE id = $1
+  AND approval_status = 'approved'
+  AND approved_at IS NULL
+  AND NOT is_super_admin
 RETURNING *;
 
 -- name: ApproveUser :one
