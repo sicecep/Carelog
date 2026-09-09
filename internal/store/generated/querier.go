@@ -195,8 +195,12 @@ type Querier interface {
 	// has established the account is new AND has no workspace membership (i.e. is
 	// not an invited caregiver).
 	//
-	// The status guard makes it idempotent: re-clicking a magic link while pending
-	// is a no-op, and an already-approved or rejected user is never regressed.
+	// The approved_at IS NULL guard is what makes admin approval stick. A user the
+	// admin just approved is 'approved' with zero memberships (their workspace is
+	// only provisioned AFTER this gate), so a status-only guard would re-pend them
+	// on their very next login and approval would never take effect. approved_at is
+	// stamped by ApproveUser and never cleared, so it distinguishes "never
+	// reviewed" from "reviewed and approved" — only the former is gated.
 	SetUserPendingApproval(ctx context.Context, id uuid.UUID) (User, error)
 	// Numeric roll-up (sleep minutes, medication doses) for the categories that
 	// carry a value_number. Kept separate from the count query so a category can

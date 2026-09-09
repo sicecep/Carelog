@@ -402,7 +402,10 @@ func (q *Queries) RejectUser(ctx context.Context, arg RejectUserParams) (User, e
 const setUserPendingApproval = `-- name: SetUserPendingApproval :one
 UPDATE users
 SET approval_status = 'pending', updated_at = now()
-WHERE id = $1 AND approval_status = 'approved' AND NOT is_super_admin
+WHERE id = $1
+  AND approval_status = 'approved'
+  AND approved_at IS NULL
+  AND NOT is_super_admin
 RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
@@ -414,8 +417,12 @@ RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale
 // has established the account is new AND has no workspace membership (i.e. is
 // not an invited caregiver).
 //
-// The status guard makes it idempotent: re-clicking a magic link while pending
-// is a no-op, and an already-approved or rejected user is never regressed.
+// The approved_at IS NULL guard is what makes admin approval stick. A user the
+// admin just approved is 'approved' with zero memberships (their workspace is
+// only provisioned AFTER this gate), so a status-only guard would re-pend them
+// on their very next login and approval would never take effect. approved_at is
+// stamped by ApproveUser and never cleared, so it distinguishes "never
+// reviewed" from "reviewed and approved" — only the former is gated.
 func (q *Queries) SetUserPendingApproval(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, setUserPendingApproval, id)
 	var i User
