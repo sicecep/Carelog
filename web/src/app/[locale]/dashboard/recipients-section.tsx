@@ -128,12 +128,12 @@ function EmptyState() {
 }
 
 export function RecipientsSection({ recipients }: { recipients: Recipient[] }) {
-  const t = useTranslations("dashboard");
   const tRecipients = useTranslations("recipients");
-  const locale = useLocale();
-  
-  const active = recipients.filter(r => r.is_active);
-  const archived = recipients.filter(r => !r.is_active);
+
+  // Split rather than filtering server-side: the dashboard fetches both lists
+  // so an owner can restore without leaving the page.
+  const active = recipients.filter((r) => r.is_active);
+  const archived = recipients.filter((r) => !r.is_active);
 
   if (recipients.length === 0) return <EmptyState />;
 

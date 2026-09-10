@@ -10,7 +10,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8 rounded-lg border bg-white p-8 shadow-sm">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900">{common("appName")}</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-gray-700">{t("login")}</h2>
+          <h2 className="mt-6 text-2xl font-semibold text-gray-700">{t("title")}</h2>
           <p className="mt-2 text-base text-gray-600">{t("magicLinkIntro")}</p>
         </div>
 

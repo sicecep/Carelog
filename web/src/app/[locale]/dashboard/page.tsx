@@ -62,7 +62,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         recipientApi.list(workspace.id, forwarded),
         recipientApi.listArchived(workspace.id, forwarded),
       ]);
-      recipients = [...(activeRes.data ?? []), ...(archivedRes.data ?? [])];
+      // Dedupe by id: the two endpoints are independent queries, so a row that
+      // flips is_active between the two round-trips can land in both results.
+      // React then renders duplicate keys and may drop or duplicate a card.
+      // Active wins — it reflects the newer state.
+      const byId = new Map<string, (typeof recipients)[number]>();
+      for (const r of archivedRes.data ?? []) byId.set(r.id, r);
+      for (const r of activeRes.data ?? []) byId.set(r.id, r);
+      recipients = [...byId.values()];
     } catch (err) {
       if (err instanceof APIError && err.status === 401) {
         redirectToLogin = true;
