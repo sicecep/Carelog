@@ -58,8 +58,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   if (workspace) {
     try {
-      const res = await recipientApi.list(workspace.id, forwarded);
-      recipients = res.data ?? [];
+      const [activeRes, archivedRes] = await Promise.all([
+        recipientApi.list(workspace.id, forwarded),
+        recipientApi.listArchived(workspace.id, forwarded),
+      ]);
+      recipients = [...(activeRes.data ?? []), ...(archivedRes.data ?? [])];
     } catch (err) {
       if (err instanceof APIError && err.status === 401) {
         redirectToLogin = true;

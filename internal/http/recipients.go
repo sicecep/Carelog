@@ -31,6 +31,8 @@ func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
 			r.Get("/", HandlerFunc(h.handleGetRecipient).Wrap())
 			r.Patch("/", HandlerFunc(h.handleUpdateRecipient).Wrap())
 			r.Delete("/", HandlerFunc(h.handleDeleteRecipient).Wrap())
+			// Restore an archived recipient. Owner-only, same as archiving.
+			r.Post("/reactivate", HandlerFunc(h.handleReactivateRecipient).Wrap())
 		})
 	})
 }
@@ -183,7 +185,16 @@ func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
 
-	recipients, err := h.Queries.ListCareRecipientsByWorkspace(r.Context(), workspaceID)
+	// ?archived=true returns the archived (soft-deleted) recipients instead of
+	// the active ones. A separate query per state keeps the default path a
+	// plain scan and makes it impossible to accidentally mix the two.
+	var recipients []store.CareRecipient
+	var err error
+	if r.URL.Query().Get("archived") == "true" {
+		recipients, err = h.Queries.ListArchivedCareRecipientsByWorkspace(r.Context(), workspaceID)
+	} else {
+		recipients, err = h.Queries.ListCareRecipientsByWorkspace(r.Context(), workspaceID)
+	}
 	if err != nil {
 		return fmt.Errorf("list recipients: %w", err)
 	}
@@ -341,6 +352,35 @@ func (h *RecipientHandlers) handleDeleteRecipient(w http.ResponseWriter, r *http
 		return fmt.Errorf("deactivate recipient: %w", err)
 	}
 
-	response.OK(w, ptr(map[string]string{"message": "deleted"}))
+	response.OK(w, ptr(map[string]string{"status": "archived"}))
+	return nil
+}
+
+// handleReactivateRecipient restores an archived recipient. Owner-only, mirroring
+// the archive guard — a caregiver who cannot archive must not be able to undo one
+// either.
+func (h *RecipientHandlers) handleReactivateRecipient(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID == uuid.Nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
+	}
+	role := middleware.GetWorkspaceRole(r.Context())
+	if role != "owner" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "only owners can restore recipients"}}}
+	}
+
+	recipientID, err := uuid.Parse(chi.URLParam(r, "recipientID"))
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
+	}
+
+	if err := h.Queries.ReactivateCareRecipient(r.Context(), store.ReactivateCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	}); err != nil {
+		return fmt.Errorf("reactivate recipient: %w", err)
+	}
+
+	response.OK(w, ptr(map[string]string{"status": "active"}))
 	return nil
 }

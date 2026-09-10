@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { Baby, User, Users, Heart, UsersThree, Plus } from "phosphor-react";
+import { RecipientArchiveActions } from "./RecipientArchiveActions";
 import { CARE_TYPES, MODULES, type CareType, type Module } from "@/lib/constants.generated";
 import type { Recipient } from "@/lib/api-client";
 
@@ -73,6 +74,12 @@ function RecipientCard({ recipient }: { recipient: Recipient }) {
             </p>
           )}
         </div>
+        <RecipientArchiveActions
+          recipientId={recipient.id}
+          workspaceId={recipient.workspace_id}
+          isActive={recipient.is_active}
+          onRefresh={() => window.location.reload()}
+        />
       </div>
 
       {visibleModules.length > 0 && (
@@ -121,15 +128,36 @@ function EmptyState() {
 }
 
 export function RecipientsSection({ recipients }: { recipients: Recipient[] }) {
+  const t = useTranslations("dashboard");
+  const tRecipients = useTranslations("recipients");
+  const locale = useLocale();
+  
+  const active = recipients.filter(r => r.is_active);
+  const archived = recipients.filter(r => !r.is_active);
+
   if (recipients.length === 0) return <EmptyState />;
 
   return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {recipients.map((recipient) => (
-        <li key={recipient.id}>
-          <RecipientCard recipient={recipient} />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {active.map((recipient) => (
+          <li key={recipient.id}>
+            <RecipientCard recipient={recipient} />
+          </li>
+        ))}
+      </ul>
+      {archived.length > 0 && (
+        <div className="mt-8">
+          <h3 className="mb-4 text-lg font-medium text-[var(--color-text)]">{tRecipients("archive")}</h3>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 opacity-70">
+            {archived.map((recipient) => (
+              <li key={recipient.id}>
+                <RecipientCard recipient={recipient} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
   );
 }
