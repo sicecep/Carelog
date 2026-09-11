@@ -11,10 +11,13 @@
     "create": "Create",
     "search": "Search",
     "filter": "Filter",
-    "clear": "Clear"
+    "clear": "Clear",
+    "back": "Back"
   },
   "nav": {
     "dashboard": "Dashboard",
+    "careteam": "Care Team",
+    "ariaNav": "Main navigation",
     "recipients": "Care Recipients",
     "reports": "Daily Reports",
     "incidents": "Incidents",
@@ -100,6 +103,7 @@
   },
   "recipients": {
     "title": "Edit Profile",
+    "listTitle": "Care Recipients",
     "add": "Add recipient",
     "name": "Name",
     "careType": "Care type",
