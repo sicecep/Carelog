@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
   APIError,
@@ -9,10 +8,7 @@ import {
   type MeResponse,
   type Recipient,
 } from "@/lib/api-client";
-import { InviteCaregiver } from "@/components/ui/InviteCaregiver";
-import { InvitationList } from "@/components/ui/InvitationList";
-import { CareTeamList } from "@/components/ui/CareTeamList";
-import { LogoutButton } from "./logout-button";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { RecipientsSection } from "./recipients-section";
 
 interface DashboardPageProps {
@@ -22,8 +18,6 @@ interface DashboardPageProps {
 export default async function DashboardPage({ params }: DashboardPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "dashboard" });
-  const common = await getTranslations({ locale, namespace: "common" });
-  const settings = await getTranslations({ locale, namespace: "workspaceSettings" });
 
   // Fetched server-side rather than in a client effect. `credentials: "include"`
   // is a browser-only concept — a server fetch has no cookie jar — so the
@@ -87,23 +81,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const displayName = me?.user.full_name?.trim() || me?.user.email.split("@")[0] || "";
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
-          <span className="text-lg font-semibold text-[var(--color-text)]">
-            {common("appName")}
-          </span>
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/${locale}/settings`}
-              className="btn-base btn-ghost touch-target px-3 text-sm"
-            >
-              {settings("title")}
-            </Link>
-            <LogoutButton />
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
+      <AppHeader locale={locale} />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {me ? (
@@ -113,15 +92,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 {t("welcome", { name: displayName })}
               </h1>
               {workspace && (
-                <div className="mt-2 flex items-center justify-between">
-                  <p>
-                    <span className="sr-only">{t("workspaceLabel")}: </span>
-                    <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
-                      {workspace.name}
-                    </span>
-                  </p>
-                  {workspace.role === "owner" && <InviteCaregiver workspaceId={workspace.id} />}
-                </div>
+                <p className="mt-2">
+                  <span className="sr-only">{t("workspaceLabel")}: </span>
+                  <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
+                    {workspace.name}
+                  </span>
+                </p>
               )}
             </div>
 
@@ -141,35 +117,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 <RecipientsSection recipients={recipients} />
               )}
             </section>
-
-            {workspace && (
-              <section aria-labelledby="careteam-heading" className="mt-8">
-                <h2
-                  id="careteam-heading"
-                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
-                >
-                  {t("careTeamHeading")}
-                </h2>
-                <CareTeamList
-                  workspaceId={workspace.id}
-                  currentUserId={me.user.id}
-                  canManage={workspace.role === "owner"}
-                />
-              </section>
-            )}
-
-            {workspace && workspace.role === "owner" && (
-              <section aria-labelledby="invitations-heading" className="mt-8">
-                <h2
-                  id="invitations-heading"
-                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
-                >
-                  {t("invitationsHeading")}
-                </h2>
-                <InvitationList workspaceId={workspace.id} />
-              </section>
-            )}
-
           </>
         ) : (
           <p role="alert" className="card text-base text-[var(--color-error-ink)]">

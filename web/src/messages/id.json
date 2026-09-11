@@ -11,10 +11,13 @@
     "create": "Buat",
     "search": "Cari",
     "filter": "Filter",
-    "clear": "Bersihkan"
+    "clear": "Bersihkan",
+    "back": "Kembali"
   },
   "nav": {
     "dashboard": "Dashboard",
+    "careteam": "Tim Perawat",
+    "ariaNav": "Navigasi utama",
     "recipients": "Penerima Perawatan",
     "reports": "Laporan Harian",
     "incidents": "Insiden",
@@ -100,6 +103,7 @@
   },
   "recipients": {
     "title": "Edit Profil",
+    "listTitle": "Penerima Perawatan",
     "add": "Tambah penerima",
     "name": "Nama",
     "careType": "Jenis perawatan",

@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
   APIError,
@@ -10,6 +9,7 @@ import {
   type Workspace,
 } from "@/lib/api-client";
 import { WorkspaceSettingsForm } from "@/components/ui/WorkspaceSettingsForm";
+import { AppHeader } from "@/components/ui/AppHeader";
 
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
@@ -20,7 +20,6 @@ interface SettingsPageProps {
 export default async function SettingsPage({ params }: SettingsPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "workspaceSettings" });
-  const common = await getTranslations({ locale, namespace: "common" });
 
   // A server fetch has no cookie jar, so the incoming Cookie header is
   // forwarded explicitly. See authApi.me for the full reasoning.
@@ -65,20 +64,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   if (redirectToLogin) redirect(`/${locale}/login`);
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <span className="text-lg font-semibold text-[var(--color-text)]">
-            {common("appName")}
-          </span>
-          <Link
-            href={`/${locale}/dashboard`}
-            className="btn-base btn-ghost touch-target px-3 text-sm"
-          >
-            ← {common("appName")}
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
+      <AppHeader locale={locale} />
 
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-medium text-[var(--color-text)]">{t("title")}</h1>

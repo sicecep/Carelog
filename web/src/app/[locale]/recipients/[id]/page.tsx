@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/lib/api-client";
 import { DetailActions } from "./detail-actions";
 import { DetailHeader, TimelineList } from "./detail-sections";
+import { AppHeader } from "@/components/ui/AppHeader";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -21,7 +21,6 @@ interface RecipientPageProps {
 export default async function RecipientDetailPage({ params }: RecipientPageProps) {
   const { locale, id } = await params;
   const t = await getTranslations({ locale, namespace: "recipients" });
-  const common = await getTranslations({ locale, namespace: "common" });
 
   // Server Component fetch: forward the incoming Cookie header explicitly —
   // a server-side fetch has no cookie jar (same pattern as the dashboard).
@@ -72,21 +71,12 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   if (redirectToLogin) redirect(`/${locale}/login`);
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2 sm:px-6">
-          <Link
-            href={`/${locale}/dashboard`}
-            className="touch-target flex items-center gap-2 text-base text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-          >
-            <span aria-hidden="true">&larr;</span>
-            <span>{t("detailBack")}</span>
-          </Link>
-          <span className="ml-auto text-lg font-semibold text-[var(--color-text)]">
-            {common("appName")}
-          </span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
+      <AppHeader
+        locale={locale}
+        backHref={`/${locale}/dashboard`}
+        backLabel={t("detailBack")}
+      />
 
       <main className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:px-6">
         {notFound || (!recipient && !loadFailed) ? (
