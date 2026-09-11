@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -22,9 +22,14 @@ type Step = 1 | 2 | 3;
 export default function OnboardingPage() {
   const t = useTranslations("onboarding");
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
   const locale = useLocale();
   const router = useRouter();
-  const [step, setStep] = useState<Step>(1);
+  // ?new=1 arrives from the Add Recipient button on an existing workspace:
+  // skip the welcome intro and start at the form. First-time users (no
+  // recipients yet, routed here after login) still get the intro.
+  const directAdd = useSearchParams().get("new") === "1";
+  const [step, setStep] = useState<Step>(directAdd ? 2 : 1);
   const [name, setName] = useState("");
   const [careType, setCareType] = useState<CareType | null>(null);
   const [enabledModules, setEnabledModules] = useState<Module[]>([]);
@@ -93,8 +98,9 @@ export default function OnboardingPage() {
         throw new Error("create recipient failed");
       }
 
-      // Redirect to dashboard using Next.js router
-      router.push(`/${locale}/dashboard`);
+      // First-time users land on the dashboard afterwards; an add-in-place
+      // flow returns to the list they started from.
+      router.push(directAdd ? `/${locale}/recipients` : `/${locale}/dashboard`);
       router.refresh();
     } catch (err) {
       // Show the API's own message when it has one — a bare "something went
@@ -106,9 +112,17 @@ export default function OnboardingPage() {
     }
   };
 
+  // Where "back" from each step leads. Step 2 normally returns to the welcome
+  // intro; in direct-add mode there is no intro, so it exits to the
+  // recipients list instead.
+  const exitStep2 = useCallback(() => {
+    if (directAdd) router.push(`/${locale}/recipients`);
+    else setStep(1);
+  }, [directAdd, locale, router]);
+
   const backLabels = {
     1: "",
-    2: t("welcome"),
+    2: directAdd ? tNav("recipients") : t("welcome"),
     3: t("createProfile"),
   };
 
@@ -159,7 +173,7 @@ export default function OnboardingPage() {
             {step === 2 && (
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => setStep(1)} aria-label={t("back")}>
+                  <Button variant="ghost" size="icon" onClick={exitStep2} aria-label={t("back")}>
                     <ArrowLeft size={20} weight="thin" />
                   </Button>
                   <h2 className="text-2xl font-semibold text-[var(--color-text)] flex-1">{t("createProfile")}</h2>
@@ -198,7 +212,7 @@ export default function OnboardingPage() {
                 </fieldset>
 
                 <div className="flex gap-3">
-                  <Button variant="secondary" className="flex-1" onClick={() => setStep(1)}>
+                  <Button variant="secondary" className="flex-1" onClick={exitStep2}>
                     {t("back")}
                   </Button>
                   <Button className="flex-1" disabled={!canSubmitStep2} onClick={() => setStep(3)}>

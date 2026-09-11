@@ -85,7 +85,7 @@ export default async function RecipientsPage({ params }: RecipientsPageProps) {
           </h1>
           {canAdd && (
             <Link
-              href={`/${locale}/onboarding`}
+              href={`/${locale}/onboarding?new=1`}
               className="btn-base btn-primary touch-target flex items-center gap-2 px-4 text-sm"
             >
               {/* Text "+" rather than a phosphor icon: this is a server
