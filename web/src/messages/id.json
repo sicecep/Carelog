@@ -254,6 +254,7 @@
       "emergency": "Darurat"
     },
     "acknowledge": "Konfirmasi",
+    "report": "Catat insiden",
     "acknowledged": "Sudah dikonfirmasi",
     "ackCommentPlaceholder": "Tambahkan komentar untuk pengasuh (opsional)",
     "ackCancel": "Batal",
@@ -415,6 +416,7 @@
     "rejecting": "Menolak...",
     "confirmReject": "Tolak akun ini? Mereka tidak akan dapat masuk.",
     "reasonPrompt": "Alasan (opsional, ditampilkan kepada pengguna)",
+    "reasonLabel": "Alasan",
     "superAdminBadge": "Admin",
     "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
     "accessDenied": "Anda tidak memiliki akses ke halaman ini."

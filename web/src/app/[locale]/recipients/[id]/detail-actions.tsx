@@ -50,7 +50,7 @@ export function DetailActions({ recipientId, workspaceId, recipient }: DetailAct
             className="btn-base btn-primary touch-target min-h-[56px] flex-[2] text-base"
           >
             <Plus size={22} weight="bold" />
-            <span className="ml-1">{t("logActivity")}</span>
+            <span className="ml-1">{t("open")}</span>
           </button>
           <button
             type="button"

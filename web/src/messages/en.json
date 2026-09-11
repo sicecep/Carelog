@@ -254,6 +254,7 @@
       "emergency": "Emergency"
     },
     "acknowledge": "Acknowledge",
+    "report": "Report incident",
     "acknowledged": "Acknowledged",
     "ackCommentPlaceholder": "Add a comment for the caregiver (optional)",
     "ackCancel": "Cancel",
@@ -415,6 +416,7 @@
     "rejecting": "Rejecting...",
     "confirmReject": "Reject this account? They will not be able to sign in.",
     "reasonPrompt": "Reason (optional, shown to the user)",
+    "reasonLabel": "Reason",
     "superAdminBadge": "Admin",
     "errorGeneric": "Something went wrong. Please try again.",
     "accessDenied": "You do not have access to this page."
