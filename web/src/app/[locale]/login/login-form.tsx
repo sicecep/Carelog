@@ -6,11 +6,20 @@ import { authApi } from "@/lib/api-client";
 
 type Status = "idle" | "loading" | "sent" | "error";
 
-export function LoginForm() {
+/**
+ * The magic-link form used by both /login and /register. Sign-up and sign-in
+ * are the SAME request server-side (deliberate — the API does not reveal
+ * whether an email has an account, to prevent enumeration). The `variant`
+ * only changes the framing of the copy, not the behavior.
+ */
+export function LoginForm({ variant = "login" }: { variant?: "login" | "register" }) {
   const t = useTranslations("auth");
+  const tReg = useTranslations("register");
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+
+  const isRegister = variant === "register";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,7 +40,9 @@ export function LoginForm() {
         role="status"
         className="rounded-md border border-green-200 bg-green-50 px-4 py-4 text-base text-green-900"
       >
-        {t("magicLinkSent", { email: sentTo })}
+        {isRegister
+          ? tReg("sent", { email: sentTo })
+          : t("magicLinkSent", { email: sentTo })}
       </p>
     );
   }
@@ -43,7 +54,7 @@ export function LoginForm() {
           role="alert"
           className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
         >
-          {t("magicLinkError")}
+          {isRegister ? tReg("error") : t("magicLinkError")}
         </p>
       )}
 
@@ -72,7 +83,13 @@ export function LoginForm() {
         disabled={status === "loading"}
         className="flex h-12 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {status === "loading" ? t("sendingMagicLink") : t("sendMagicLink")}
+        {status === "loading"
+          ? isRegister
+            ? tReg("sending")
+            : t("sendingMagicLink")
+          : isRegister
+            ? tReg("sendButton")
+            : t("sendMagicLink")}
       </button>
     </form>
   );
