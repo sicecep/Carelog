@@ -117,7 +117,32 @@ async function main() {
     check("A2. four tabs", tabCount === 4, `got ${tabCount}`);
 
     const mobNavText = await bottomNav.innerText();
-    check("A3. Indonesian tab labels", mobNavText.includes("Tim Perawat") && mobNavText.includes("Penerima Perawatan"), mobNavText.replace(/\n/g, " | "));
+    check("A3. Indonesian tab labels", mobNavText.includes("Tim Perawat") && mobNavText.includes("Terawat"), mobNavText.replace(/\n/g, " | "));
+
+    // A3b. Every label must fit on ONE line. "Penerima Perawatan" wrapped to
+    // two, so that tab sat taller than its three neighbours and the row was
+    // visibly misaligned. Measured at 320px — the tightest phone width.
+    await mobPage.setViewportSize({ width: 320, height: 780 });
+    await mobPage.goto(`${WEB}/id/dashboard`, { waitUntil: "networkidle" });
+    const labelLines = await mobPage.evaluate(() => {
+      const nav = [...document.querySelectorAll("nav")].pop();
+      return [...nav.querySelectorAll("a")].map((a) => {
+        const span = a.querySelector("span:last-child") || a;
+        const cs = getComputedStyle(span);
+        const lines = Math.round(
+          span.getBoundingClientRect().height / parseFloat(cs.lineHeight || "16")
+        );
+        return { text: span.textContent.trim(), lines };
+      });
+    });
+    const wrapped = labelLines.filter((l) => l.lines > 1);
+    check(
+      "A3b. all tab labels fit one line @320px",
+      wrapped.length === 0,
+      wrapped.length ? wrapped.map((w) => `${w.text}=${w.lines}L`).join(", ") : labelLines.map((l) => l.text).join(" | ")
+    );
+    await mobPage.setViewportSize({ width: 390, height: 844 });
+    await mobPage.goto(`${WEB}/id/dashboard`, { waitUntil: "networkidle" });
 
     // Tap targets: every tab must clear the 56px minimum.
     const heights = await bottomNav.locator("a").evaluateAll(
@@ -180,7 +205,7 @@ async function main() {
       .first()
       .innerText()
       .catch(() => "");
-    check("D1. EN nav labels are English", enNav.includes("Care Team") && enNav.includes("Care Recipients"), enNav.replace(/\n/g, " | "));
+    check("D1. EN nav labels are English", enNav.includes("Care Team") && enNav.includes("Settings") && enNav.includes("Dashboard"), enNav.replace(/\n/g, " | "));
     await deskPage.goto(`${WEB}/en/careteam`, { waitUntil: "networkidle" });
     const enCT = await deskPage.innerText("body");
     check("D2. EN careteam shows Invite", enCT.includes("Invite Caregiver"));
