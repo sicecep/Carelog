@@ -2,7 +2,19 @@
 
 import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
-import { X, Warning, WarningCircle, WarningOctagon, WhatsappLogo } from "phosphor-react";
+import {
+  X,
+  Warning,
+  WarningCircle,
+  WarningOctagon,
+  WhatsappLogo,
+  ArrowFatLinesDown,
+  HeartBreak,
+  FirstAidKit,
+  Brain,
+  HouseLine,
+  DotsThree,
+} from "phosphor-react";
 import { cn } from "@/lib/utils";
 import {
   APIError,
@@ -92,13 +104,17 @@ const SEVERITY_TILES: {
   },
 ];
 
-const INCIDENT_TYPES: IncidentType[] = [
-  "fall",
-  "injury",
-  "medical",
-  "behavioral",
-  "environmental",
-  "other",
+// Incident types paired with an icon each. The picker was text-only in a
+// neutral chip, which read as unstyled and made the six options hard to scan
+// at a glance mid-incident — an icon gives each option a distinct shape
+// before the label is even read.
+const INCIDENT_TYPES: { id: IncidentType; icon: typeof Warning }[] = [
+  { id: "fall", icon: ArrowFatLinesDown },
+  { id: "injury", icon: HeartBreak },
+  { id: "medical", icon: FirstAidKit },
+  { id: "behavioral", icon: Brain },
+  { id: "environmental", icon: HouseLine },
+  { id: "other", icon: DotsThree },
 ];
 
 const DESCRIPTION_MIN = 20;
@@ -289,25 +305,36 @@ export function IncidentSheet({
                 {tIncidents("type")}
               </legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {INCIDENT_TYPES.map((tp) => (
-                  <button
-                    key={tp}
-                    type="button"
-                    onClick={() => setType(tp)}
-                    className={cn(
-                      // chip-sm: .chip alone is the 120px onboarding tile and
-                      // beats Tailwind sizing utilities (same layer, later
-                      // source order). chip-selected is the only selected
-                      // state that actually wins the cascade over .chip's
-                      // own background/border — arbitrary bg-/border- classes
-                      // here were being silently swallowed.
-                      "chip chip-sm touch-target",
-                      type === tp && "chip-selected"
-                    )}
-                  >
-                    {tIncidents(`types.${tp}`)}
-                  </button>
-                ))}
+                {INCIDENT_TYPES.map(({ id: tp, icon: Icon }) => {
+                  const selected = type === tp;
+                  return (
+                    <button
+                      key={tp}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setType(tp)}
+                      className={cn(
+                        // chip-sm keeps these at 56px (see globals.css — .chip
+                        // alone is the 120px onboarding tile). chip-selected is
+                        // the selected state that wins the cascade; a ring makes
+                        // the choice unmistakable on a phone in daylight, where
+                        // accent-soft vs white alone was too faint.
+                        "chip chip-sm touch-target flex-row gap-2 text-sm font-semibold",
+                        selected
+                          ? "chip-selected text-[var(--color-accent-ink)] ring-2 ring-[var(--color-accent)] ring-offset-1"
+                          : "text-[var(--color-text)]"
+                      )}
+                    >
+                      <Icon
+                        size={20}
+                        weight={selected ? "fill" : "regular"}
+                        className={selected ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}
+                        aria-hidden="true"
+                      />
+                      {tIncidents(`types.${tp}`)}
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
 
