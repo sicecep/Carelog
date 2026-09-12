@@ -66,6 +66,15 @@ async function main() {
     check("3b. login page is sign-in framed", loginText.includes("tautan untuk masuk"));
     check("3c. no raw key path on login", !/auth\.[a-zA-Z]/.test(loginText));
 
+    // Someone arriving straight at /login must still be able to reach the
+    // register page without knowing its URL.
+    check("3d. login links to register", loginText.includes("Baru di CareLog?"));
+    await page.locator("a", { hasText: "Buat akun" }).click();
+    await page.waitForURL("**/id/register", { timeout: 5000 }).then(
+      () => check("3e. login register-link navigates", true, page.url()),
+      () => check("3e. login register-link navigates", false, page.url())
+    );
+
     // ── 4. Register path ──────────────────────────────────────────────────
     await page.goto(`${WEB}/id`, { waitUntil: "networkidle" });
     await page.locator("a", { hasText: "Buat akun" }).click();

@@ -35,6 +35,8 @@
     "sendingMagicLink": "Mengirim...",
     "magicLinkSent": "Cek email Anda — kami mengirim tautan masuk ke {email}",
     "magicLinkError": "Gagal mengirim tautan masuk. Silakan coba lagi.",
+    "noAccount": "Baru di CareLog?",
+    "createAccount": "Buat akun",
     "or": "atau",
     "signInWithGoogle": "Masuk dengan Google",
     "comingSoon": "Segera hadir",
