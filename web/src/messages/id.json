@@ -103,7 +103,7 @@
     "quickActions": "Aksi cepat",
     "newReport": "Laporan baru",
     "newIncident": "Catat insiden",
-    "addRecipient": "Tambah penerima perawatan",
+    "addRecipient": "Tambah",
     "workspaceLabel": "Ruang kerja",
     "recipientsHeading": "Penerima perawatan Anda",
     "openRecipient": "Buka profil {name}",
@@ -120,6 +120,7 @@
   "recipients": {
     "title": "Edit Profil",
     "listTitle": "Penerima Perawatan",
+    "addRecipientAria": "Tambah penerima perawatan",
     "add": "Tambah penerima",
     "name": "Nama",
     "careType": "Jenis perawatan",

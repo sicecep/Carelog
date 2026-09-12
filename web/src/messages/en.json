@@ -103,7 +103,7 @@
     "quickActions": "Quick actions",
     "newReport": "New report",
     "newIncident": "Log incident",
-    "addRecipient": "Add care recipient",
+    "addRecipient": "Add",
     "workspaceLabel": "Workspace",
     "recipientsHeading": "Your care recipients",
     "openRecipient": "Open {name}'s profile",
@@ -120,6 +120,7 @@
   "recipients": {
     "title": "Edit Profile",
     "listTitle": "Care Recipients",
+    "addRecipientAria": "Add care recipient",
     "add": "Add recipient",
     "name": "Name",
     "careType": "Care type",
