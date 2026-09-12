@@ -178,10 +178,27 @@ async function main() {
       .first()
       .boundingBox();
     check(
-      "1i. type chip compact (<=64px, was 120)",
-      chipBox !== null && chipBox.height <= 64,
+      "1i. type chip compact (<=80px, was 120)",
+      chipBox !== null && chipBox.height <= 80,
       chipBox ? `${chipBox.height}px` : "not found"
     );
+
+    // Labels must be legible: the picker was font-weight 400 (thin/washed
+    // out per the report). Chips carry a semibold label.
+    const chipType = await page.evaluate(() => {
+      const b = document.querySelector("fieldset button");
+      if (!b) return { weight: "n/a", hasIcon: false };
+      return {
+        weight: getComputedStyle(b).fontWeight,
+        hasIcon: !!b.querySelector("svg"),
+      };
+    });
+    check(
+      "1i2. type chip label is semibold+",
+      parseInt(chipType.weight, 10) >= 600,
+      `weight=${chipType.weight}`
+    );
+    check("1i3. type chip has an icon", chipType.hasIcon);
 
     // Selection must actually render: chip-selected accent background.
     await page.locator("fieldset button", { hasText: "Jatuh" }).first().click();
@@ -215,6 +232,14 @@ async function main() {
       selStyles.border === selStyles.accent,
       `border=${selStyles.border} expected=${selStyles.accent}`
     );
+    // Ring makes the selection unmistakable (box-shadow from ring-2).
+    const ring = await page.evaluate(() => {
+      const b = [...document.querySelectorAll("fieldset button")].find((x) =>
+        x.textContent.includes("Jatuh")
+      );
+      return b ? getComputedStyle(b).boxShadow : "none";
+    });
+    check("1l. selected type has a visible ring", ring !== "none" && ring !== "", ring);
 
     // ── 2. English detail page ────────────────────────────────────────────
     await page.goto(`${WEB}/en/recipients/${recID}`, { waitUntil: "networkidle" });
