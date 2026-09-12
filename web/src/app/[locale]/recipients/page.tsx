@@ -86,6 +86,12 @@ export default async function RecipientsPage({ params }: RecipientsPageProps) {
           {canAdd && (
             <Link
               href={`/${locale}/onboarding?new=1`}
+              // Visible label is just "Tambah"/"Add" — the full phrase
+              // overflowed on Indonesian at phone widths, and the adjacent
+              // page heading already supplies the object. aria-label keeps
+              // the full description for screen readers, since the "+" is
+              // aria-hidden and would otherwise leave a bare verb.
+              aria-label={t("addRecipientAria")}
               className="btn-base btn-primary touch-target flex items-center gap-2 px-4 text-sm"
             >
               {/* Text "+" rather than a phosphor icon: this is a server
