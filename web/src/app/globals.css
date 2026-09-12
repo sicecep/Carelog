@@ -225,6 +225,30 @@
     color: var(--color-accent);
   }
 
+  /* Selection must survive hover: .chip:hover's specificity (class +
+     pseudo-class, 0-2-0) beats .chip-selected (0-1-0), which wiped the
+     accent background the moment the cursor rested on a selected chip —
+     on desktop the incident-type picker and the onboarding care-type tiles
+     both looked unselected under the mouse. 0-3-0 wins over both. */
+  .chip.chip-selected:hover {
+    background-color: var(--color-accent-soft);
+    border-color: var(--color-accent);
+  }
+
+  /* Compact chip — inline selectors (incident type, log category).
+     .chip is the big onboarding care-type tile: 120px tall with icon+label
+     stacked. Reusing it for small selectors made them huge: .chip sits in
+     this utilities layer AFTER Tailwind's generated utilities, so its
+     min-height silently beat the min-h-[56px] utility (same layer, later
+     source order wins), and its background/border swallowed the arbitrary
+     selected-state classes — the incident type picker rendered as giant
+     tiles with an INVISIBLE selection. This variant resets tile sizing and
+     must be defined after .chip to win; pair with .chip-selected. */
+  .chip-sm {
+    min-height: 56px;
+    padding: 0.5rem 0.75rem;
+  }
+
   /* Card */
   /* Border was 1px of the faint --color-border, which washed out against the
      cream background on phone screens in daylight. Bumped to 1.5px of

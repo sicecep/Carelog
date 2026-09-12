@@ -144,6 +144,78 @@ async function main() {
       `bg=${btnStyles.primaryBg} var=${btnStyles.accentVar}`
     );
 
+    // ── 1h-1m. Incident sheet: compact chips + VISIBLE selection ──────────
+    // .chip reused from the 120px onboarding tiles beat the min-h-[56px]
+    // utility (same utilities layer, later source order wins) and swallowed
+    // the arbitrary selected-state classes — giant chips, invisible choice.
+    // Fresh navigation closes the logging sheet; open the incident one.
+    await page.goto(`${WEB}/id/recipients/${recID}`, { waitUntil: "networkidle" });
+    await page.locator("button", { hasText: "Catat insiden" }).first().click();
+    await page.waitForTimeout(400);
+
+    // Severity step -> pick medium ("Sedang").
+    await page.locator("button", { hasText: "Sedang" }).first().click();
+    await page.waitForTimeout(300);
+
+    // Severity badge on the details step must be color-coded, not bare.
+    const badgeStyles = await page.evaluate(() => {
+      const badge = [...document.querySelectorAll("span")].find((s) =>
+        s.textContent.includes("Sedang")
+      );
+      return badge ? getComputedStyle(badge).backgroundColor : "n/a";
+    });
+    check(
+      "1h. severity badge is color-coded",
+      badgeStyles !== "n/a" &&
+        badgeStyles !== "rgba(0, 0, 0, 0)" &&
+        badgeStyles !== "rgb(255, 255, 255)",
+      `bg=${badgeStyles}`
+    );
+
+    // Type chips must be compact, not 120px onboarding tiles.
+    const chipBox = await page
+      .locator("fieldset button")
+      .first()
+      .boundingBox();
+    check(
+      "1i. type chip compact (<=64px, was 120)",
+      chipBox !== null && chipBox.height <= 64,
+      chipBox ? `${chipBox.height}px` : "not found"
+    );
+
+    // Selection must actually render: chip-selected accent background.
+    await page.locator("fieldset button", { hasText: "Jatuh" }).first().click();
+    await page.waitForTimeout(200);
+    const selStyles = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll("fieldset button")].find((b) =>
+        b.textContent.includes("Jatuh")
+      );
+      if (!btn) return { bg: "n/a", border: "n/a" };
+      const cs = getComputedStyle(btn);
+      const root = getComputedStyle(document.documentElement);
+      const hexToRgb = (hex) => {
+        const m = hex.trim().replace("#", "");
+        const v = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+        return `rgb(${[0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16)).join(", ")})`;
+      };
+      return {
+        bg: cs.backgroundColor,
+        border: cs.borderColor,
+        accentSoft: hexToRgb(root.getPropertyValue("--color-accent-soft")),
+        accent: hexToRgb(root.getPropertyValue("--color-accent")),
+      };
+    });
+    check(
+      "1j. selected type shows accent-soft background",
+      selStyles.bg === selStyles.accentSoft,
+      `bg=${selStyles.bg} expected=${selStyles.accentSoft}`
+    );
+    check(
+      "1k. selected type shows accent border",
+      selStyles.border === selStyles.accent,
+      `border=${selStyles.border} expected=${selStyles.accent}`
+    );
+
     // ── 2. English detail page ────────────────────────────────────────────
     await page.goto(`${WEB}/en/recipients/${recID}`, { waitUntil: "networkidle" });
     const enText = await page.innerText("body");

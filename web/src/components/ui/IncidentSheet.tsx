@@ -255,13 +255,34 @@ export function IncidentSheet({
 
         {step === "details" && severity && (
           <div className="space-y-5">
-            <button
-              type="button"
-              onClick={() => setStep("severity")}
-              className="text-sm font-medium text-[var(--color-accent)] touch-target"
-            >
-              {t("changeSeverity")}
-            </button>
+            {/* Chosen severity as a color-coded badge — the details step is
+                otherwise monochrome, and the caregiver must always see WHAT
+                urgency they are reporting while typing. Pairs icon + color +
+                label (never color alone, same rule as the severity tiles). */}
+            {(() => {
+              const tile =
+                SEVERITY_TILES.find((s) => s.id === severity) ?? SEVERITY_TILES[0];
+              return (
+                <div className="flex items-center justify-between gap-3">
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-semibold",
+                      tile.cls
+                    )}
+                  >
+                    <tile.icon size={16} weight="fill" aria-hidden="true" />
+                    {t(`severity.${severity}.label`)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStep("severity")}
+                    className="text-sm font-medium text-[var(--color-accent)] touch-target"
+                  >
+                    {t("changeSeverity")}
+                  </button>
+                </div>
+              );
+            })()}
 
             <fieldset>
               <legend className="mb-2 text-base font-semibold text-[var(--color-text)]">
@@ -274,10 +295,14 @@ export function IncidentSheet({
                     type="button"
                     onClick={() => setType(tp)}
                     className={cn(
-                      "chip touch-target min-h-[56px] text-sm font-medium transition-all",
-                      type === tp
-                        ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
-                        : "border-[var(--color-border)] hover:border-[var(--color-accent)]"
+                      // chip-sm: .chip alone is the 120px onboarding tile and
+                      // beats Tailwind sizing utilities (same layer, later
+                      // source order). chip-selected is the only selected
+                      // state that actually wins the cascade over .chip's
+                      // own background/border — arbitrary bg-/border- classes
+                      // here were being silently swallowed.
+                      "chip chip-sm touch-target",
+                      type === tp && "chip-selected"
                     )}
                   >
                     {tIncidents(`types.${tp}`)}

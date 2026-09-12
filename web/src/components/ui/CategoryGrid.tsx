@@ -31,7 +31,7 @@ export function CategoryGrid({ onSelect }: CategoryGridProps) {
           key={id}
           type="button"
           onClick={() => onSelect(id)}
-          className="chip touch-target flex min-h-[56px] flex-col items-center justify-center gap-2 p-4 transition-all hover:border-[var(--color-accent)]"
+          className="chip chip-sm touch-target flex flex-col items-center justify-center gap-2 p-4 transition-all"
         >
           <Icon size={24} className="text-[var(--color-accent)]" aria-hidden="true" />
           <span className="text-sm font-medium text-[var(--color-text)]">{t(id)}</span>
