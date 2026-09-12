@@ -25,21 +25,35 @@
     "logout": "Log out"
   },
   "auth": {
-    "title": "Sign in or Register",
     "login": "Sign in",
     "register": "Register",
     "logout": "Sign out",
     "email": "Email",
     "emailPlaceholder": "e.g. name@email.com",
-    "magicLinkIntro": "Enter your email. We'll send you a link to access CareLog. No account yet? The same link signs you up.",
-    "sendMagicLink": "Send Access Link",
+    "magicLinkIntro": "Enter your email. We'll send you a link to sign in — no password needed.",
+    "sendMagicLink": "Send Login Link",
     "sendingMagicLink": "Sending...",
-    "magicLinkSent": "Check your email. We sent an access link to {email}. If this is your first time, that link creates your account.",
-    "magicLinkError": "We couldn't send the link. Please try again.",
+    "magicLinkSent": "Check your email — we sent a login link to {email}",
+    "magicLinkError": "We couldn't send the login link. Please try again.",
     "or": "or",
     "signInWithGoogle": "Sign in with Google",
     "comingSoon": "Coming soon",
     "sessionExpired": "Session expired, please sign in again"
+  },
+  "landing": {
+    "tagline": "Daily care for your family, recorded and shared clearly.",
+    "registerButton": "Create account",
+    "loginButton": "Sign in"
+  },
+  "register": {
+    "title": "Create your account",
+    "intro": "Enter your email and we'll send you a link to set up your account — no password needed.",
+    "sendButton": "Send Setup Link",
+    "sending": "Sending...",
+    "sent": "Check your email — we sent a setup link to {email}. If you already have an account, the same link signs you in.",
+    "error": "We couldn't send the link. Please try again.",
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in"
   },
   "onboarding": {
     "welcome": "Welcome to CareLog",

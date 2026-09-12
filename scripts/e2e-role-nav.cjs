@@ -100,6 +100,15 @@ async function main() {
     const cookies = await owner.ctx.cookies();
     await mob.addCookies(cookies);
 
+    // Signed-in member hitting the locale landing is forwarded to the
+    // dashboard — the landing's login/register choice is for visitors only.
+    await mobPage.goto(`${WEB}/id`, { waitUntil: "networkidle" });
+    check("A0. signed-in user on /id -> dashboard", mobPage.url().includes("/id/dashboard"), mobPage.url());
+
+    // Same for /register: no point registering when you already have a session.
+    await mobPage.goto(`${WEB}/id/register`, { waitUntil: "networkidle" });
+    check("A0b. signed-in user on /id/register -> dashboard", mobPage.url().includes("/id/dashboard"), mobPage.url());
+
     await mobPage.goto(`${WEB}/id/dashboard`, { waitUntil: "networkidle" });
     const bottomNav = mobPage.locator("nav[aria-label='Navigasi utama']").last();
     check("A1. bottom tab bar rendered on mobile", await bottomNav.isVisible());

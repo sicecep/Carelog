@@ -25,21 +25,35 @@
     "logout": "Keluar"
   },
   "auth": {
-    "title": "Masuk atau Daftar",
     "login": "Masuk",
     "register": "Daftar",
     "logout": "Keluar",
     "email": "Email",
     "emailPlaceholder": "contoh: nama@email.com",
-    "magicLinkIntro": "Masukkan email Anda. Kami akan mengirim tautan untuk mengakses CareLog. Belum punya akun? Tautan yang sama akan mendaftarkan Anda.",
-    "sendMagicLink": "Kirim Tautan Akses",
+    "magicLinkIntro": "Masukkan email Anda. Kami akan mengirim tautan untuk masuk — tanpa kata sandi.",
+    "sendMagicLink": "Kirim Tautan Masuk",
     "sendingMagicLink": "Mengirim...",
-    "magicLinkSent": "Cek email Anda. Kami mengirim tautan akses ke {email}. Jika ini pertama kali Anda, tautan tersebut akan membuat akun Anda.",
-    "magicLinkError": "Gagal mengirim tautan. Silakan coba lagi.",
+    "magicLinkSent": "Cek email Anda — kami mengirim tautan masuk ke {email}",
+    "magicLinkError": "Gagal mengirim tautan masuk. Silakan coba lagi.",
     "or": "atau",
     "signInWithGoogle": "Masuk dengan Google",
     "comingSoon": "Segera hadir",
     "sessionExpired": "Sesi berakhir, silakan masuk kembali"
+  },
+  "landing": {
+    "tagline": "Perawatan harian untuk keluarga Anda, tercatat dan terbagikan dengan jelas.",
+    "registerButton": "Buat akun",
+    "loginButton": "Masuk"
+  },
+  "register": {
+    "title": "Buat akun Anda",
+    "intro": "Masukkan email Anda dan kami akan mengirim tautan untuk menyiapkan akun — tanpa kata sandi.",
+    "sendButton": "Kirim Tautan Pendaftaran",
+    "sending": "Mengirim...",
+    "sent": "Cek email Anda — kami mengirim tautan pendaftaran ke {email}. Jika Anda sudah punya akun, tautan yang sama langsung memasukkan Anda.",
+    "error": "Gagal mengirim tautan. Silakan coba lagi.",
+    "haveAccount": "Sudah punya akun?",
+    "signIn": "Masuk"
   },
   "onboarding": {
     "welcome": "Selamat datang di CareLog",
