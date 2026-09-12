@@ -35,6 +35,8 @@
     "sendingMagicLink": "Sending...",
     "magicLinkSent": "Check your email — we sent a login link to {email}",
     "magicLinkError": "We couldn't send the login link. Please try again.",
+    "noAccount": "New to CareLog?",
+    "createAccount": "Create an account",
     "or": "or",
     "signInWithGoogle": "Sign in with Google",
     "comingSoon": "Coming soon",

@@ -1,9 +1,15 @@
-import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
-  const t = useTranslations("auth");
-  const common = useTranslations("common");
+interface LoginPageProps {
+  params: Promise<{ locale: string }>;
+}
+
+export default async function LoginPage({ params }: LoginPageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "auth" });
+  const common = await getTranslations({ locale, namespace: "common" });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
@@ -15,6 +21,20 @@ export default function LoginPage() {
         </div>
 
         <LoginForm />
+
+        {/* Mirror of the register page's "already have an account?" link:
+            someone arriving straight at /login (bookmark, old link, the
+            pending page's back-link) must still be able to reach /register
+            without knowing the URL. */}
+        <p className="text-center text-sm text-gray-600">
+          {t("noAccount")}{" "}
+          <Link
+            href={`/${locale}/register`}
+            className="font-medium text-blue-600 hover:text-blue-700"
+          >
+            {t("createAccount")}
+          </Link>
+        </p>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
