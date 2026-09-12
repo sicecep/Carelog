@@ -1,0 +1,148 @@
+// E2E: recipient detail action-bar button labels (the reported bug) and the
+// admin rejected-reason label.
+//
+//   1. /id/recipients/{id} fixed bar: "Catat kegiatan" + "Catat insiden",
+//      NOT raw key paths — and the logging sheet actually opens
+//   2. /en/recipients/{id}: "Log activity" + "Report incident"
+//   3. /id/admin as super-admin: rejected user shows "Alasan:" label
+
+const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { execFileSync } = require("child_process");
+const crypto = require("crypto");
+
+const WEB = process.env.E2E_WEB || "http://localhost:3000";
+const API = process.env.E2E_API || "http://localhost:8080";
+
+function sql(query) {
+  return execFileSync(
+    "docker",
+    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", query],
+    { encoding: "utf8" }
+  )
+    .trim()
+    .split("\n")
+    .filter((l) => l.length > 0)
+    .map((l) => l.split("\t"));
+}
+
+const results = [];
+function check(name, passed, detail = "") {
+  results.push({ name, passed, detail });
+  console.log(`${passed ? "PASS" : "FAIL"}  ${name}${detail ? `  :: ${detail}` : ""}`);
+}
+
+async function requestMagicLink(email) {
+  const res = await fetch(`${API}/api/v1/auth/magic-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`magic-link failed: ${res.status}`);
+}
+
+function mintVerifyURL(email) {
+  const raw = crypto.randomBytes(32);
+  const hashHex = crypto.createHash("sha256").update(raw).digest("hex");
+  const rows = sql(`SELECT id FROM users WHERE LOWER(email)=LOWER('${email}')`);
+  sql(
+    `INSERT INTO auth_magic_links (user_id, token_hash, expires_at, created_at)
+     VALUES ('${rows[0][0]}', decode('${hashHex}','hex'), now() + interval '15 minutes', now())`
+  );
+  return `${API}/api/v1/auth/verify?token=${raw.toString("base64url")}`;
+}
+
+async function loginApproved(page, email) {
+  await requestMagicLink(email);
+  await page.goto(mintVerifyURL(email), { waitUntil: "domcontentloaded" });
+  sql(
+    `UPDATE users SET approval_status='approved', approved_at=now(), approved_by=id
+     WHERE LOWER(email)=LOWER('${email}')`
+  );
+  await requestMagicLink(email);
+  await page.goto(mintVerifyURL(email), { waitUntil: "domcontentloaded" });
+}
+
+async function main() {
+  const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  const stamp = Date.now();
+
+  try {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const OWNER = `btncheck${stamp}@carelog.test`;
+    await loginApproved(page, OWNER);
+
+    const wsRows = sql(
+      `SELECT w.id FROM workspaces w
+       JOIN workspace_members m ON m.workspace_id = w.id
+       JOIN users u ON u.id = m.user_id
+       WHERE LOWER(u.email)=LOWER('${OWNER}')`
+    );
+    const wsID = wsRows[0][0];
+    const CHILD = `Tombol Uji ${stamp}`;
+    sql(
+      `INSERT INTO care_recipients (workspace_id, full_name, care_type, enabled_modules, created_by, is_active, created_at)
+       VALUES ('${wsID}', '${CHILD}', 'child', '["meal","sleep"]'::jsonb,
+               (SELECT id FROM users WHERE LOWER(email)=LOWER('${OWNER}')), true, now())`
+    );
+    const recID = sql(`SELECT id FROM care_recipients WHERE full_name='${CHILD}'`)[0][0];
+
+    // ── 1. Indonesian detail page ─────────────────────────────────────────
+    await page.goto(`${WEB}/id/recipients/${recID}`, { waitUntil: "networkidle" });
+    const barText = await page.innerText("body");
+    check("1a. ID primary button says 'Catat kegiatan'", barText.includes("Catat kegiatan"));
+    check("1b. ID danger button says 'Catat insiden'", barText.includes("Catat insiden"));
+    check("1c. no raw key path rendered", !/logActivity|incidents\.report/.test(barText));
+
+    // The button must actually open the sheet it labels.
+    await page.locator("button", { hasText: "Catat kegiatan" }).first().click();
+    await page.waitForTimeout(400);
+    const sheetVisible = await page
+      .locator("[role='dialog'], [data-state='open']")
+      .first()
+      .isVisible()
+      .catch(() => false);
+    check("1d. clicking it opens the logging sheet", sheetVisible);
+
+    // ── 2. English detail page ────────────────────────────────────────────
+    await page.goto(`${WEB}/en/recipients/${recID}`, { waitUntil: "networkidle" });
+    const enText = await page.innerText("body");
+    check("2a. EN primary button says 'Log activity'", enText.includes("Log activity"));
+    check("2b. EN danger button says 'Report incident'", enText.includes("Report incident"));
+
+    // ── 3. Admin rejected-reason label ────────────────────────────────────
+    const SUPER = "superadmin@carelog.test";
+    const REJ = `rejected${stamp}@carelog.test`;
+    await requestMagicLink(REJ); // creates the user row (left pending)
+    sql(
+      `UPDATE users SET approval_status='rejected', rejection_reason='Uji penolakan'
+       WHERE LOWER(email)=LOWER('${REJ}')`
+    );
+    // Super-admin logs in; the allowlist promotes on verify.
+    await requestMagicLink(SUPER);
+    await page.goto(mintVerifyURL(SUPER), { waitUntil: "domcontentloaded" });
+    await page.goto(`${WEB}/id/admin`, { waitUntil: "networkidle" });
+    // Tabs are client-side state, not a query param — click through.
+    await page.locator("button", { hasText: "Ditolak" }).first().click();
+    await page.waitForTimeout(600);
+    const adminText = await page.innerText("body");
+    check("3a. admin rejected tab shows the user", adminText.includes(REJ), REJ);
+    check("3b. reason label renders 'Alasan'", /Alasan/.test(adminText));
+    check("3c. rejection reason value renders", adminText.includes("Uji penolakan"));
+    check("3d. no raw key path in admin", !/reasonLabel/.test(adminText));
+
+    await browser.close();
+  } catch (e) {
+    console.error("HARNESS ERROR:", e.message);
+    await browser.close().catch(() => {});
+    process.exit(1);
+  }
+
+  const failed = results.filter((r) => !r.passed).length;
+  console.log(
+    `\n${"=".repeat(60)}\nTOTAL ${results.length}  PASSED ${results.length - failed}  FAILED ${failed}`
+  );
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+main();
