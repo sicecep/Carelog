@@ -104,6 +104,46 @@ async function main() {
       .catch(() => false);
     check("1d. clicking it opens the logging sheet", sheetVisible);
 
+    // Visual state: the danger button must actually be danger-colored.
+    // btn-danger was referenced but undefined once — the button rendered as
+    // a browser-default gray button that looked disabled while working.
+    const btnStyles = await page.evaluate(() => {
+      const danger = [...document.querySelectorAll("button")].find((b) =>
+        b.textContent.includes("Catat insiden")
+      );
+      const primary = [...document.querySelectorAll("button")].find((b) =>
+        b.textContent.includes("Catat kegiatan")
+      );
+      const hexToRgb = (hex) => {
+        const m = hex.trim().replace("#", "");
+        const v = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+        return `rgb(${[0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16)).join(", ")})`;
+      };
+      const root = getComputedStyle(document.documentElement);
+      return {
+        dangerBg: danger ? getComputedStyle(danger).backgroundColor : "n/a",
+        dangerFg: danger ? getComputedStyle(danger).color : "n/a",
+        primaryBg: primary ? getComputedStyle(primary).backgroundColor : "n/a",
+        errorVar: hexToRgb(root.getPropertyValue("--color-error")),
+        accentVar: hexToRgb(root.getPropertyValue("--color-accent")),
+      };
+    });
+    check(
+      "1e. danger button uses --color-error",
+      btnStyles.dangerBg === btnStyles.errorVar,
+      `bg=${btnStyles.dangerBg} var=${btnStyles.errorVar}`
+    );
+    check(
+      "1f. danger text is inverse (readable on red)",
+      btnStyles.dangerFg !== btnStyles.dangerBg && btnStyles.dangerFg !== "rgb(0, 0, 0)",
+      `fg=${btnStyles.dangerFg}`
+    );
+    check(
+      "1g. primary button uses --color-accent",
+      btnStyles.primaryBg === btnStyles.accentVar,
+      `bg=${btnStyles.primaryBg} var=${btnStyles.accentVar}`
+    );
+
     // ── 2. English detail page ────────────────────────────────────────────
     await page.goto(`${WEB}/en/recipients/${recID}`, { waitUntil: "networkidle" });
     const enText = await page.innerText("body");

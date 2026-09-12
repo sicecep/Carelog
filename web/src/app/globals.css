@@ -180,6 +180,18 @@
     background-color: var(--color-surface-hover);
   }
 
+  /* Danger — destructive/urgent actions (report incident). Referenced by
+     detail-actions.tsx since the action bar shipped but never defined, so
+     the button silently rendered as a browser-default gray button that
+     still worked — looking disabled while being clickable. */
+  .btn-danger {
+    background-color: var(--color-error);
+    color: var(--color-text-inverse);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--color-error-ink);
+  }
+
   /* Chip — care type selector */
   .chip {
     position: relative;
