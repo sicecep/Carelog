@@ -142,6 +142,24 @@ async function main() {
     sql(`DELETE FROM workspace_members WHERE user_id='${cgId}'`);
     sql(`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at)
          VALUES ('${ws}', '${cgId}', 'caregiver', now())`);
+    // OWN-008C: caregiver reads are assignment-scoped now, so the owner
+    // assigns this caregiver to the recipient through the real API before
+    // the caregiver opens the page.
+    {
+      const res = await owner.page.evaluate(
+        async ({ rec, cgId, ws }) => {
+          const r = await fetch(`/api/v1/recipients/${rec}/caregivers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Workspace-ID": ws },
+            credentials: "include",
+            body: JSON.stringify({ user_id: cgId }),
+          });
+          return r.status;
+        },
+        { rec, cgId, ws }
+      );
+      if (res !== 201) throw new Error(`assign caregiver failed: ${res}`);
+    }
 
     await cg.page.goto(`${WEB}/id/recipients/${rec}`, { waitUntil: "networkidle" });
     const cgBody = await cg.page.innerText("body");

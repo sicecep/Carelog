@@ -381,6 +381,49 @@ export const invitationApi = {
   claim: (token: string) => api.post<{ workspace_id: string }>(`/api/v1/invites/${token}/claim`, {}),
 };
 
+// A caregiver currently assigned to a recipient (OWN-008A/B/C/D).
+export interface AssignedCaregiver {
+  user_id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  assigned_at: string;
+}
+
+export const assignmentApi = {
+  // GET /api/v1/recipients/{id}/caregivers - OWN-008D: who is assigned.
+  list: (workspaceId: string, recipientId: string, extraHeaders?: Record<string, string>) =>
+    api.get<AssignedCaregiver[]>(
+      `/api/v1/recipients/${recipientId}/caregivers`,
+      { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
+
+  // POST /api/v1/recipients/{id}/caregivers - OWN-008A: assign (owner only).
+  assign: (
+    workspaceId: string,
+    recipientId: string,
+    userId: string,
+    extraHeaders?: Record<string, string>
+  ) =>
+    api.post<{ id: string }>(
+      `/api/v1/recipients/${recipientId}/caregivers`,
+      { user_id: userId },
+      { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
+
+  // DELETE /api/v1/recipients/{id}/caregivers/{userId} - OWN-008C: revoke (owner only).
+  revoke: (
+    workspaceId: string,
+    recipientId: string,
+    userId: string,
+    extraHeaders?: Record<string, string>
+  ) =>
+    api.delete<{ status: string }>(
+      `/api/v1/recipients/${recipientId}/caregivers/${userId}`,
+      { ...extraHeaders, "X-Workspace-ID": workspaceId }
+    ),
+};
+
 // A workspace member: a membership row joined with the identity behind it.
 // Distinct from Invitation — an invitation is someone who has no account yet.
 export interface Member {

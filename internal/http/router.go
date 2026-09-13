@@ -142,16 +142,20 @@ func NewRouter(deps Deps) http.Handler {
 			middleware.WorkspaceMiddleware(deps.Queries),
 			middleware.RequireWriter,
 		).Group(func(r chi.Router) {
-			recipientHandlers := &RecipientHandlers{
-						Queries: deps.Queries,
-					}
-					RegisterRecipientRoutes(r, recipientHandlers)
-
+			// ReportHandlers is attached to RecipientHandlers because the
+			// per-recipient report routes (timeline/entries/summary) register
+			// inside RegisterRecipientRoutes's single /recipients/{recipientID}
+			// group — a second same-prefix mount would REPLACE that subrouter
+			// in chi's tree (see reports.go's warning comment).
 			reportHandlers := &ReportHandlers{
 				Queries: deps.Queries,
 				Pool:    deps.Pool,
 			}
-			RegisterReportRoutes(r, reportHandlers, recipientHandlers)
+			recipientHandlers := &RecipientHandlers{
+				Queries: deps.Queries,
+				Reports: reportHandlers,
+			}
+			RegisterRecipientRoutes(r, recipientHandlers)
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,

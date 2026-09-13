@@ -29,6 +29,8 @@ func RegisterIncidentRoutes(r chi.Router, h *IncidentHandlers) {
 
 	// INC-001/INC-002: file an incident against a specific recipient.
 	r.Route("/recipients/{recipientID}/incidents", func(r chi.Router) {
+		// OWN-008C: caregiver incident access is assignment-scoped.
+		r.Use(middleware.RequireAssignmentAccess(h.Queries))
 		r.Post("/", HandlerFunc(h.handleCreateIncident).Wrap())
 		r.Get("/", HandlerFunc(h.handleListRecipientIncidents).Wrap())
 	})

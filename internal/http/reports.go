@@ -293,15 +293,10 @@ func (h *ReportHandlers) handleGetWhatsAppSummary(w http.ResponseWriter, r *http
 	return nil
 }
 
-// RegisterReportRoutes registers report endpoints on the given router.
-// The recipient detail GET also lives here: this "/recipients/{recipientID}"
-// mount shadows the sibling "/recipients" subrouter for any param path, so the
-// detail route must be registered in THIS group or chi 404s it.
-func RegisterReportRoutes(r chi.Router, h *ReportHandlers, rec *RecipientHandlers) {
-	r.Route("/recipients/{recipientID}", func(r chi.Router) {
-		r.Get("/", HandlerFunc(rec.handleGetRecipient).Wrap())
-		r.Post("/entries", HandlerFunc(h.handleCreateEntry).Wrap())
-		r.Get("/timeline", HandlerFunc(h.handleGetTimeline).Wrap())
-		r.Get("/summary", HandlerFunc(h.handleGetWhatsAppSummary).Wrap())
-	})
-}
+// Per-recipient report routes (timeline, entries, summary) are registered by
+// RegisterRecipientRoutes inside its single /recipients/{recipientID} group
+// via RecipientHandlers.Reports. Do NOT add a second same-prefix mount here:
+// a second Route("/recipients/{recipientID}") REPLACES the sibling subrouter
+// in chi's tree instead of merging — that once silently 404/405'd PATCH,
+// DELETE, and /reactivate (edit and archive-restore broken in production
+// while every gate stayed green).

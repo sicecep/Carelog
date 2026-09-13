@@ -17,9 +17,14 @@ import (
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
-// RecipientHandlers serves care recipient endpoints.
+// RecipientHandlers serves care recipient endpoints. Reports is the report
+// handler for per-recipient routes (timeline, entries, WhatsApp summary) —
+// they register inside RegisterRecipientRoutes's single
+// /recipients/{recipientID} group; see the comment there for why a second
+// same-prefix mount is forbidden.
 type RecipientHandlers struct {
 	Queries *store.Queries
+	Reports *ReportHandlers
 }
 
 // RegisterRecipientRoutes mounts routes behind Auth+Workspace middleware.
@@ -28,11 +33,29 @@ func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
 		r.Post("/", HandlerFunc(h.handleCreateRecipient).Wrap())
 		r.Get("/", HandlerFunc(h.handleListRecipients).Wrap())
 		r.Route("/{recipientID}", func(r chi.Router) {
+			// OWN-008C: a revoked caregiver may neither see nor submit for
+			// this recipient. Owner/viewer pass through inside the check.
+			r.Use(middleware.RequireAssignmentAccess(h.Queries))
 			r.Get("/", HandlerFunc(h.handleGetRecipient).Wrap())
 			r.Patch("/", HandlerFunc(h.handleUpdateRecipient).Wrap())
 			r.Delete("/", HandlerFunc(h.handleDeleteRecipient).Wrap())
 			// Restore an archived recipient. Owner-only, same as archiving.
 			r.Post("/reactivate", HandlerFunc(h.handleReactivateRecipient).Wrap())
+			// Caregiver assignments (OWN-008A/B/C/D). List is any-role;
+			// assign/revoke are owner-only inside the service.
+			RegisterAssignmentRoutes(r, &AssignmentHandlers{Queries: h.Queries})
+			// Report routes for this recipient (timeline, entries, WhatsApp
+			// summary). These MUST live in this same group: a second
+			// Route("/recipients/{recipientID}") mount elsewhere REPLACES
+			// this subrouter in chi's tree instead of merging with it, which
+			// once silently killed PATCH/DELETE/reactivate (edit and
+			// archive-restore 404/405'd in production while gates stayed
+			// green). All same-prefix routes register here, exactly once.
+			if h.Reports != nil {
+				r.Post("/entries", HandlerFunc(h.Reports.handleCreateEntry).Wrap())
+				r.Get("/timeline", HandlerFunc(h.Reports.handleGetTimeline).Wrap())
+				r.Get("/summary", HandlerFunc(h.Reports.handleGetWhatsAppSummary).Wrap())
+			}
 		})
 	})
 }
@@ -175,6 +198,21 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 		return fmt.Errorf("create care recipient: %w", err)
 	}
 
+	// OWN-008C scoping: caregiver reads are limited to active assignments,
+	// so a caregiver who creates a recipient must be auto-assigned to it —
+	// otherwise their own creation would be invisible to them. Owners and
+	// viewers are role-wide and need no assignment row. Failure is logged
+	// upstream by the caller's error, not swallowed silently here.
+	if middleware.GetWorkspaceRole(r.Context()) == "caregiver" {
+		if _, err := h.Queries.UpsertCaregiverAssignment(r.Context(), store.UpsertCaregiverAssignmentParams{
+			WorkspaceID: workspaceID,
+			RecipientID: recipient.ID,
+			CaregiverID: userID,
+		}); err != nil {
+			return fmt.Errorf("auto-assign creator: %w", err)
+		}
+	}
+
 	Created(w, ptr(toRecipientResponse(recipient)))
 	return nil
 }
@@ -197,6 +235,35 @@ func (h *RecipientHandlers) handleListRecipients(w http.ResponseWriter, r *http.
 	}
 	if err != nil {
 		return fmt.Errorf("list recipients: %w", err)
+	}
+
+	// OWN-008C scoping: caregivers see only recipients they are actively
+	// assigned to (an empty assignment set means an empty list — a fully
+	// revoked caregiver sees nothing). Owners and viewers see everything.
+	// Applied after the fetch so the two state queries stay untouched.
+	if middleware.GetWorkspaceRole(r.Context()) == "caregiver" {
+		userID, ok := middleware.UserIDFromContext(r.Context())
+		if !ok {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing user context"}}}
+		}
+		assigned, err := h.Queries.ListActiveRecipientIDsForCaregiver(r.Context(), store.ListActiveRecipientIDsForCaregiverParams{
+			WorkspaceID: workspaceID,
+			CaregiverID: userID,
+		})
+		if err != nil {
+			return fmt.Errorf("list caregiver assignments: %w", err)
+		}
+		allowed := make(map[uuid.UUID]bool, len(assigned))
+		for _, id := range assigned {
+			allowed[id] = true
+		}
+		scoped := make([]store.CareRecipient, 0, len(recipients))
+		for _, rc := range recipients {
+			if allowed[rc.ID] {
+				scoped = append(scoped, rc)
+			}
+		}
+		recipients = scoped
 	}
 
 	resp := make([]RecipientResponse, len(recipients))
