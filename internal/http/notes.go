@@ -38,6 +38,8 @@ type NoteResponse struct {
 
 func RegisterNoteRoutes(r chi.Router, h *NoteHandlers) {
 	r.Route("/recipients/{recipientID}/notes", func(r chi.Router) {
+		// OWN-008C: caregiver note reads are assignment-scoped.
+		r.Use(middleware.RequireAssignmentAccess(h.Queries))
 		r.Post("/", HandlerFunc(h.handleUpsertNote).Wrap())
 		r.Get("/", HandlerFunc(h.handleListNotes).Wrap())
 	})

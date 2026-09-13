@@ -3,10 +3,14 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
   APIError,
+  assignmentApi,
   authApi,
   incidentApi,
+  memberApi,
   recipientApi,
+  type AssignedCaregiver,
   type Incident,
+  type Member,
   type Recipient,
   type ReportEntry,
 } from "@/lib/api-client";
@@ -14,6 +18,7 @@ import { DetailActions } from "./detail-actions";
 import { DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ParentNotes } from "@/components/ui/ParentNotes";
+import { AssignmentManager } from "@/components/ui/AssignmentManager";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -32,6 +37,8 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   let incidents: Incident[] = [];
   let workspaceId: string | null = null;
   let isOwner = false;
+  let assignments: AssignedCaregiver[] = [];
+  let members: Member[] = [];
   let redirectToLogin = false;
   let notFound = false;
   let loadFailed = false;
@@ -48,14 +55,18 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
     recipient = res.data;
 
     if (recipient) {
-      // Timeline and incidents are non-fatal: the profile still renders if
-      // either of these fails.
-      const [entriesRes, incidentsRes] = await Promise.allSettled([
+      // Timeline, incidents, assignments, and members are non-fatal: the
+      // profile still renders if any of these fails.
+      const [entriesRes, incidentsRes, assignmentsRes, membersRes] = await Promise.allSettled([
         recipientApi.getTimeline(workspace.id, id, undefined, forwarded),
         incidentApi.listForRecipient(workspace.id, id, undefined, forwarded),
+        assignmentApi.list(workspace.id, id, forwarded),
+        memberApi.list(workspace.id, forwarded),
       ]);
       if (entriesRes.status === "fulfilled") entries = entriesRes.value.data ?? [];
       if (incidentsRes.status === "fulfilled") incidents = incidentsRes.value.data ?? [];
+      if (assignmentsRes.status === "fulfilled") assignments = assignmentsRes.value.data ?? [];
+      if (membersRes.status === "fulfilled") members = membersRes.value.data ?? [];
     }
   } catch (err) {
     if (err instanceof APIError && err.status === 401) {
@@ -107,6 +118,20 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
                   recipientId={id}
                   workspaceId={workspaceId}
                   canEdit={isOwner}
+                />
+              </div>
+            )}
+
+            {/* OWN-008A/B/C/D: who cares for this child — owner can assign
+                and revoke per recipient; everyone sees the current team. */}
+            {workspaceId && (
+              <div className="mt-6">
+                <AssignmentManager
+                  recipientId={id}
+                  workspaceId={workspaceId}
+                  canManage={isOwner}
+                  assigned={assignments}
+                  members={members}
                 />
               </div>
             )}

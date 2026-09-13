@@ -289,6 +289,16 @@
     "saved": "Notes saved",
     "saveError": "Couldn't save notes. Please try again."
   },
+  "assignments": {
+    "title": "Caregivers for this profile",
+    "empty": "No caregivers assigned yet.",
+    "assign": "Assign",
+    "pickLabel": "Choose a caregiver to assign",
+    "pickPlaceholder": "Choose caregiver...",
+    "noCandidates": "Every caregiver in the workspace is already assigned. Invite new caregivers from Care Team.",
+    "revokeAria": "Revoke {name}'s access",
+    "errorGeneric": "Couldn't change the assignment. Please try again."
+  },
   "incidentsheet": {
     "title": "Report Incident",
     "close": "Close",
