@@ -17,6 +17,7 @@ import (
 	"github.com/sicecep/carelog/internal/auth"
 	"github.com/sicecep/carelog/internal/cache"
 	"github.com/sicecep/carelog/internal/config"
+	"github.com/sicecep/carelog/internal/jobs"
 	"github.com/sicecep/carelog/internal/mail"
 	apihttp "github.com/sicecep/carelog/internal/http"
 	store "github.com/sicecep/carelog/internal/store/generated"
@@ -88,6 +89,26 @@ func main() {
 		mailer = mail.NewNoopMailer(logger)
 		logger.Info("using noop mailer (no RESEND_API_KEY set)")
 	}
+
+	// Background jobs (OWN-011): the daily 17:00 WIB digest. The fire-loop
+	// and processor run inside this process — no external cron needed; the
+	// dated task ID in Redis dedupes restarts.
+	redisOpt, err := jobs.ParseRedisURL(cfg.RedisURL)
+	if err != nil {
+		logger.Error("jobs redis url parse failed", "error", err)
+		os.Exit(1)
+	}
+	digestRunner := jobs.NewRunner(redisOpt, &jobs.DigestHandler{
+		Queries:    queries,
+		Mailer:     mailer,
+		WebBaseURL: cfg.WebBaseURL,
+		Logger:     logger,
+	}, logger)
+	if err := digestRunner.Start(); err != nil {
+		logger.Error("digest runner start failed", "error", err)
+		os.Exit(1)
+	}
+	defer digestRunner.Stop()
 
 	// HTTP router with dependencies for readiness checks
 	router := apihttp.NewRouter(apihttp.Deps{
