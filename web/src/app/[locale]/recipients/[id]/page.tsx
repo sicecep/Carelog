@@ -13,6 +13,7 @@ import {
 import { DetailActions } from "./detail-actions";
 import { DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { ParentNotes } from "@/components/ui/ParentNotes";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -95,6 +96,20 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
         ) : recipient ? (
           <>
             <DetailHeader recipient={recipient} />
+
+            {/* OWN-004 / OWN-005: standing instructions + today's note.
+                Rendered ABOVE the timeline so a caregiver reads the parent's
+                instructions before logging anything. Owners get the editor;
+                caregivers and viewers get a read-only panel. */}
+            {workspaceId && (
+              <div className="mt-6">
+                <ParentNotes
+                  recipientId={id}
+                  workspaceId={workspaceId}
+                  canEdit={isOwner}
+                />
+              </div>
+            )}
 
             <section aria-labelledby="timeline-heading" className="mt-8">
               <h2

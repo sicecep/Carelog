@@ -170,7 +170,13 @@ async function main() {
     await mobPage.goto(`${WEB}/id/recipients`, { waitUntil: "networkidle" });
     const recBody = await mobPage.innerText("body");
     check("B4. recipients page renders", mobPage.url().includes("/recipients"), mobPage.url());
-    check("B5. owner sees Add recipient", recBody.includes("Tambah penerima perawatan"));
+    // #44 shortened the visible label to "Tambah"; assert on the link's
+    // target instead of its text so copy changes don't break this check.
+    check(
+      "B5. owner sees Add recipient",
+      (await mobPage.locator('a[href*="onboarding?new=1"]').first().isVisible().catch(() => false)) &&
+        recBody.includes("Tambah")
+    );
 
     // ── C. Owner, desktop viewport: header nav, no bottom bar ─────────────
     const desk = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -226,7 +232,11 @@ async function main() {
     check("E3. caregiver does NOT see Pending Invitations", !cgCT.includes("Undangan Tertunda"));
     await cg.page.goto(`${WEB}/id/recipients`, { waitUntil: "networkidle" });
     const cgRec = await cg.page.innerText("body");
-    check("E4. caregiver can still add recipients", cgRec.includes("Tambah penerima perawatan"));
+    check(
+      "E4. caregiver can still add recipients",
+      (await cg.page.locator('a[href*="onboarding?new=1"]').first().isVisible().catch(() => false)) &&
+        cgRec.includes("Tambah")
+    );
     // This context is a desktop viewport, so the nav renders inline in the
     // header (bottom-bar-on-mobile is already proven by A1).
     check("E5. nav renders for caregiver", await cg.page
