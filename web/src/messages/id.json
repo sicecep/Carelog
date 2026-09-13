@@ -289,6 +289,16 @@
     "saved": "Catatan tersimpan",
     "saveError": "Gagal menyimpan catatan. Coba lagi."
   },
+  "assignments": {
+    "title": "Pengasuh untuk profil ini",
+    "empty": "Belum ada pengasuh yang ditugaskan.",
+    "assign": "Tugaskan",
+    "pickLabel": "Pilih pengasuh untuk ditugaskan",
+    "pickPlaceholder": "Pilih pengasuh...",
+    "noCandidates": "Semua pengasuh di ruang kerja sudah ditugaskan. Undang pengasuh baru dari Tim Perawat.",
+    "revokeAria": "Cabut akses {name}",
+    "errorGeneric": "Gagal mengubah penugasan. Coba lagi."
+  },
   "incidentsheet": {
     "title": "Catat Insiden",
     "close": "Tutup",

@@ -75,7 +75,7 @@ async function main() {
 
     // ── 1. Add goes straight to the form, no intro ────────────────────────
     await page.goto(`${WEB}/id/recipients`, { waitUntil: "networkidle" });
-    await page.locator("a", { hasText: "Tambah penerima perawatan" }).click();
+    await page.locator('a[href*="onboarding?new=1"]').first().click();  // #44 shortened the label; target the href (copy-proof)
     await page.waitForURL("**/onboarding?new=1", { timeout: 5000 }).then(
       () => check("1a. Add opens /onboarding?new=1", true, page.url()),
       () => check("1a. Add opens /onboarding?new=1", false, page.url())
@@ -94,7 +94,7 @@ async function main() {
     );
 
     // ── 3. Full form submit creates the recipient ─────────────────────────
-    await page.locator("a", { hasText: "Tambah penerima perawatan" }).click();
+    await page.locator('a[href*="onboarding?new=1"]').first().click();  // #44 shortened the label; target the href (copy-proof)
     await page.waitForURL("**/onboarding?new=1", { timeout: 5000 });
 
     await page.locator("input").first().fill(CHILD);

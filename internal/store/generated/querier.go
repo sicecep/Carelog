@@ -61,6 +61,10 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error
+	// Revoke: soft-deactivate the active assignment for this pair. No row
+	// returned means the caregiver was never (actively) assigned — callers
+	// surface that as a validation error.
+	DeactivateCaregiverAssignment(ctx context.Context, arg DeactivateCaregiverAssignmentParams) (CaregiverAssignment, error)
 	DeleteDailyReport(ctx context.Context, arg DeleteDailyReportParams) error
 	// Retains a day past expiry so a user who clicks a stale link still gets the
 	// "this link expired" path rather than a bare "invalid".
@@ -110,6 +114,8 @@ type Querier interface {
 	// (RFC §8.4), so a demotion or removal takes effect on the very next request.
 	// The join on users is what makes "active member" mean active *user*.
 	GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceRoleForUserParams) (string, error)
+	// Per-recipient guard for caregiver reads/writes under /recipients/{id}.
+	HasActiveAssignment(ctx context.Context, arg HasActiveAssignmentParams) (bool, error)
 	// ─── Invitation email hint (approval-gate exemption) ─────────────────────────
 	// Returns true if the email has an outstanding, unclaimed invitation. Used by
 	// the auth verify handler to skip the approval gate for a magic link that
@@ -118,6 +124,12 @@ type Querier interface {
 	// claim (claiming requires an authenticated session, and pending users don't
 	// get one). Comparison is case-insensitive to match the users email index.
 	HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error)
+	// OWN-008D: who currently has access to this recipient. Joins users for
+	// display names; scoped by workspace for tenant safety.
+	ListActiveCaregiversForRecipient(ctx context.Context, arg ListActiveCaregiversForRecipientParams) ([]ListActiveCaregiversForRecipientRow, error)
+	// Scoping side of OWN-008C: the recipients a caregiver may still see. An
+	// empty result means a fully-revoked caregiver sees nothing.
+	ListActiveRecipientIDsForCaregiver(ctx context.Context, arg ListActiveRecipientIDsForCaregiverParams) ([]uuid.UUID, error)
 	// The archived view. Kept as a separate query rather than a parameterised
 	// filter so the common active-list path stays a plain, index-friendly scan and
 	// can never accidentally leak archived rows.
@@ -234,6 +246,13 @@ type Querier interface {
 	// COALESCE makes every field optional: a PATCH that sends only `name` leaves
 	// locale and timezone untouched rather than blanking them.
 	UpdateWorkspaceSettings(ctx context.Context, arg UpdateWorkspaceSettingsParams) (Workspace, error)
+	// Caregiver assignments (OWN-008A/B/C/D): which caregiver is assigned to
+	// which care recipient. The table already exists (20260902000000); these
+	// queries are the first consumers. Revoke is a soft deactivate so an
+	// assignment history survives a later re-assign of the same person.
+	// Assign (or re-activate a revoked assignment). The unique constraint on
+	// (recipient_id, caregiver_id) makes this idempotent for the same pair.
+	UpsertCaregiverAssignment(ctx context.Context, arg UpsertCaregiverAssignmentParams) (CaregiverAssignment, error)
 	// Daily note: one slot per recipient per calendar date (WRK-003.1).
 	UpsertDailyNote(ctx context.Context, arg UpsertDailyNoteParams) (ParentNote, error)
 	// Standing note: one persistent slot per recipient (WRK-003.1).
