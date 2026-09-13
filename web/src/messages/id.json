@@ -278,6 +278,17 @@
     "ackSubmitting": "Menyimpan...",
     "ackErrorGeneric": "Gagal mengonfirmasi insiden ini. Silakan coba lagi."
   },
+  "parentnotes": {
+    "title": "Instruksi dari Orang Tua",
+    "standingLabel": "Instruksi tetap",
+    "standingPlaceholder": "Contoh: Alergi kacang. Susu sore jam 4. Jangan keluar rumah setelah magrib.",
+    "dailyLabel": "Catatan hari ini",
+    "dailyPlaceholder": "Contoh: Hari ini kontrol dokter jam 3 sore.",
+    "save": "Simpan catatan",
+    "saving": "Menyimpan...",
+    "saved": "Catatan tersimpan",
+    "saveError": "Gagal menyimpan catatan. Coba lagi."
+  },
   "incidentsheet": {
     "title": "Catat Insiden",
     "close": "Tutup",

@@ -278,6 +278,17 @@
     "ackSubmitting": "Saving...",
     "ackErrorGeneric": "Could not acknowledge this incident. Please try again."
   },
+  "parentnotes": {
+    "title": "Instructions from Parent",
+    "standingLabel": "Standing instructions",
+    "standingPlaceholder": "e.g. Peanut allergy. Afternoon milk at 4. No going out after sunset.",
+    "dailyLabel": "Today's note",
+    "dailyPlaceholder": "e.g. Doctor appointment at 3 PM today.",
+    "save": "Save notes",
+    "saving": "Saving...",
+    "saved": "Notes saved",
+    "saveError": "Couldn't save notes. Please try again."
+  },
   "incidentsheet": {
     "title": "Report Incident",
     "close": "Close",
