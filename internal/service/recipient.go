@@ -216,9 +216,14 @@ func CreateRecipient(
 			CreatedBy:      pgtype.UUID{Bytes: userID, Valid: true},
 		})
 		if err != nil {
-			// Check for our trigger's error code
+			// The profile quota is enforced by the enforce_profile_limit
+			// trigger, which RAISEs with ERRCODE = 'check_violation'. pgx
+			// exposes that as the SQLSTATE *number* (23514) in PgError.Code —
+			// NOT the symbolic name, so comparing against "check_violation"
+			// never matched and the quota fell through as a raw 500. Match the
+			// RAISEd message, which is what the trigger actually controls.
 			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "check_violation" {
+			if errors.As(err, &pgErr) && pgErr.Message == "PROFILE_LIMIT_EXCEEDED" {
 				return ErrUpgradeRequired{Limit: "profile"}
 			}
 			return fmt.Errorf("create recipient: %w", err)

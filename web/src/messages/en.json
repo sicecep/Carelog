@@ -142,7 +142,12 @@
     "archive": "Archive",
     "reactivate": "Restore",
     "confirmArchive": "Archive this recipient? They will be hidden from the dashboard but their history is retained.",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "planLimitTitle": "Care profile limit reached",
+    "planLimitBody": "Your {plan} plan includes {max} care profiles. Upgrade to add more.",
+    "planLimitCta": "See plans",
+    "planLimitAria": "Add care profile — unavailable, plan limit reached",
+    "planCountLabel": "{used} of {max} profiles used"
   },
   "reports": {
     "title": "Daily Reports",
