@@ -153,6 +153,23 @@ type Shift struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Task struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	RecipientID uuid.UUID          `json:"recipient_id"`
+	AssignedTo  pgtype.UUID        `json:"assigned_to"`
+	CreatedBy   uuid.UUID          `json:"created_by"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	DueDate     pgtype.Date        `json:"due_date"`
+	DueTime     pgtype.Time        `json:"due_time"`
+	Status      string             `json:"status"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	CompletedBy pgtype.UUID        `json:"completed_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID                  uuid.UUID          `json:"id"`
 	Email               string             `json:"email"`

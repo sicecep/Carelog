@@ -58,6 +58,13 @@ type Querier interface {
 	CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (AuthMagicLink, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
+	// Tasks (OWN-006 / TSK-001 / TSK-002): owner creates and assigns tasks to a
+	// caregiver; caregiver advances the status; owner sees completion. Every
+	// query is scoped by workspace so tenant isolation isn't a handler-level
+	// concern.
+	// Owner-side create. assigned_to may be NULL when the owner is drafting a
+	// household reminder without picking a caregiver yet.
+	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error
@@ -74,6 +81,10 @@ type Querier interface {
 	// 'standing' before 'daily'
 	DeleteParentNote(ctx context.Context, arg DeleteParentNoteParams) error
 	DeleteReportEntry(ctx context.Context, arg DeleteReportEntryParams) error
+	// Hard delete: owners can retract a task they created by mistake. Completion
+	// history is not preserved for retracted tasks — the audit trail lives in the
+	// report timeline, not here.
+	DeleteTask(ctx context.Context, arg DeleteTaskParams) error
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 	// Removing an email from SUPER_ADMIN_EMAILS must actually revoke the privilege,
 	// otherwise the allow-list is write-only and a removed operator keeps access
@@ -106,6 +117,9 @@ type Querier interface {
 	// Fetches all entries for a recipient on a specific date, grouped by category
 	// for a clean, WhatsApp-friendly text summary.
 	GetSummaryForRecipientAndDate(ctx context.Context, arg GetSummaryForRecipientAndDateParams) ([]GetSummaryForRecipientAndDateRow, error)
+	// Workspace-scoped fetch. Returns nothing across workspaces, so a tenant
+	// guessing an ID gets 404 not 403 (no existence leak).
+	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
@@ -147,6 +161,13 @@ type Querier interface {
 	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]ListIncidentsRow, error)
 	// RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
 	ListIncidentsByRecipient(ctx context.Context, arg ListIncidentsByRecipientParams) ([]ListIncidentsByRecipientRow, error)
+	// Caregiver home screen: everything I still owe, oldest-due first so the
+	// overdue items surface at the top.
+	//
+	// display_name is the optional nickname ("Dek Rara"); most recipients only
+	// have full_name. COALESCE so the feed always has something to show — a bare
+	// fallback to display_name renders a nameless task tile.
+	ListOpenTasksForAssignee(ctx context.Context, arg ListOpenTasksForAssigneeParams) ([]ListOpenTasksForAssigneeRow, error)
 	// Both the persistent standing note and the note for the requested date
 	// (usually today), scoped by workspace for tenant safety.
 	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
@@ -159,6 +180,9 @@ type Querier interface {
 	// SFT-004: owner's shift history, filterable by caregiver and date range.
 	// sqlc.narg lets each filter be optional independently.
 	ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error)
+	// Owner/viewer view: everything for one recipient in date/time order.
+	// NULL due_time sorts LAST within a day (end-of-day sentinel).
+	ListTasksForRecipient(ctx context.Context, arg ListTasksForRecipientParams) ([]Task, error)
 	// Backs the super-admin dashboard. Oldest first: the person who has been
 	// waiting longest should be the first one an admin sees.
 	ListUsersByApprovalStatus(ctx context.Context, arg ListUsersByApprovalStatusParams) ([]ListUsersByApprovalStatusRow, error)
@@ -235,6 +259,14 @@ type Querier interface {
 	// Scoped by workspace_id for tenant safety.
 	UpdateIncident(ctx context.Context, arg UpdateIncidentParams) (Incident, error)
 	UpdateReportEntry(ctx context.Context, arg UpdateReportEntryParams) (ReportEntry, error)
+	// Owner-side edit of the mutable fields. Status is NOT edited here — status
+	// transitions go through UpdateTaskStatus so the completed_at/by columns stay
+	// consistent.
+	UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error)
+	// Transition status and keep the completion audit columns in sync. Setting
+	// status='done' stamps completed_at/by; moving away from 'done' clears them,
+	// so a task revived after a mistaken tick doesn't lie about when it finished.
+	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) (Task, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpdateWorkspace(ctx context.Context, arg UpdateWorkspaceParams) (Workspace, error)
 	UpdateWorkspaceMemberRole(ctx context.Context, arg UpdateWorkspaceMemberRoleParams) error
