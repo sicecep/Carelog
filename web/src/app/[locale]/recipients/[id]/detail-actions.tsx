@@ -47,7 +47,7 @@ export function DetailActions({ recipientId, workspaceId, recipient }: DetailAct
           <button
             type="button"
             onClick={() => setLoggingOpen(true)}
-            className="btn-base btn-primary touch-target min-h-[56px] flex-[2] text-base"
+            className="btn-base btn-primary touch-target flex-[2] text-base"
           >
             <Plus size={22} weight="bold" />
             <span className="ml-1">{t("open")}</span>
@@ -55,7 +55,7 @@ export function DetailActions({ recipientId, workspaceId, recipient }: DetailAct
           <button
             type="button"
             onClick={() => setIncidentOpen(true)}
-            className="btn-base btn-danger touch-target min-h-[56px] flex-[1] text-base"
+            className="btn-base btn-danger touch-target flex-[1] text-base"
           >
             <WarningOctagon size={22} weight="bold" />
             <span className="ml-1">{tIncidents("report")}</span>

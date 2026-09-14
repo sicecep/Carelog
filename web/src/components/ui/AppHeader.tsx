@@ -30,9 +30,13 @@ export async function AppHeader({ locale, backHref, backLabel }: AppHeaderProps)
               <span>{backLabel ?? common("back")}</span>
             </Link>
           )}
+          {/* The wordmark is a real navigation control (it routes to the
+              dashboard), so it carries a full touch target rather than being
+              exempted as decoration. inline-flex + items-center keeps the
+              text optically centered now that the box is 56px tall. */}
           <Link
             href={`/${locale}/dashboard`}
-            className="text-lg font-semibold text-[var(--color-text)]"
+            className="touch-target inline-flex items-center text-lg font-semibold text-[var(--color-text)]"
           >
             {common("appName")}
           </Link>

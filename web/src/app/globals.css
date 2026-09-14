@@ -102,15 +102,20 @@
 }
 
 @layer utilities {
-  /* Touch target minimum — Bu Sari test compliance */
+  /* Touch target minimum — "Bu Sari" standard (PRD §accessibility).
+     56px, not the 44/48px most design systems ship: the target users are
+     older Indonesian caregivers using a phone one-handed, often in a hurry,
+     sometimes with wet hands. 48px was the original value and every screen
+     built after it had to fight it with a local min-h-[56px] override —
+     20 of them across 8 files before this became a token. */
   .touch-target {
-    min-height: 48px;
-    min-width: 48px;
+    min-height: 56px;
+    min-width: 56px;
   }
 
-  /* Input base — 48px height, 16px font (prevents iOS zoom) */
+  /* Input base — 56px height, 16px font (prevents iOS zoom) */
   .input-base {
-    height: 48px;
+    height: 56px;
     font-size: 16px;
     padding: 0 1rem;
     border: 1.5px solid var(--color-border);
@@ -127,13 +132,16 @@
     color: var(--color-text-muted);
   }
 
-  /* Button base — 48px minimum height */
+  /* Button base — 56px minimum height.
+     min-height rather than a fixed height: a button whose label wraps on a
+     narrow phone (Indonesian strings run ~20% longer than English) must grow
+     instead of clipping its own text. */
   .btn-base {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    height: 48px;
+    min-height: 56px;
     padding: 0 1.5rem;
     font-size: 16px;
     font-weight: 500;
@@ -141,18 +149,18 @@
     border: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
-    min-width: 48px;
+    min-width: 56px;
   }
   .btn-base:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  /* Icon button — square 48x48 touch target */
+  /* Icon button — square 56x56 touch target */
   .btn-icon {
     padding: 0;
-    width: 48px;
-    min-width: 48px;
+    width: 56px;
+    min-width: 56px;
   }
 
   .btn-primary {

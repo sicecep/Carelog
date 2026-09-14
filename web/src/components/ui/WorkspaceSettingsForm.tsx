@@ -111,7 +111,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               maxLength={80}
               placeholder={t("namePlaceholder")}
               onChange={(e) => setName(e.target.value)}
-              className="touch-target min-h-[56px] w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             />
           </div>
 
@@ -127,7 +127,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               value={wsLocale}
               disabled={!canEdit || saving}
               onChange={(e) => setWsLocale(e.target.value as Workspace["locale"])}
-              className="touch-target min-h-[56px] w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             >
               <option value="id">{t("localeID")}</option>
               <option value="en">{t("localeEN")}</option>
@@ -146,7 +146,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               value={timezone}
               disabled={!canEdit || saving}
               onChange={(e) => setTimezone(e.target.value)}
-              className="touch-target min-h-[56px] w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             >
               {/* Keep the stored value selectable even if it predates this
                   list, so saving the form can't silently change it. */}
@@ -187,7 +187,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
             <button
               type="submit"
               disabled={saving || !dirty}
-              className="btn-base btn-primary touch-target min-h-[56px] px-5 disabled:opacity-50"
+              className="btn-base btn-primary touch-target px-5 disabled:opacity-50"
             >
               {saving ? t("saving") : t("save")}
             </button>
@@ -213,7 +213,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
             <button
               type="button"
               onClick={() => setShowDelete(true)}
-              className="btn-base btn-ghost touch-target min-h-[56px] px-4 text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)]"
+              className="btn-base btn-ghost touch-target px-4 text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)]"
             >
               {t("deleteButton")}
             </button>
@@ -232,7 +232,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
                 disabled={deleting}
                 placeholder={t("deleteConfirmPlaceholder")}
                 onChange={(e) => setConfirmName(e.target.value)}
-                className="touch-target min-h-[56px] w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
+                className="touch-target w-full rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
               />
               <div className="flex flex-wrap gap-2">
                 <button
@@ -241,7 +241,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
                   // Enabled only on an exact match, so the button itself
                   // reflects the same rule the API enforces.
                   disabled={deleting || confirmName.trim() !== workspace.name.trim()}
-                  className="btn-base touch-target min-h-[56px] bg-[var(--color-error-ink)] px-4 text-white disabled:opacity-50"
+                  className="btn-base touch-target bg-[var(--color-error-ink)] px-4 text-white disabled:opacity-50"
                 >
                   {deleting ? t("deleting") : t("deleteConfirmButton")}
                 </button>
@@ -252,7 +252,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
                     setConfirmName("");
                   }}
                   disabled={deleting}
-                  className="btn-base btn-secondary touch-target min-h-[56px] px-4"
+                  className="btn-base btn-secondary touch-target px-4"
                 >
                   {t("cancel")}
                 </button>

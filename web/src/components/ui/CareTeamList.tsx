@@ -183,7 +183,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           onChange={(e) =>
                             handleRoleChange(m.user_id, e.target.value as Member["role"])
                           }
-                          className="touch-target min-h-[56px] rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
+                          className="touch-target rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -195,7 +195,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           type="button"
                           onClick={() => handleRemove(m.user_id)}
                           disabled={busy}
-                          className="btn-base btn-ghost touch-target min-h-[56px] px-3 text-sm text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
+                          className="btn-base btn-ghost touch-target px-3 text-sm text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
                         >
                           {busy ? t("removing") : t("remove")}
                         </button>
