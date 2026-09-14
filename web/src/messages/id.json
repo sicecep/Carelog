@@ -142,7 +142,12 @@
     "archive": "Arsipkan",
     "reactivate": "Pulihkan",
     "confirmArchive": "Arsipkan penerima ini? Mereka akan disembunyikan dari dasbor tetapi riwayat mereka tetap tersimpan.",
-    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi."
+    "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
+    "planLimitTitle": "Batas profil perawatan tercapai",
+    "planLimitBody": "Paket {plan} Anda mencakup {max} profil perawatan. Tingkatkan paket untuk menambah.",
+    "planLimitCta": "Lihat paket",
+    "planLimitAria": "Tambah profil perawatan — tidak tersedia, batas paket tercapai",
+    "planCountLabel": "{used} dari {max} profil terpakai"
   },
   "reports": {
     "title": "Laporan Harian",

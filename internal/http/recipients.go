@@ -10,7 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/response"
 	"github.com/sicecep/carelog/internal/service"
@@ -24,6 +26,9 @@ import (
 // same-prefix mount is forbidden.
 type RecipientHandlers struct {
 	Queries *store.Queries
+	// Pool is required by service.CreateRecipient, which runs the insert and
+	// the onboarding-completed flag in one transaction.
+	Pool    *pgxpool.Pool
 	Reports *ReportHandlers
 }
 
@@ -179,23 +184,54 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 	if modules == nil {
 		modules = []string{}
 	}
-	modsJSON, _ := json.Marshal(modules)
 
-	recipient, err := h.Queries.CreateCareRecipient(r.Context(), store.CreateCareRecipientParams{
-		WorkspaceID:    workspaceID,
+	// Route through the service layer rather than hitting the store directly.
+	// The service owns plan-quota enforcement, care-type/module validation, and
+	// the onboarding-completed flag, all inside one transaction. The handler
+	// previously called CreateCareRecipient itself, which meant the quota was
+	// enforced ONLY by the database trigger and its raw SQLSTATE reached the
+	// client as a 500 instead of a 403 upgrade prompt (OWN-007).
+	careType := domain.CareType(req.CareType)
+	mods := make([]domain.Module, 0, len(modules))
+	for _, m := range modules {
+		mods = append(mods, domain.Module(m))
+	}
+
+	input := service.CreateRecipientInput{
 		FullName:       req.FullName,
-		DisplayName:    pgText(req.DisplayName),
-		CareType:       req.CareType,
-		DateOfBirth:    dob,
-		Gender:         pgText(req.Gender),
-		PhotoUrl:       pgText(req.PhotoURL),
-		Notes:          pgText(req.Notes),
-		MedicalNotes:   pgText(req.MedicalNotes),
-		EnabledModules: modsJSON,
-		CreatedBy:      pgtype.UUID{Bytes: userID, Valid: true},
+		CareType:       careType,
+		EnabledModules: mods,
+	}
+	if req.DisplayName != "" {
+		input.DisplayName = &req.DisplayName
+	}
+	if req.Gender != "" {
+		input.Gender = &req.Gender
+	}
+	if req.PhotoURL != "" {
+		input.PhotoURL = &req.PhotoURL
+	}
+	if req.Notes != "" {
+		input.Notes = &req.Notes
+	}
+	if req.MedicalNotes != "" {
+		input.MedicalNotes = &req.MedicalNotes
+	}
+	if req.DateOfBirth != "" {
+		input.DateOfBirth = &dob
+	}
+
+	recipientID, err := service.CreateRecipient(r.Context(), h.Queries, h.Pool, workspaceID, userID, input)
+	if err != nil {
+		return err
+	}
+
+	recipient, err := h.Queries.GetCareRecipient(r.Context(), store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
 	})
 	if err != nil {
-		return fmt.Errorf("create care recipient: %w", err)
+		return fmt.Errorf("load created recipient: %w", err)
 	}
 
 	// OWN-008C scoping: caregiver reads are limited to active assignments,
