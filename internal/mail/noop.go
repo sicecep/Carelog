@@ -39,3 +39,19 @@ func (m *NoopMailer) SendDailyDigest(ctx context.Context, toEmail string, data D
 	)
 	return nil
 }
+
+// SendIncidentAlert logs the OWN-012 incident alert instead of sending it.
+// Severity and urgency are logged so a dev running without RESEND_API_KEY
+// can still verify the tiering.
+func (m *NoopMailer) SendIncidentAlert(ctx context.Context, toEmail string, data IncidentAlertData) error {
+	m.logger.Info("incident alert email (noop)",
+		"to", toEmail,
+		"workspace", data.WorkspaceName,
+		"recipient", data.RecipientName,
+		"type", data.Type,
+		"severity", data.Severity,
+		"urgent", data.Urgent,
+		"link", data.DeepLink,
+	)
+	return nil
+}

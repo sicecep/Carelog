@@ -18,6 +18,33 @@ type Mailer interface {
 	// entries for the day — the rendered email states "no entries today" per
 	// recipient rather than the whole send being skipped (RPT-007.3).
 	SendDailyDigest(ctx context.Context, toEmail string, data DigestEmailData) error
+
+	// SendIncidentAlert sends the OWN-012 immediate incident notification to
+	// a workspace owner. Urgency is severity-tiered (see IncidentAlertData):
+	// high/emergency get the breakthrough subject line, low/medium a calmer
+	// one — an owner who gets the same alarm for a scraped knee and a fall
+	// stops reading all of them.
+	SendIncidentAlert(ctx context.Context, toEmail string, data IncidentAlertData) error
+}
+
+// IncidentAlertData holds everything needed to render one incident alert.
+type IncidentAlertData struct {
+	WorkspaceName string
+	RecipientName string
+	// ReporterName is who filed it — the owner's first question is always
+	// "who saw this?".
+	ReporterName string
+	Type         string // domain.IncidentType value, e.g. "fall"
+	Severity     string // "low" | "medium" | "high" | "emergency"
+	Description  string
+	ActionTaken  string // may be empty
+	OccurredAt   string // formatted for the owner's locale/timezone
+	Locale       string // "id" or "en"
+	// DeepLink opens the incident on the recipient's detail page.
+	DeepLink string
+	// Urgent mirrors domain.Severity.IsUrgent(): drives the subject prefix,
+	// the banner colour, and (later) whether a push is sent.
+	Urgent bool
 }
 
 // EmailData holds the data for rendering the magic-link email template.

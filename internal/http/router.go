@@ -13,6 +13,7 @@ import (
 	"github.com/sicecep/carelog/internal/config"
 	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/mail"
+	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
@@ -159,6 +160,14 @@ func NewRouter(deps Deps) http.Handler {
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,
+				// OWN-012: owner alert on incident create. Nil-safe — a
+				// deployment without a mailer just skips notification.
+				Notifier: &service.IncidentNotifier{
+					Queries:    deps.Queries,
+					Mailer:     deps.Mailer,
+					WebBaseURL: deps.WebBaseURL,
+					Logger:     deps.Logger,
+				},
 			}
 			RegisterIncidentRoutes(r, incidentHandlers)
 
