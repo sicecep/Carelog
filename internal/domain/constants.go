@@ -313,6 +313,20 @@ func (s Severity) Rank() int {
 	return -1
 }
 
+// IsUrgent reports whether an incident of this severity must break through
+// ambient attention (OWN-012 / INC-004): high and emergency do, low and
+// medium do not. Single source of truth for the tier split — email subject
+// urgency, alert banner colour, and push eligibility all read this, so the
+// three can never drift apart. An unknown severity (rank -1) is treated as
+// urgent: failing loud on bad data beats silently under-notifying a parent.
+func (s Severity) IsUrgent() bool {
+	rank := s.Rank()
+	if rank < 0 {
+		return true
+	}
+	return rank >= SeverityHigh.Rank()
+}
+
 // ReportStatus is the lifecycle state of a daily report.
 type ReportStatus string
 

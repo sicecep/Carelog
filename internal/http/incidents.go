@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,6 +20,10 @@ import (
 // IncidentHandlers holds the dependencies for incident endpoints (PRD §6.5).
 type IncidentHandlers struct {
 	Queries *store.Queries
+	// Notifier sends the OWN-012 owner alert after an incident is filed.
+	// Optional: nil disables notification (tests, or a deployment with no
+	// mailer) without changing the incident write path.
+	Notifier *service.IncidentNotifier
 }
 
 // RegisterIncidentRoutes mounts the incident endpoints. These sit on the
@@ -187,6 +192,21 @@ func (h *IncidentHandlers) handleCreateIncident(w http.ResponseWriter, r *http.R
 	}
 
 	Created(w, ptr(toIncidentResponse(incident)))
+
+	// OWN-012: tell the owner immediately. Fired AFTER the response is
+	// written and in its own goroutine with a detached context — the
+	// caregiver filing a fall must never wait on SMTP, and must never see
+	// an error because email failed. Failures are logged, not surfaced.
+	if h.Notifier != nil {
+		go func(inc store.Incident, reporter uuid.UUID) {
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+			defer cancel()
+			if _, err := h.Notifier.NotifyIncident(ctx, inc, reporter); err != nil {
+				h.Notifier.Logger.Error("incident notification failed",
+					"incident_id", inc.ID, "error", err)
+			}
+		}(incident, userID)
+	}
 	return nil
 }
 
