@@ -1,7 +1,7 @@
 // API client for talking to the Go backend.
 // All paths are proxied through /api/* to the backend running on :8080.
 
-import type { CareType, Module, LogCategory } from "./constants.generated";
+import type { CareType, Module, LogCategory, TaskStatus } from "./constants.generated";
 import type { LogSubcategory } from "./log-subcategories";
 
 // Paths are proxied through /api/* to the Go backend by next.config.ts
@@ -67,6 +67,8 @@ export const api = {
     request<T>(path, { method: "POST", body: JSON.stringify(body), headers }),
   patch: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body), headers }),
+  put: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
+    request<T>(path, { method: "PUT", body: JSON.stringify(body), headers }),
   delete: <T>(path: string, headers?: Record<string, string>) =>
     request<T>(path, { method: "DELETE", headers }),
   // DELETE with a body. Uncommon, but destructive endpoints use one to carry a
@@ -422,6 +424,83 @@ export const assignmentApi = {
       `/api/v1/recipients/${recipientId}/caregivers/${userId}`,
       { ...extraHeaders, "X-Workspace-ID": workspaceId }
     ),
+};
+
+// Tasks (OWN-006 / TSK-001 / TSK-002): owner assigns tasks to a caregiver, the
+// caregiver advances the status, the owner tracks completion.
+export interface Task {
+  id: string;
+  workspace_id: string;
+  recipient_id: string;
+  recipient_name?: string;
+  assigned_to?: string;
+  created_by: string;
+  title: string;
+  description?: string;
+  due_date: string; // YYYY-MM-DD
+  due_time?: string; // HH:MM
+  status: TaskStatus;
+  completed_at?: string;
+  completed_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskInput {
+  title: string;
+  description?: string;
+  assigned_to?: string;
+  due_date: string;
+  due_time?: string;
+}
+
+export const taskApi = {
+  // GET /api/v1/recipients/{id}/tasks - owner/viewer view of a recipient's tasks.
+  listForRecipient: (
+    workspaceId: string,
+    recipientId: string,
+    extraHeaders?: Record<string, string>
+  ) =>
+    api.get<Task[]>(`/api/v1/recipients/${recipientId}/tasks`, {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // GET /api/v1/tasks - caregiver home feed: my open tasks across recipients.
+  listMine: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<Task[]>("/api/v1/tasks", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/recipients/{id}/tasks - TSK-001 owner creates a task.
+  create: (workspaceId: string, recipientId: string, body: TaskInput) =>
+    api.post<Task>(`/api/v1/recipients/${recipientId}/tasks`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // PUT /api/v1/recipients/{id}/tasks/{taskId} - owner edits a task.
+  update: (
+    workspaceId: string,
+    recipientId: string,
+    taskId: string,
+    body: TaskInput
+  ) =>
+    api.put<Task>(`/api/v1/recipients/${recipientId}/tasks/${taskId}`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // PATCH /api/v1/tasks/{taskId} - TSK-002 caregiver (or owner) advances status.
+  updateStatus: (workspaceId: string, taskId: string, status: TaskStatus) =>
+    api.patch<Task>(`/api/v1/tasks/${taskId}`, { status }, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // DELETE /api/v1/recipients/{id}/tasks/{taskId} - owner retracts a task.
+  remove: (workspaceId: string, recipientId: string, taskId: string) =>
+    api.delete<void>(`/api/v1/recipients/${recipientId}/tasks/${taskId}`, {
+      "X-Workspace-ID": workspaceId,
+    }),
 };
 
 // A workspace member: a membership row joined with the identity behind it.

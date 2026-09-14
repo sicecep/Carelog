@@ -243,3 +243,26 @@ CREATE INDEX idx_invitations_invitee_email_pending ON invitations (LOWER(invitee
     WHERE invitee_email IS NOT NULL
       AND consumed_at IS NULL
       AND revoked_at IS NULL;
+
+-- tasks (OWN-006 / TSK-001 / TSK-002)
+CREATE TABLE tasks (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    recipient_id UUID NOT NULL REFERENCES care_recipients(id) ON DELETE CASCADE,
+    assigned_to  UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_by   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title        TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 100),
+    description  TEXT CHECK (char_length(description) <= 500),
+    due_date     DATE NOT NULL,
+    due_time     TIME,
+    status       TEXT NOT NULL DEFAULT 'todo'
+        CHECK (status IN ('todo', 'in_progress', 'done')),
+    completed_at TIMESTAMPTZ,
+    completed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_tasks_recipient_due ON tasks(recipient_id, due_date);
+CREATE INDEX idx_tasks_assignee_open ON tasks(assigned_to, due_date)
+    WHERE status <> 'done';

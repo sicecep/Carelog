@@ -8,17 +8,20 @@ import {
   incidentApi,
   memberApi,
   recipientApi,
+  taskApi,
   type AssignedCaregiver,
   type Incident,
   type Member,
   type Recipient,
   type ReportEntry,
+  type Task,
 } from "@/lib/api-client";
 import { DetailActions } from "./detail-actions";
 import { DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ParentNotes } from "@/components/ui/ParentNotes";
 import { AssignmentManager } from "@/components/ui/AssignmentManager";
+import { TaskManager } from "@/components/ui/TaskManager";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
@@ -39,6 +42,8 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   let isOwner = false;
   let assignments: AssignedCaregiver[] = [];
   let members: Member[] = [];
+  let tasks: Task[] = [];
+  let currentUserId = "";
   let redirectToLogin = false;
   let notFound = false;
   let loadFailed = false;
@@ -50,23 +55,27 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
     if (!workspace) redirect(`/${locale}/dashboard`);
     workspaceId = workspace.id;
     isOwner = workspace.role === "owner";
+    currentUserId = me.data?.user.id ?? "";
 
     const res = await recipientApi.get(workspace.id, id, forwarded);
     recipient = res.data;
 
     if (recipient) {
-      // Timeline, incidents, assignments, and members are non-fatal: the
+      // Timeline, incidents, assignments, members, and tasks are non-fatal: the
       // profile still renders if any of these fails.
-      const [entriesRes, incidentsRes, assignmentsRes, membersRes] = await Promise.allSettled([
-        recipientApi.getTimeline(workspace.id, id, undefined, forwarded),
-        incidentApi.listForRecipient(workspace.id, id, undefined, forwarded),
-        assignmentApi.list(workspace.id, id, forwarded),
-        memberApi.list(workspace.id, forwarded),
-      ]);
+      const [entriesRes, incidentsRes, assignmentsRes, membersRes, tasksRes] =
+        await Promise.allSettled([
+          recipientApi.getTimeline(workspace.id, id, undefined, forwarded),
+          incidentApi.listForRecipient(workspace.id, id, undefined, forwarded),
+          assignmentApi.list(workspace.id, id, forwarded),
+          memberApi.list(workspace.id, forwarded),
+          taskApi.listForRecipient(workspace.id, id, forwarded),
+        ]);
       if (entriesRes.status === "fulfilled") entries = entriesRes.value.data ?? [];
       if (incidentsRes.status === "fulfilled") incidents = incidentsRes.value.data ?? [];
       if (assignmentsRes.status === "fulfilled") assignments = assignmentsRes.value.data ?? [];
       if (membersRes.status === "fulfilled") members = membersRes.value.data ?? [];
+      if (tasksRes.status === "fulfilled") tasks = tasksRes.value.data ?? [];
     }
   } catch (err) {
     if (err instanceof APIError && err.status === 401) {
@@ -132,6 +141,24 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
                   canManage={isOwner}
                   assigned={assignments}
                   members={members}
+                />
+              </div>
+            )}
+
+            {/* OWN-006 / TSK-001 / TSK-002: owner assigns tasks to assigned
+                caregivers and tracks completion; a caregiver viewing this
+                profile can advance their own tasks. Assignable list is the
+                active care team, so a task can never be assigned to someone
+                who cannot open the profile. */}
+            {workspaceId && (
+              <div className="mt-6">
+                <TaskManager
+                  recipientId={id}
+                  workspaceId={workspaceId}
+                  canManage={isOwner}
+                  tasks={tasks}
+                  assignable={assignments}
+                  currentUserId={currentUserId}
                 />
               </div>
             )}

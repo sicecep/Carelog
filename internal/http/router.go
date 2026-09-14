@@ -195,6 +195,11 @@ func NewRouter(deps Deps) http.Handler {
 			}
 			RegisterMemberRoutes(r, memberHandlers)
 
+			taskHandlers := &TaskHandlers{
+				Queries: deps.Queries,
+			}
+			RegisterTaskRoutes(r, taskHandlers)
+
 			workspaceHandlers := &WorkspaceHandlers{
 				Queries: deps.Queries,
 			}

@@ -30,6 +30,9 @@ export type ContributorRole = (typeof CONTRIBUTOR_ROLES)[number];
 export const REPORT_TYPES = ["detailed", "summary"] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 
+export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
 export const PLANS = ["free", "starter", "pro"] as const;
 export type Plan = (typeof PLANS)[number];
 

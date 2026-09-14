@@ -415,6 +415,45 @@ func (l Locale) String() string { return string(l) }
 // IsValidLocale reports whether s names a supported locale.
 func IsValidLocale(s string) bool { return isValid(Locales, s) }
 
+// TaskStatus is the lifecycle state of an assigned task (OWN-006 / TSK-002).
+// The values mirror the CHECK constraint on tasks.status.
+type TaskStatus string
+
+const (
+	TaskStatusTodo       TaskStatus = "todo"
+	TaskStatusInProgress TaskStatus = "in_progress"
+	TaskStatusDone       TaskStatus = "done"
+)
+
+// TaskStatuses lists every valid TaskStatus in lifecycle order. The order is
+// meaningful: the caregiver UI advances a task by stepping to the next entry,
+// so reordering this slice reorders the tap-through flow.
+var TaskStatuses = []TaskStatus{TaskStatusTodo, TaskStatusInProgress, TaskStatusDone}
+
+func (t TaskStatus) String() string { return string(t) }
+
+// IsValidTaskStatus reports whether s names a known task status.
+func IsValidTaskStatus(s string) bool { return isValid(TaskStatuses, s) }
+
+// IsOpen reports whether a task still needs work. Single source of truth for
+// "does this count against the caregiver's outstanding list" — the same role
+// Severity.IsUrgent plays for incidents, so a future fourth status only has to
+// be classified here rather than in every caller.
+func (t TaskStatus) IsOpen() bool { return t != TaskStatusDone }
+
+// NextTaskStatus returns the status that follows t in the lifecycle, and
+// whether one exists. Done is terminal via this path: reopening a finished
+// task is an explicit action, never the result of one more tap on a tile the
+// caregiver already completed.
+func NextTaskStatus(t TaskStatus) (TaskStatus, bool) {
+	for i, s := range TaskStatuses {
+		if s == t && i+1 < len(TaskStatuses) {
+			return TaskStatuses[i+1], true
+		}
+	}
+	return t, false
+}
+
 // PlanLimit captures the quota a plan grants. A nil field means unlimited, which
 // mirrors the NULL columns in the plan_configs table (RFC §4.2).
 type PlanLimit struct {
