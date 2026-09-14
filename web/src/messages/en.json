@@ -523,6 +523,20 @@
     "forRecipient": "For {name}",
     "completedAt": "Completed {time}",
     "errorGeneric": "Couldn't save the task. Please try again.",
-    "errorAssignee": "That caregiver isn't assigned to this profile yet."
+    "errorAssignee": "That caregiver isn't assigned to this profile yet.",
+    "homeTitle": "My tasks",
+    "homeEmpty": "No open tasks. You're all caught up.",
+    "homeOwnerTitle": "Tasks",
+    "homeOwnerEmpty": "No open tasks across your care profiles.",
+    "viewAll": "View profile"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet.",
+    "markAllRead": "Mark all as read",
+    "unreadCount": "{count} unread",
+    "openAria": "Notifications, {count} unread",
+    "taskOverdueTitle": "Task overdue",
+    "taskOverdueBody": "\"{task}\" for {recipient} was due {due} and is not done."
   }
 }

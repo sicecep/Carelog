@@ -76,6 +76,11 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		"GET /api/v1/recipients/{recipientID}/tasks",
 		"PUT /api/v1/recipients/{recipientID}/tasks/{taskID}",
 		"DELETE /api/v1/recipients/{recipientID}/tasks/{taskID}",
+
+		// In-app notifications (NOT-002 / TSK-003)
+		"GET /api/v1/notifications",
+		"POST /api/v1/notifications/read-all",
+		"POST /api/v1/notifications/{notificationID}/read",
 	}
 
 	var missing []string

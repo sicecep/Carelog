@@ -73,3 +73,15 @@ RETURNING *;
 -- report timeline, not here.
 DELETE FROM tasks
 WHERE id = $1 AND workspace_id = $2;
+
+-- name: ListOpenTasksForWorkspace :many
+-- Owner home screen: every open task across all care profiles, whoever it is
+-- assigned to. The caregiver feed (ListOpenTasksForAssignee) filters by
+-- assignee, which would leave an owner who delegates everything looking at an
+-- empty "Tasks" section — the exact opposite of the tracking TSK-001 promises.
+SELECT t.*, COALESCE(r.display_name, r.full_name) AS recipient_name
+FROM tasks t
+JOIN care_recipients r ON r.id = t.recipient_id
+WHERE t.workspace_id = $1
+  AND t.status <> 'done'
+ORDER BY t.due_date ASC, t.due_time ASC NULLS LAST, t.created_at ASC;

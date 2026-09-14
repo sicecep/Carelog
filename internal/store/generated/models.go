@@ -96,6 +96,17 @@ type Invitation struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type Notification struct {
+	ID          uuid.UUID          `json:"id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Type        string             `json:"type"`
+	SubjectID   pgtype.UUID        `json:"subject_id"`
+	Payload     []byte             `json:"payload"`
+	ReadAt      pgtype.Timestamptz `json:"read_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type ParentNote struct {
 	ID          uuid.UUID          `json:"id"`
 	WorkspaceID uuid.UUID          `json:"workspace_id"`

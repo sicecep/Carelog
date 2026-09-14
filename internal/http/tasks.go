@@ -228,44 +228,74 @@ func (h *TaskHandlers) handleListRecipientTasks(w http.ResponseWriter, r *http.R
 	return nil
 }
 
+// handleListMyTasks powers the home-screen task section (TSK-002).
+//
+// The result depends on ROLE, not just identity: a caregiver sees the tasks
+// assigned to them, while an owner sees every open task in the workspace. An
+// owner who delegates all the work is assigned nothing, so the assignee-scoped
+// query would show them an empty "Tasks" section — the opposite of the
+// tracking TSK-001 exists to provide.
 func (h *TaskHandlers) handleListMyTasks(w http.ResponseWriter, r *http.Request) error {
 	workspaceID, userID, err := requireWorkspaceUser(r)
 	if err != nil {
 		return err
 	}
-	rows, err := h.Queries.ListOpenTasksForAssignee(r.Context(), store.ListOpenTasksForAssigneeParams{
-		WorkspaceID: workspaceID,
-		AssignedTo:  pgtype.UUID{Bytes: userID, Valid: true},
-	})
-	if err != nil {
-		return err
+
+	type taskRow struct {
+		task          store.Task
+		recipientName string
 	}
+	var rows []taskRow
+
+	if domain.Role(middleware.GetWorkspaceRole(r.Context())) == domain.RoleOwner {
+		found, err := h.Queries.ListOpenTasksForWorkspace(r.Context(), workspaceID)
+		if err != nil {
+			return err
+		}
+		for _, f := range found {
+			rows = append(rows, taskRow{
+				task: store.Task{
+					ID: f.ID, WorkspaceID: f.WorkspaceID, RecipientID: f.RecipientID,
+					AssignedTo: f.AssignedTo, CreatedBy: f.CreatedBy, Title: f.Title,
+					Description: f.Description, DueDate: f.DueDate, DueTime: f.DueTime,
+					Status: f.Status, CompletedAt: f.CompletedAt, CompletedBy: f.CompletedBy,
+					CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt,
+				},
+				recipientName: f.RecipientName,
+			})
+		}
+	} else {
+		found, err := h.Queries.ListOpenTasksForAssignee(r.Context(), store.ListOpenTasksForAssigneeParams{
+			WorkspaceID: workspaceID,
+			AssignedTo:  pgtype.UUID{Bytes: userID, Valid: true},
+		})
+		if err != nil {
+			return err
+		}
+		for _, f := range found {
+			rows = append(rows, taskRow{
+				task: store.Task{
+					ID: f.ID, WorkspaceID: f.WorkspaceID, RecipientID: f.RecipientID,
+					AssignedTo: f.AssignedTo, CreatedBy: f.CreatedBy, Title: f.Title,
+					Description: f.Description, DueDate: f.DueDate, DueTime: f.DueTime,
+					Status: f.Status, CompletedAt: f.CompletedAt, CompletedBy: f.CompletedBy,
+					CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt,
+				},
+				recipientName: f.RecipientName,
+			})
+		}
+	}
+
 	resp := make([]TaskResponse, len(rows))
 	for i, row := range rows {
-		task := store.Task{
-			ID:          row.ID,
-			WorkspaceID: row.WorkspaceID,
-			RecipientID: row.RecipientID,
-			AssignedTo:  row.AssignedTo,
-			CreatedBy:   row.CreatedBy,
-			Title:       row.Title,
-			Description: row.Description,
-			DueDate:     row.DueDate,
-			DueTime:     row.DueTime,
-			Status:      row.Status,
-			CompletedAt: row.CompletedAt,
-			CompletedBy: row.CompletedBy,
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-		}
-		// COALESCE(display_name, full_name) in the query means this is always
-		// populated — a recipient always has a full_name.
-		name := row.RecipientName
+		// COALESCE(display_name, full_name) in both queries means this is
+		// always populated — a recipient always has a full_name.
+		name := row.recipientName
 		var namePtr *string
 		if name != "" {
 			namePtr = &name
 		}
-		resp[i] = toTaskResponse(task, namePtr)
+		resp[i] = toTaskResponse(row.task, namePtr)
 	}
 	OK(w, ptr(resp))
 	return nil
