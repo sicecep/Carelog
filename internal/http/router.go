@@ -201,6 +201,11 @@ func NewRouter(deps Deps) http.Handler {
 			}
 			RegisterTaskRoutes(r, taskHandlers)
 
+			notificationHandlers := &NotificationHandlers{
+				Queries: deps.Queries,
+			}
+			RegisterNotificationRoutes(r, notificationHandlers)
+
 			workspaceHandlers := &WorkspaceHandlers{
 				Queries: deps.Queries,
 			}

@@ -1,7 +1,7 @@
 // API client for talking to the Go backend.
 // All paths are proxied through /api/* to the backend running on :8080.
 
-import type { CareType, Module, LogCategory, TaskStatus } from "./constants.generated";
+import type { CareType, Module, LogCategory, TaskStatus, NotificationType } from "./constants.generated";
 import type { LogSubcategory } from "./log-subcategories";
 
 // Paths are proxied through /api/* to the Go backend by next.config.ts
@@ -499,6 +499,44 @@ export const taskApi = {
   // DELETE /api/v1/recipients/{id}/tasks/{taskId} - owner retracts a task.
   remove: (workspaceId: string, recipientId: string, taskId: string) =>
     api.delete<void>(`/api/v1/recipients/${recipientId}/tasks/${taskId}`, {
+      "X-Workspace-ID": workspaceId,
+    }),
+};
+
+// In-app notifications (NOT-002). First producer is the TSK-003 overdue sweep.
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  subject_id?: string;
+  // Denormalized rendering data, shaped per type. For task_overdue:
+  // { task_title, recipient_id, recipient_name, due_date, due_time? }
+  payload: Record<string, string>;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationList {
+  notifications: Notification[];
+  unread_count: number;
+}
+
+export const notificationApi = {
+  // GET /api/v1/notifications - list + unread badge count in one request.
+  list: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<NotificationList>("/api/v1/notifications", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/notifications/{id}/read
+  markRead: (workspaceId: string, id: string) =>
+    api.post<Notification>(`/api/v1/notifications/${id}/read`, {}, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/notifications/read-all
+  markAllRead: (workspaceId: string) =>
+    api.post<{ status: string }>("/api/v1/notifications/read-all", {}, {
       "X-Workspace-ID": workspaceId,
     }),
 };

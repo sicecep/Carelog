@@ -90,9 +90,10 @@ func main() {
 		logger.Info("using noop mailer (no RESEND_API_KEY set)")
 	}
 
-	// Background jobs (OWN-011): the daily 17:00 WIB digest. The fire-loop
-	// and processor run inside this process — no external cron needed; the
-	// dated task ID in Redis dedupes restarts.
+	// Background jobs: the daily 17:00 WIB digest (OWN-011) and the
+	// 15-minute overdue-task sweep (TSK-003). The fire-loops and processor
+	// run inside this process — no external cron needed; task IDs in Redis
+	// dedupe restarts and overlapping ticks.
 	redisOpt, err := jobs.ParseRedisURL(cfg.RedisURL)
 	if err != nil {
 		logger.Error("jobs redis url parse failed", "error", err)
@@ -103,6 +104,9 @@ func main() {
 		Mailer:     mailer,
 		WebBaseURL: cfg.WebBaseURL,
 		Logger:     logger,
+	}, &jobs.OverdueSweepHandler{
+		Queries: queries,
+		Logger:  logger,
 	}, logger)
 	if err := digestRunner.Start(); err != nil {
 		logger.Error("digest runner start failed", "error", err)

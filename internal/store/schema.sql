@@ -266,3 +266,23 @@ CREATE TABLE tasks (
 CREATE INDEX idx_tasks_recipient_due ON tasks(recipient_id, due_date);
 CREATE INDEX idx_tasks_assignee_open ON tasks(assigned_to, due_date)
     WHERE status <> 'done';
+
+-- notifications (NOT-002; first producer is TSK-003 overdue task alerts)
+CREATE TABLE notifications (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type         TEXT NOT NULL CHECK (char_length(type) BETWEEN 1 AND 50),
+    subject_id   UUID,
+    payload      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    read_at      TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_notifications_user_created
+    ON notifications(user_id, created_at DESC);
+CREATE INDEX idx_notifications_unread
+    ON notifications(user_id) WHERE read_at IS NULL;
+CREATE UNIQUE INDEX idx_notifications_once_per_subject
+    ON notifications(user_id, type, subject_id)
+    WHERE subject_id IS NOT NULL;

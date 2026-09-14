@@ -33,13 +33,20 @@ func ParseRedisURL(raw string) (asynq.RedisClientOpt, error) {
 	return opt, nil
 }
 
-// Runner owns the digest background job: the fire-loop that enqueues the
-// daily task and the asynq processor that executes it. One Runner per
-// process; Start is idempotent-guarded by the done channel.
+// Runner owns the background jobs: the fire-loops that enqueue them and the
+// asynq processor that executes them. One Runner per process; Start is
+// idempotent-guarded by the done channel.
+//
+// Two schedules share one processor and one queue: the daily 17:00 WIB digest
+// (OWN-011) and the 15-minute overdue-task sweep (TSK-003). They are both
+// low-volume and neither is latency-critical, so a single-concurrency server
+// is enough — and it keeps the sweep from ever running while a digest send is
+// in flight.
 type Runner struct {
-	opt    asynq.RedisClientOpt
+	opt     asynq.RedisClientOpt
 	handler *DigestHandler
-	logger *slog.Logger
+	overdue *OverdueSweepHandler
+	logger  *slog.Logger
 
 	client *asynq.Client
 	srv    *asynq.Server
@@ -47,9 +54,10 @@ type Runner struct {
 }
 
 // NewRunner wires a Runner. Start it after the logger, store, and mailer
-// are ready; Stop it during graceful shutdown.
-func NewRunner(opt asynq.RedisClientOpt, h *DigestHandler, logger *slog.Logger) *Runner {
-	return &Runner{opt: opt, handler: h, logger: logger, done: make(chan struct{})}
+// are ready; Stop it during graceful shutdown. A nil overdue handler disables
+// the TSK-003 sweep without affecting the digest.
+func NewRunner(opt asynq.RedisClientOpt, h *DigestHandler, overdue *OverdueSweepHandler, logger *slog.Logger) *Runner {
+	return &Runner{opt: opt, handler: h, overdue: overdue, logger: logger, done: make(chan struct{})}
 }
 
 // Start launches the processor and the fire-loop in background goroutines.
@@ -64,6 +72,9 @@ func (r *Runner) Start() error {
 
 	mux := asynq.NewServeMux()
 	mux.Handle(TaskDailyDigest, r.handler)
+	if r.overdue != nil {
+		mux.Handle(TaskOverdueSweep, r.overdue)
+	}
 
 	srvDone := make(chan error, 1)
 	go func() { srvDone <- r.srv.Run(mux) }()
@@ -80,13 +91,52 @@ func (r *Runner) Start() error {
 
 	r.client = asynq.NewClient(r.opt)
 	go r.loop(srvDone)
+	if r.overdue != nil {
+		go r.overdueLoop(srvDone)
+	}
 
 	r.logger.Info("digest scheduler started",
 		"task", TaskDailyDigest,
 		"queue", QueueDigest,
 		"fire_at", "17:00 Asia/Jakarta daily",
 		"next_fire", NextDigestFire(time.Now()).Format(time.RFC3339))
+	if r.overdue != nil {
+		r.logger.Info("overdue sweep scheduler started",
+			"task", TaskOverdueSweep,
+			"queue", QueueDigest,
+			"interval", OverdueSweepInterval.String())
+	}
 	return nil
+}
+
+// overdueLoop enqueues the TSK-003 sweep every OverdueSweepInterval.
+//
+// It fires once immediately at startup so a task that came due while the
+// process was down is picked up on boot rather than up to an interval later.
+// The bucketed TaskID keeps that startup fire from double-enqueueing when a
+// restart lands inside the same bucket as the previous tick.
+func (r *Runner) overdueLoop(srvDone <-chan error) {
+	ticker := time.NewTicker(OverdueSweepInterval)
+	defer ticker.Stop()
+
+	for {
+		task, opts := NewOverdueSweepTask(time.Now())
+		if _, err := r.client.Enqueue(task, opts...); err != nil {
+			// A conflict means this bucket's sweep is already queued — healthy,
+			// and the whole point of the bucketed ID.
+			if err != asynq.ErrTaskIDConflict {
+				r.logger.Error("overdue sweep enqueue failed", "error", err)
+			}
+		}
+
+		select {
+		case <-ticker.C:
+		case <-r.done:
+			return
+		case <-srvDone:
+			return
+		}
+	}
 }
 
 // loop waits for the next 17:00 Jakarta and enqueues that day's digest.

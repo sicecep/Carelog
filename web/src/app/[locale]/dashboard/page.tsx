@@ -5,11 +5,17 @@ import {
   APIError,
   authApi,
   recipientApi,
+  taskApi,
+  notificationApi,
   type MeResponse,
   type Recipient,
+  type Task,
+  type Notification,
 } from "@/lib/api-client";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { RecipientsSection } from "./recipients-section";
+import { HomeTasks } from "@/components/ui/HomeTasks";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 interface DashboardPageProps {
   params: Promise<{ locale: string }>;
@@ -28,6 +34,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   let me: MeResponse | null = null;
   let recipients: Recipient[] = [];
+  let myTasks: Task[] = [];
+  let notifications: Notification[] = [];
+  let unreadCount = 0;
   let redirectToLogin = false;
   let loadFailed = false;
 
@@ -52,9 +61,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   if (workspace) {
     try {
-      const [activeRes, archivedRes] = await Promise.all([
+      const [activeRes, archivedRes, tasksRes, notifRes] = await Promise.all([
         recipientApi.list(workspace.id, forwarded),
         recipientApi.listArchived(workspace.id, forwarded),
+        // TSK-002 home-screen section and NOT-002 bell. Non-fatal: the
+        // dashboard's primary job is the recipient list, and a task or
+        // notification failure must not blank it.
+        taskApi.listMine(workspace.id, forwarded).catch(() => null),
+        notificationApi.list(workspace.id, forwarded).catch(() => null),
       ]);
       // Dedupe by id: the two endpoints are independent queries, so a row that
       // flips is_active between the two round-trips can land in both results.
@@ -64,6 +78,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       for (const r of archivedRes.data ?? []) byId.set(r.id, r);
       for (const r of activeRes.data ?? []) byId.set(r.id, r);
       recipients = [...byId.values()];
+
+      myTasks = tasksRes?.data ?? [];
+      notifications = notifRes?.data?.notifications ?? [];
+      unreadCount = notifRes?.data?.unread_count ?? 0;
     } catch (err) {
       if (err instanceof APIError && err.status === 401) {
         redirectToLogin = true;
@@ -87,19 +105,46 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {me ? (
           <>
-            <div className="mb-8">
-              <h1 className="text-2xl font-medium text-[var(--color-text)]">
-                {t("welcome", { name: displayName })}
-              </h1>
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-medium text-[var(--color-text)]">
+                  {t("welcome", { name: displayName })}
+                </h1>
+                {workspace && (
+                  <p className="mt-2">
+                    <span className="sr-only">{t("workspaceLabel")}: </span>
+                    <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
+                      {workspace.name}
+                    </span>
+                  </p>
+                )}
+              </div>
+              {/* NOT-002: the bell lives beside the greeting rather than in
+                  AppHeader, which is a server component shared by every page
+                  and has no workspace-scoped data to hand it. */}
               {workspace && (
-                <p className="mt-2">
-                  <span className="sr-only">{t("workspaceLabel")}: </span>
-                  <span className="inline-block rounded-full bg-[var(--color-accent-soft)] px-3 py-1 text-sm text-[var(--color-accent-ink)]">
-                    {workspace.name}
-                  </span>
-                </p>
+                <NotificationBell
+                  workspaceId={workspace.id}
+                  locale={locale}
+                  initial={notifications}
+                  initialUnread={unreadCount}
+                />
               )}
             </div>
+
+            {/* TSK-002: tasks on the home screen, sorted by due time. Placed
+                ABOVE the recipient list — an assigned task is the thing a
+                caregiver opens the app to act on. */}
+            {workspace && (
+              <div className="mb-8">
+                <HomeTasks
+                  workspaceId={workspace.id}
+                  locale={locale}
+                  tasks={myTasks}
+                  isOwner={workspace.role === "owner"}
+                />
+              </div>
+            )}
 
             <section aria-labelledby="recipients-heading">
               <h2

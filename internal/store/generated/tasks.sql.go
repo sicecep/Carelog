@@ -197,6 +197,73 @@ func (q *Queries) ListOpenTasksForAssignee(ctx context.Context, arg ListOpenTask
 	return items, nil
 }
 
+const listOpenTasksForWorkspace = `-- name: ListOpenTasksForWorkspace :many
+SELECT t.id, t.workspace_id, t.recipient_id, t.assigned_to, t.created_by, t.title, t.description, t.due_date, t.due_time, t.status, t.completed_at, t.completed_by, t.created_at, t.updated_at, COALESCE(r.display_name, r.full_name) AS recipient_name
+FROM tasks t
+JOIN care_recipients r ON r.id = t.recipient_id
+WHERE t.workspace_id = $1
+  AND t.status <> 'done'
+ORDER BY t.due_date ASC, t.due_time ASC NULLS LAST, t.created_at ASC
+`
+
+type ListOpenTasksForWorkspaceRow struct {
+	ID            uuid.UUID          `json:"id"`
+	WorkspaceID   uuid.UUID          `json:"workspace_id"`
+	RecipientID   uuid.UUID          `json:"recipient_id"`
+	AssignedTo    pgtype.UUID        `json:"assigned_to"`
+	CreatedBy     uuid.UUID          `json:"created_by"`
+	Title         string             `json:"title"`
+	Description   pgtype.Text        `json:"description"`
+	DueDate       pgtype.Date        `json:"due_date"`
+	DueTime       pgtype.Time        `json:"due_time"`
+	Status        string             `json:"status"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	CompletedBy   pgtype.UUID        `json:"completed_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	RecipientName string             `json:"recipient_name"`
+}
+
+// Owner home screen: every open task across all care profiles, whoever it is
+// assigned to. The caregiver feed (ListOpenTasksForAssignee) filters by
+// assignee, which would leave an owner who delegates everything looking at an
+// empty "Tasks" section — the exact opposite of the tracking TSK-001 promises.
+func (q *Queries) ListOpenTasksForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]ListOpenTasksForWorkspaceRow, error) {
+	rows, err := q.db.Query(ctx, listOpenTasksForWorkspace, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenTasksForWorkspaceRow{}
+	for rows.Next() {
+		var i ListOpenTasksForWorkspaceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.RecipientID,
+			&i.AssignedTo,
+			&i.CreatedBy,
+			&i.Title,
+			&i.Description,
+			&i.DueDate,
+			&i.DueTime,
+			&i.Status,
+			&i.CompletedAt,
+			&i.CompletedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RecipientName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasksForRecipient = `-- name: ListTasksForRecipient :many
 SELECT id, workspace_id, recipient_id, assigned_to, created_by, title, description, due_date, due_time, status, completed_at, completed_by, created_at, updated_at FROM tasks
 WHERE workspace_id = $1 AND recipient_id = $2

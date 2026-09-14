@@ -454,6 +454,26 @@ func NextTaskStatus(t TaskStatus) (TaskStatus, bool) {
 	return t, false
 }
 
+// NotificationType discriminates in-app notifications (NOT-002). The value is
+// stored in notifications.type and drives the icon and deep link the UI picks,
+// so adding a producer means adding a constant here rather than inventing a
+// string at the call site.
+type NotificationType string
+
+const (
+	// NotificationTaskOverdue is TSK-003: a task's due moment passed while it
+	// was still not done.
+	NotificationTaskOverdue NotificationType = "task_overdue"
+)
+
+// NotificationTypes lists every valid NotificationType.
+var NotificationTypes = []NotificationType{NotificationTaskOverdue}
+
+func (n NotificationType) String() string { return string(n) }
+
+// IsValidNotificationType reports whether s names a known notification type.
+func IsValidNotificationType(s string) bool { return isValid(NotificationTypes, s) }
+
 // PlanLimit captures the quota a plan grants. A nil field means unlimited, which
 // mirrors the NULL columns in the plan_configs table (RFC §4.2).
 type PlanLimit struct {

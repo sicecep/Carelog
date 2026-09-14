@@ -37,6 +37,7 @@ func Render() []byte {
 	writeEnum(&b, "ContributorRole", "CONTRIBUTOR_ROLES", toStrings(domain.ContributorRoles))
 	writeEnum(&b, "ReportType", "REPORT_TYPES", toStrings(domain.ReportTypes))
 	writeEnum(&b, "TaskStatus", "TASK_STATUSES", toStrings(domain.TaskStatuses))
+	writeEnum(&b, "NotificationType", "NOTIFICATION_TYPES", toStrings(domain.NotificationTypes))
 	writeEnum(&b, "Plan", "PLANS", toStrings(domain.Plans))
 	writeEnum(&b, "Locale", "LOCALES", toStrings(domain.Locales))
 

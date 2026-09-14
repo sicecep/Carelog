@@ -523,6 +523,20 @@
     "forRecipient": "Untuk {name}",
     "completedAt": "Selesai {time}",
     "errorGeneric": "Tugas gagal disimpan. Silakan coba lagi.",
-    "errorAssignee": "Pengasuh itu belum ditugaskan ke profil ini."
+    "errorAssignee": "Pengasuh itu belum ditugaskan ke profil ini.",
+    "homeTitle": "Tugas saya",
+    "homeEmpty": "Tidak ada tugas terbuka. Semua sudah selesai.",
+    "homeOwnerTitle": "Tugas",
+    "homeOwnerEmpty": "Tidak ada tugas terbuka di profil perawatan Anda.",
+    "viewAll": "Lihat profil"
+  },
+  "notifications": {
+    "title": "Notifikasi",
+    "empty": "Belum ada notifikasi.",
+    "markAllRead": "Tandai semua dibaca",
+    "unreadCount": "{count} belum dibaca",
+    "openAria": "Notifikasi, {count} belum dibaca",
+    "taskOverdueTitle": "Tugas terlambat",
+    "taskOverdueBody": "\"{task}\" untuk {recipient} jatuh tempo {due} dan belum selesai."
   }
 }

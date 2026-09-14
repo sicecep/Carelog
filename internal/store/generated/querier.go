@@ -39,6 +39,8 @@ type Querier interface {
 	// GetMagicLinkByHash tells the three apart for logging.
 	ConsumeMagicLink(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	CountActiveRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
+	// NOT-002: the unread badge.
+	CountUnreadNotifications(ctx context.Context, arg CountUnreadNotificationsParams) (int64, error)
 	// Drives the pending badge count in the admin nav.
 	CountUsersByApprovalStatus(ctx context.Context, approvalStatus string) (int64, error)
 	// Zero means this is a first login and the verify handler must provision a
@@ -56,6 +58,14 @@ type Querier interface {
 	// the invitee from the approval gate on their magic-link click.
 	CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error)
 	CreateMagicLink(ctx context.Context, arg CreateMagicLinkParams) (AuthMagicLink, error)
+	// In-app notifications (NOT-002) and the TSK-003 overdue sweep.
+	// Insert a notification, silently skipping one that already exists for this
+	// (user, type, subject). That ON CONFLICT is TSK-003's "sent once per overdue
+	// task" guarantee: the overdue sweep runs on a timer, so a restart, an
+	// overlapping tick or an asynq retry would otherwise re-alert the owner.
+	// Returns no row when the notification was already sent, which callers use to
+	// count what was actually delivered.
+	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
 	// Tasks (OWN-006 / TSK-001 / TSK-002): owner creates and assigns tasks to a
@@ -161,6 +171,8 @@ type Querier interface {
 	ListIncidents(ctx context.Context, arg ListIncidentsParams) ([]ListIncidentsRow, error)
 	// RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
 	ListIncidentsByRecipient(ctx context.Context, arg ListIncidentsByRecipientParams) ([]ListIncidentsByRecipientRow, error)
+	// NOT-002: the notification centre, newest first.
+	ListNotificationsForUser(ctx context.Context, arg ListNotificationsForUserParams) ([]Notification, error)
 	// Caregiver home screen: everything I still owe, oldest-due first so the
 	// overdue items surface at the top.
 	//
@@ -168,6 +180,23 @@ type Querier interface {
 	// have full_name. COALESCE so the feed always has something to show — a bare
 	// fallback to display_name renders a nameless task tile.
 	ListOpenTasksForAssignee(ctx context.Context, arg ListOpenTasksForAssigneeParams) ([]ListOpenTasksForAssigneeRow, error)
+	// Owner home screen: every open task across all care profiles, whoever it is
+	// assigned to. The caregiver feed (ListOpenTasksForAssignee) filters by
+	// assignee, which would leave an owner who delegates everything looking at an
+	// empty "Tasks" section — the exact opposite of the tracking TSK-001 promises.
+	ListOpenTasksForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]ListOpenTasksForWorkspaceRow, error)
+	// TSK-003: tasks whose due moment has passed while still not done.
+	//
+	// The comparison is built in the WORKSPACE's timezone, not the server's: a due
+	// date of "today" with no due time means end of that day in Jakarta, and
+	// treating it as UTC would fire the alert 7 hours early for every Indonesian
+	// household. A NULL due_time therefore means 23:59:59 local, so an all-day
+	// task is only overdue once its day is genuinely over.
+	//
+	// Returns the owners to notify alongside the task: every owner of the
+	// workspace gets the alert (PRD says "the owner"; a workspace may have more
+	// than one, and silently picking the first would drop the others).
+	ListOverdueTasks(ctx context.Context) ([]ListOverdueTasksRow, error)
 	// Both the persistent standing note and the note for the requested date
 	// (usually today), scoped by workspace for tenant safety.
 	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
@@ -203,9 +232,12 @@ type Querier interface {
 	// recipient work happens.
 	ListWorkspacesForDigest(ctx context.Context) ([]ListWorkspacesForDigestRow, error)
 	ListWorkspacesForUser(ctx context.Context, userID uuid.UUID) ([]ListWorkspacesForUserRow, error)
+	MarkAllNotificationsRead(ctx context.Context, arg MarkAllNotificationsReadParams) error
 	// COALESCE keeps the original verification timestamp: clicking a second magic
 	// link months later is a login, not a re-verification.
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, error)
+	// Scoped by user so one member cannot clear another's badge.
+	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
 	MarkOnboardingCompleted(ctx context.Context, id uuid.UUID) error
 	// The guard clause is the race protection: two requests presenting the same
 	// valid token both reach this statement, exactly one updates a row, and the
