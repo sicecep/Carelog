@@ -97,15 +97,20 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   const addPhotos = useCallback(
     (files: FileList | null) => {
-      if (!files) return;
+      // Materialize BEFORE returning: FileList is a LIVE view of the input.
+      // The caller clears input.value right after this call, and React runs
+      // the state updater later — reading files inside the updater would
+      // always see an empty list (caught by e2e-entry-photos).
+      const picked = files ? Array.from(files) : [];
+      if (picked.length === 0) return;
       setError(null);
       setPhotos((prev) => {
         const room = PHOTO_MAX - prev.length;
-        const taken = Array.from(files).slice(0, room);
-        return [
-          ...prev,
-          ...taken.map((file) => ({ file, previewUrl: URL.createObjectURL(file) })),
-        ];
+        const taken = picked.slice(0, room).map((file) => ({
+          file,
+          previewUrl: URL.createObjectURL(file),
+        }));
+        return [...prev, ...taken];
       });
     },
     []
@@ -113,9 +118,10 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   const removePhoto = useCallback((index: number) => {
     setPhotos((prev) => {
-      const [removed] = prev.splice(index, 1);
+      // Filter (never splice): mutating prev is mutating state.
+      const removed = prev[index];
       if (removed) URL.revokeObjectURL(removed.previewUrl);
-      return [...prev];
+      return prev.filter((_, i) => i !== index);
     });
   }, []);
 
