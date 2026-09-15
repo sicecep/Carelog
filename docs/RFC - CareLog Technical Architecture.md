@@ -12,6 +12,7 @@
 
 | Version | Change |
 |---|---|
+| 3.2 | **Phone is a first-class identity; caregivers authenticate with phone + device-bound PIN (AUTH-005).** `users.email` is now optional (`CHECK (email IS NOT NULL OR phone IS NOT NULL)`), phones are stored canonically as E.164, and the invite link doubles as PIN enrolment. WhatsApp Business API OTP was evaluated and rejected on per-message cost — the owner's own WhatsApp already carries the invite for free. Rate limiting (§6.6) is implemented as fixed-window Redis counters, not the token bucket originally specced. |
 | 3.1 | **ImageKit replaces R2/MinIO as MVP media storage (owner decision).** Photos upload browser-direct to ImageKit with auth params signed by the Go API; reads go through ImageKit's CDN with signed URLs. Tenant isolation (workspace folder prefix + membership-checked signing) is unchanged. |
 | 3.0 | **Go is the day-one backend.** Supabase (Auth, Edge Functions, PostgREST, Realtime, Storage) is removed from the architecture. The backend is a Go API (chi + sqlc + goose) with PostgreSQL 15, Redis, and ImageKit for media, behind Caddy. The former "Go Migration Path" section is deleted — it is now the architecture, not a migration. Product requirements are unchanged. |
 | 2.0 | Workspace-centric isolation model; multi-contributor reporting model. |
@@ -58,7 +59,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | Database | PostgreSQL 15 (managed, Singapore region) | Boring, portable SQL; no vendor schema (`auth.*`) dependencies |
 | Query layer | sqlc (generated, type-safe) | SQL stays in `.sql` files; compile-time checked Go bindings; no ORM |
 | Migrations | goose (`migrations/`, append-only) | Plain SQL migrations, already in repo |
-| Auth | Go-native magic link + Google OAuth; JWT access + rotating refresh tokens | Same UX as v2 (AUTH-001..004); auth data lives in our own `users` table |
+| Auth | Go-native magic link + Google OAuth (owners); phone + device-bound PIN via argon2id (caregivers); JWT access + rotating refresh tokens | AUTH-001..005; auth data lives in our own `users` table. Email optional — see §8 |
 | Multi-tenancy | Enforced in the Go layer (middleware + workspace-scoped sqlc queries); Postgres RLS retained as defense-in-depth | Isolation logic is testable Go code; RLS backstops application bugs |
 | Multi-contributor | `UNIQUE(recipient_id, report_date, contributor_id)` | Each contributor owns their row; merged at read time (unchanged from v2) |
 | Background jobs | River (Postgres-backed job queue) | Transactional enqueue with domain writes; retries + periodic jobs; no extra infrastructure |
@@ -131,7 +132,7 @@ carelog/
 │   │   ├── middleware/
 │   │   │   ├── auth.go             # JWT verification → user in context
 │   │   │   ├── workspace.go        # Workspace membership resolution → workspace ctx
-│   │   │   ├── ratelimit.go        # Redis token bucket
+│   │   │   ├── ratelimit.go        # Redis fixed-window limiter
 │   │   │   └── requestlog.go       # Request ID, logging, Sentry
 │   │   └── handlers/
 │   │       ├── auth.go             # Magic link, Google OAuth, refresh, logout
@@ -245,18 +246,30 @@ Owned entirely by the Go API. Replaces Supabase's `auth.users`.
 ```sql
 CREATE TABLE users (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email             TEXT NOT NULL,
+  -- Optional since the phone-identity change: caregivers authenticate by
+  -- phone + PIN and frequently have no working email account. At least one
+  -- identity is required (users_identity_present).
+  email             TEXT,
   email_verified_at TIMESTAMPTZ,
+  -- Canonical E.164 (+628…). Normalized by domain.NormalizePhone before it
+  -- reaches the DB so one person cannot become two accounts.
+  phone             TEXT,
+  phone_verified_at TIMESTAMPTZ,
   full_name         TEXT,
   avatar_url        TEXT,
   google_id         TEXT UNIQUE,          -- set when linked via Google OAuth
   locale            TEXT NOT NULL DEFAULT 'id' CHECK (locale IN ('id', 'en')),
   is_active         BOOLEAN NOT NULL DEFAULT true,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- An account with neither identity could never be authenticated as, yet
+  -- would still hold workspace memberships.
+  CONSTRAINT users_identity_present CHECK (email IS NOT NULL OR phone IS NOT NULL),
+  CONSTRAINT users_phone_e164 CHECK (phone IS NULL OR phone ~ '^\+[1-9][0-9]{6,14}$')
 );
 
 CREATE UNIQUE INDEX idx_users_email_lower ON users (LOWER(email));
+CREATE UNIQUE INDEX idx_users_phone ON users (phone) WHERE phone IS NOT NULL;
 ```
 
 Auth-support tables (`auth_magic_links`, `refresh_tokens`) are defined in §8.
@@ -298,7 +311,11 @@ CREATE TABLE invitations (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   invited_by   UUID NOT NULL REFERENCES users(id),
-  email        TEXT NOT NULL,
+  -- Optional hint, not an identity: a caregiver invite may carry only a
+  -- phone (or nothing but the link itself). Used to exempt a matching
+  -- magic-link click from the approval gate.
+  email        TEXT,
+  phone        TEXT,                              -- E.164, for PIN enrolment
   role         TEXT NOT NULL CHECK (role IN ('caregiver', 'viewer')),
   token        TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
   expires_at   TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '72 hours',
@@ -984,39 +1001,38 @@ SELECT COUNT(*) FROM report_entries WHERE report_id = $1;
 
 ### 6.6 Rate Limiting
 
-Token buckets in Redis via `internal/cache`, applied as chi middleware. Same limit matrix as v2:
+**Fixed-window** counters in Redis via `internal/cache`, applied as chi middleware. Implemented in `internal/http/middleware/ratelimit.go`.
+
+Fixed window rather than the token bucket originally specced: the counter must be atomic or concurrent requests are silently dropped from the count, and `INCR` + conditional `EXPIRE` gives that in one round trip. `EXPIRE` is issued only on the first hit of a window — refreshing it on every request would let steady traffic hold the window open indefinitely and never reset.
 
 ```go
 // internal/http/middleware/ratelimit.go
-func RateLimit(c *cache.Cache, name string, limit int, window time.Duration) func(http.Handler) http.Handler {
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            key := name + ":" + subjectKey(r) // user ID when authed, client IP otherwise
-            allowed, retryAfter, err := c.AllowTokenBucket(r.Context(), key, limit, window)
-            if err != nil {
-                // Fail open on Redis outage; log + alert instead of blocking users
-                next.ServeHTTP(w, r)
-                return
-            }
-            if !allowed {
-                w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
-                respond.Err(w, "RATE_LIMITED", "Too many requests", http.StatusTooManyRequests)
-                return
-            }
-            next.ServeHTTP(w, r)
-        })
-    }
+type RateLimit struct {
+    Name    string
+    Max     int64
+    Window  time.Duration
+    KeyFunc func(r *http.Request) string // KeyByIP or KeyByUser; "" opts out
 }
+
+func RateLimitMiddleware(limiter Limiter, logger *slog.Logger, limit RateLimit) func(http.Handler) http.Handler
 ```
 
-| Limit | Bucket | Window |
-|---|---|---|
-| Global (unauthenticated) | 30 req | 1 min |
-| Global (authenticated) | 120 req | 1 min |
-| Report submission | 10 per caregiver | 1 hour |
-| Photo upload | 20 per caregiver | 1 hour |
-| Invitation send | 10 per workspace | 1 hour |
-| Auth endpoints (magic link, verify, refresh) | 5 per IP | 15 min |
+**Fails open on cache errors.** A Redis outage must not lock every user out of the app — availability is chosen over enforcement, and the failure is logged rather than silent.
+
+Rejections return `429` with `Retry-After` and the standard error envelope (`{"error":{"code":"rate_limited",...}}`), so clients parse one error shape everywhere.
+
+| Limit | Bucket | Window | Status |
+|---|---|---|---|
+| Magic link | 5 per IP | 15 min | **Shipped** |
+| Token refresh | 60 per IP | 1 hour | **Shipped** |
+| Photo upload | 20 per user | 1 hour | **Shipped** |
+| Global (unauthenticated) | 30 req | 1 min | Planned |
+| Global (authenticated) | 120 req | 1 min | Planned |
+| Report submission | 10 per caregiver | 1 hour | Planned |
+| Invitation send | 10 per workspace | 1 hour | Planned |
+| PIN attempt | 5 per device, then backoff | 15 min | Planned (AUTH-005) |
+
+The magic-link limit guards the **email send**, not the endpoint: when `AUTH_DEV_EXPOSE_LINK` is on (development only — the config refuses to boot otherwise) no mail goes out and the limit opts out, so the E2E suite can sign in many users from one IP. `scripts/e2e-rate-limit.cjs` boots a server with that flag **off** to prove the production-shaped limit still fires.
 
 ---
 
@@ -1113,7 +1129,17 @@ Per repo conventions: table-driven tests with `testify/require`. Services are te
 
 ## 8. Authentication & Authorization
 
-Supabase Auth is replaced by an auth subsystem inside the Go API (`internal/auth`). The user-facing flows — and the PRD user stories AUTH-001..004 — are unchanged.
+Supabase Auth is replaced by an auth subsystem inside the Go API (`internal/auth`). Auth data lives in our own `users` table.
+
+**Identity model (revised).** CareLog originally assumed email was every user's identity. That assumption fails for the primary caregiver persona: Indonesian domestic workers frequently have no working email account, and the invite already reaches them over the owner's own WhatsApp. Email is therefore **optional**, and users carry email, phone, or both — with a DB constraint guaranteeing at least one.
+
+| Persona | Primary identity | Mechanism |
+|---|---|---|
+| Owner | Email | Magic link (AUTH-001/002) or Google (AUTH-003) |
+| Caregiver | Phone (E.164) | Invite link → PIN enrolment → phone + PIN on a bound device (AUTH-005) |
+| Viewer | Email | Magic link |
+
+WhatsApp Business API was evaluated for OTP delivery and **rejected on cost**: it bills per delivered authentication message, and the invite channel we already use (the owner's own WhatsApp) is free. PIN enrolment therefore rides the existing invite link rather than a paid messaging channel.
 
 ### 8.1 User Story Mapping
 
@@ -1122,7 +1148,12 @@ Supabase Auth is replaced by an auth subsystem inside the Go API (`internal/auth
 | AUTH-001 | Sign up via magic link | `POST /api/v1/auth/magic-link` creates `users` row (unverified) + emails link via Resend |
 | AUTH-002 | Log in via magic link | Same endpoint; existing user gets a fresh single-use token |
 | AUTH-003 | Log in with Google | `GET /api/v1/auth/google` → consent → callback upserts user by `google_id`/email |
-| AUTH-004 | Stay logged in / log out | Rotating refresh token (30d) in HttpOnly cookie; `POST /auth/logout` revokes the token family |
+| AUTH-004 | Stay logged in / log out | Rotating refresh token (90d, sliding) in HttpOnly cookie; `POST /auth/logout` revokes the token family |
+| AUTH-005 | Caregiver phone + PIN | Invite link enrols the device and sets a 6-digit PIN (argon2id); subsequent logins are phone + PIN **on that device**. PIN reset = owner re-issues the invite link over WhatsApp — free, and the owner personally knows the caregiver |
+
+**Why PIN is device-bound.** A 6-digit PIN alone is 10⁶ combinations — a weak password if it were accepted from anywhere. Binding it to an enrolled device makes it genuinely two-factor: possession (the invite link that enrolled the device) plus knowledge (the PIN). A new device cannot be authenticated with the PIN alone; it needs a fresh invite link.
+
+**Why not passwords.** A caregiver who cannot navigate an email inbox will not manage a password either, and every reset becomes a support call to the paying owner — with email, the channel we are explicitly routing around, as the only recovery path. AUTH-001's passwordless principle stands.
 
 ### 8.2 Auth Flow
 
@@ -1169,7 +1200,7 @@ CREATE TABLE refresh_tokens (
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   family_id   UUID NOT NULL,                     -- rotation lineage
   token_hash  BYTEA NOT NULL UNIQUE,
-  expires_at  TIMESTAMPTZ NOT NULL,              -- NOW() + 30 days
+  expires_at  TIMESTAMPTZ NOT NULL,              -- NOW() + 90 days (REFRESH_TOKEN_TTL)
   rotated_at  TIMESTAMPTZ,                       -- set when superseded
   revoked_at  TIMESTAMPTZ,                       -- logout or reuse detection
   user_agent  TEXT,
@@ -1182,6 +1213,31 @@ CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
 ```
 
 **Rotation & reuse detection:** `POST /auth/refresh` marks the presented token `rotated_at` and issues a new one in the same `family_id`. If a token that is already rotated is presented again (theft indicator), the entire family is revoked and the user must log in again.
+
+**Caregiver PIN & device binding (AUTH-005, planned).** Two further tables carry the PIN factor. They are listed here so the schema is reviewable before implementation:
+
+```sql
+CREATE TABLE user_pins (
+  user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  pin_hash      TEXT NOT NULL,          -- argon2id, never recoverable
+  failed_count  INT NOT NULL DEFAULT 0,
+  locked_until  TIMESTAMPTZ,            -- backoff after repeated failures
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE trusted_devices (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash    BYTEA NOT NULL UNIQUE,  -- opaque device secret, httpOnly cookie
+  label         TEXT,                   -- user-agent derived, for the revoke UI
+  enrolled_via  UUID REFERENCES invitations(id) ON DELETE SET NULL,
+  last_seen_at  TIMESTAMPTZ,
+  revoked_at    TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+The PIN is only ever accepted together with a valid, unrevoked `trusted_devices` token — that pairing is what makes a 6-digit secret acceptable (possession + knowledge). Revoking a caregiver revokes their devices and their refresh-token family together.
 
 ### 8.4 Access Token & Middleware
 
