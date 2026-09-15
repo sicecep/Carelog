@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/http/middleware"
+	"github.com/sicecep/carelog/internal/media"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -19,6 +20,9 @@ import (
 type ReportHandlers struct {
 	Queries *store.Queries
 	Pool    *pgxpool.Pool
+	// Uploader supplies the URL base that entry photo_urls must fall under
+	// (CGR-008). Nil-safe: without it photo attachments are rejected.
+	Uploader media.PhotoUploader
 }
 
 // CreateEntryRequest is the JSON request body for adding a report entry.
@@ -28,6 +32,9 @@ type CreateEntryRequest struct {
 	ValueText   *string         `json:"value_text,omitempty"`
 	ValueNumber *float64        `json:"value_number,omitempty"`
 	ValueJson   json.RawMessage `json:"value_json,omitempty"`
+	// PhotoUrls must have been issued by POST /uploads (CGR-008); the service
+	// rejects URLs outside the configured uploader's base.
+	PhotoUrls   []string        `json:"photo_urls,omitempty"`
 	OccurredAt  *string         `json:"occurred_at,omitempty"` // ISO 8601 timestamp
 }
 
@@ -48,14 +55,24 @@ type EntryResponse struct {
 	ValueText   *string    `json:"value_text,omitempty"`
 	ValueNumber *float64   `json:"value_number,omitempty"`
 	ValueJson   json.RawMessage `json:"value_json,omitempty"`
-	OccurredAt  string     `json:"occurred_at"`
-	CreatedAt   string     `json:"created_at"`
+	// PhotoUrls is [] (never null) so clients can index it unconditionally.
+	PhotoUrls   []string    `json:"photo_urls"`
+	OccurredAt  string      `json:"occurred_at"`
+	CreatedAt   string      `json:"created_at"`
 	// Contributor attribution (RPT-001). Always populated: on create it comes
 	// from the caller, on the timeline from the joined report. Emitting a zero
 	// UUID here would be indistinguishable from real data to a client.
 	ContributorID   uuid.UUID `json:"contributor_id"`
 	ContributorName string    `json:"contributor_name"`
 	ContributorRole string    `json:"contributor_role"`
+}
+
+// photoUrlsOrEmpty guards the API contract: photo_urls is [] (never null).
+func photoUrlsOrEmpty(urls []string) []string {
+	if urls == nil {
+		return []string{}
+	}
+	return urls
 }
 
 // toEntryResponse converts a store ReportEntry to the API response shape.
@@ -91,6 +108,7 @@ func toEntryResponse(e store.ReportEntry, contributorID uuid.UUID, contributorNa
 	if len(e.ValueJson) > 0 {
 		resp.ValueJson = e.ValueJson
 	}
+	resp.PhotoUrls = photoUrlsOrEmpty(e.PhotoUrls)
 
 	// Contributor fields are populated from the caller's identity below.
 	return resp
@@ -105,6 +123,7 @@ func toTimelineEntryResponse(
 	valueText pgtype.Text,
 	valueNumber pgtype.Numeric,
 	valueJson []byte,
+	photoUrls []string,
 	occurredAt pgtype.Timestamptz,
 	createdAt pgtype.Timestamptz,
 	contributorID uuid.UUID,
@@ -137,6 +156,7 @@ func toTimelineEntryResponse(
 	if len(valueJson) > 0 {
 		resp.ValueJson = valueJson
 	}
+	resp.PhotoUrls = photoUrlsOrEmpty(photoUrls)
 
 	return resp
 }
@@ -187,10 +207,16 @@ func (h *ReportHandlers) handleCreateEntry(w http.ResponseWriter, r *http.Reques
 		ValueText:   req.ValueText,
 		ValueNumber: req.ValueNumber,
 		ValueJson:   req.ValueJson,
+		PhotoUrls:   req.PhotoUrls,
 		OccurredAt:  occurredAt,
 	}
 
-	entry, err := service.AddEntry(r.Context(), h.Queries, h.Pool, workspaceID, recipientID, userID, input)
+	// Photo attachments must fall under the configured uploader's base.
+	photoBase := ""
+	if h.Uploader != nil {
+		photoBase = h.Uploader.BaseURL()
+	}
+	entry, err := service.AddEntry(r.Context(), h.Queries, h.Pool, workspaceID, recipientID, userID, input, photoBase)
 	if err != nil {
 		return err
 	}
@@ -271,6 +297,7 @@ func (h *ReportHandlers) handleGetTimeline(w http.ResponseWriter, r *http.Reques
 			row.ValueText,
 			row.ValueNumber,
 			row.ValueJson,
+			row.PhotoUrls,
 			row.OccurredAt,
 			row.CreatedAt,
 			row.ContributorID,

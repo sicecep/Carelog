@@ -264,7 +264,9 @@
       "morning": "Morning",
       "midday": "Midday",
       "afternoon": "Afternoon"
-    }
+    },
+    "addPhoto": "Add photo",
+    "photoLimit": "Max {max} photos"
   },
   "incidents": {
     "title": "Incidents",

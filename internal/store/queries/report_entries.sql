@@ -1,6 +1,6 @@
 -- name: CreateReportEntry :one
-INSERT INTO report_entries (report_id, category, subcategory, value_text, value_number, value_json, occurred_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO report_entries (report_id, category, subcategory, value_text, value_number, value_json, photo_urls, occurred_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetReportEntry :one
@@ -12,6 +12,7 @@ SELECT
     e.value_text,
     e.value_number,
     e.value_json,
+    e.photo_urls,
     e.occurred_at,
     e.created_at
 FROM report_entries e
@@ -48,6 +49,7 @@ SELECT
     e.value_text,
     e.value_number,
     e.value_json,
+    e.photo_urls,
     e.occurred_at,
     e.created_at,
     r.id AS report_id,

@@ -149,6 +149,7 @@ type ReportEntry struct {
 	ValueText   pgtype.Text        `json:"value_text"`
 	ValueNumber pgtype.Numeric     `json:"value_number"`
 	ValueJson   []byte             `json:"value_json"`
+	PhotoUrls   []string           `json:"photo_urls"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

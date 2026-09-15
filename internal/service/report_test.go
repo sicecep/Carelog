@@ -283,7 +283,49 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-// --- Day-end count summary validation (CGR-007) ---
+// --- Photo URL validation (CGR-008) ---
+
+const testPhotoBase = "https://ik.imagekit.io/acme"
+
+func TestValidatePhotoURLs_None_Passes(t *testing.T) {
+	require.Empty(t, validatePhotoURLs(nil, testPhotoBase))
+	require.Empty(t, validatePhotoURLs([]string{}, testPhotoBase))
+}
+
+func TestValidatePhotoURLs_Valid_Passes(t *testing.T) {
+	urls := []string{
+		testPhotoBase + "/workspaces/ws1/a.jpg",
+		testPhotoBase + "/workspaces/ws1/b.jpg",
+	}
+	require.Empty(t, validatePhotoURLs(urls, testPhotoBase))
+}
+
+func TestValidatePhotoURLs_ExternalHost_Fails(t *testing.T) {
+	urls := []string{testPhotoBase + "/a.jpg", "https://evil.example.com/x.jpg"}
+	errs := validatePhotoURLs(urls, testPhotoBase)
+	require.Len(t, errs, 1)
+	require.Equal(t, "photo_urls", errs[0].Field)
+	require.Contains(t, errs[0].Message, "invalid photo URL")
+}
+
+func TestValidatePhotoURLs_TooMany_Fails(t *testing.T) {
+	urls := make([]string, 6)
+	for i := range urls {
+		urls[i] = testPhotoBase + "/a.jpg"
+	}
+	errs := validatePhotoURLs(urls, testPhotoBase)
+	require.Len(t, errs, 1)
+	require.Contains(t, errs[0].Message, "at most 5 photos")
+}
+
+func TestValidatePhotoURLs_PrefixSpoof_Fails(t *testing.T) {
+	// "https://ik.imagekit.io/acme.evil.com/" shares the string prefix but
+	// is a different host — the naive HasPrefix would let it through; the
+	// next character must be / or end-of-string.
+	urls := []string{testPhotoBase + ".evil.com/a.jpg"}
+	errs := validatePhotoURLs(urls, testPhotoBase)
+	require.Len(t, errs, 1)
+}
 
 func TestValidateSummaryCounts_Valid_Passes(t *testing.T) {
 	input := SubmitDaySummaryInput{

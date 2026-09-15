@@ -13,9 +13,9 @@ import (
 )
 
 const createReportEntry = `-- name: CreateReportEntry :one
-INSERT INTO report_entries (report_id, category, subcategory, value_text, value_number, value_json, occurred_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, report_id, category, subcategory, value_text, value_number, value_json, occurred_at, created_at
+INSERT INTO report_entries (report_id, category, subcategory, value_text, value_number, value_json, photo_urls, occurred_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, report_id, category, subcategory, value_text, value_number, value_json, photo_urls, occurred_at, created_at
 `
 
 type CreateReportEntryParams struct {
@@ -25,6 +25,7 @@ type CreateReportEntryParams struct {
 	ValueText   pgtype.Text        `json:"value_text"`
 	ValueNumber pgtype.Numeric     `json:"value_number"`
 	ValueJson   []byte             `json:"value_json"`
+	PhotoUrls   []string           `json:"photo_urls"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 }
 
@@ -36,6 +37,7 @@ func (q *Queries) CreateReportEntry(ctx context.Context, arg CreateReportEntryPa
 		arg.ValueText,
 		arg.ValueNumber,
 		arg.ValueJson,
+		arg.PhotoUrls,
 		arg.OccurredAt,
 	)
 	var i ReportEntry
@@ -47,6 +49,7 @@ func (q *Queries) CreateReportEntry(ctx context.Context, arg CreateReportEntryPa
 		&i.ValueText,
 		&i.ValueNumber,
 		&i.ValueJson,
+		&i.PhotoUrls,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)
@@ -79,6 +82,7 @@ SELECT
     e.value_text,
     e.value_number,
     e.value_json,
+    e.photo_urls,
     e.occurred_at,
     e.created_at
 FROM report_entries e
@@ -102,6 +106,7 @@ func (q *Queries) GetReportEntry(ctx context.Context, arg GetReportEntryParams) 
 		&i.ValueText,
 		&i.ValueNumber,
 		&i.ValueJson,
+		&i.PhotoUrls,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)
@@ -109,7 +114,7 @@ func (q *Queries) GetReportEntry(ctx context.Context, arg GetReportEntryParams) 
 }
 
 const listReportEntries = `-- name: ListReportEntries :many
-SELECT id, report_id, category, subcategory, value_text, value_number, value_json, occurred_at, created_at FROM report_entries
+SELECT id, report_id, category, subcategory, value_text, value_number, value_json, photo_urls, occurred_at, created_at FROM report_entries
 WHERE report_id = $1
 ORDER BY occurred_at
 `
@@ -131,6 +136,7 @@ func (q *Queries) ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]
 			&i.ValueText,
 			&i.ValueNumber,
 			&i.ValueJson,
+			&i.PhotoUrls,
 			&i.OccurredAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -153,6 +159,7 @@ SELECT
     e.value_text,
     e.value_number,
     e.value_json,
+    e.photo_urls,
     e.occurred_at,
     e.created_at,
     r.id AS report_id,
@@ -180,6 +187,7 @@ type ListReportEntriesByRecipientAndDateRow struct {
 	ValueText       pgtype.Text        `json:"value_text"`
 	ValueNumber     pgtype.Numeric     `json:"value_number"`
 	ValueJson       []byte             `json:"value_json"`
+	PhotoUrls       []string           `json:"photo_urls"`
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	ReportID_2      uuid.UUID          `json:"report_id_2"`
@@ -207,6 +215,7 @@ func (q *Queries) ListReportEntriesByRecipientAndDate(ctx context.Context, arg L
 			&i.ValueText,
 			&i.ValueNumber,
 			&i.ValueJson,
+			&i.PhotoUrls,
 			&i.OccurredAt,
 			&i.CreatedAt,
 			&i.ReportID_2,
@@ -230,7 +239,7 @@ SET category = $2, subcategory = $3, value_text = $4, value_number = $5, value_j
 WHERE report_entries.id = $1 AND EXISTS (
     SELECT 1 FROM daily_reports r WHERE r.id = report_entries.report_id AND r.workspace_id = $8
 )
-RETURNING id, report_id, category, subcategory, value_text, value_number, value_json, occurred_at, created_at
+RETURNING id, report_id, category, subcategory, value_text, value_number, value_json, photo_urls, occurred_at, created_at
 `
 
 type UpdateReportEntryParams struct {
@@ -264,6 +273,7 @@ func (q *Queries) UpdateReportEntry(ctx context.Context, arg UpdateReportEntryPa
 		&i.ValueText,
 		&i.ValueNumber,
 		&i.ValueJson,
+		&i.PhotoUrls,
 		&i.OccurredAt,
 		&i.CreatedAt,
 	)

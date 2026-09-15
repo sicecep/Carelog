@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sicecep/carelog/internal/domain"
+	"github.com/sicecep/carelog/internal/media"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
 
@@ -138,6 +139,34 @@ type AddEntryInput struct {
 	ValueNumber *float64
 	ValueJson   []byte
 	OccurredAt  *time.Time
+	// PhotoUrls are URLs previously issued by the upload endpoint (CGR-008).
+	PhotoUrls []string
+}
+
+// validatePhotoURLs checks attachment URLs (CGR-008): at most
+// MaxPhotosPerEntry, each under the uploader's base URL. The prefix rule is
+// what keeps clients from pointing an entry at arbitrary images.
+func validatePhotoURLs(urls []string, base string) []RecipientError {
+	if len(urls) == 0 {
+		return nil
+	}
+	if len(urls) > media.MaxPhotosPerEntry {
+		return []RecipientError{{
+			Field:   "photo_urls",
+			Message: fmt.Sprintf("at most %d photos per entry", media.MaxPhotosPerEntry),
+		}}
+	}
+	var valErrs []RecipientError
+	for _, u := range urls {
+		// Prefix alone is spoofable (base + ".evil.com"); the character
+		// after the prefix must end the host: '/' or end of string.
+		ok := strings.HasPrefix(u, base) && (len(u) == len(base) || u[len(base)] == '/')
+		if !ok {
+			valErrs = append(valErrs, RecipientError{Field: "photo_urls", Message: "invalid photo URL"})
+			break
+		}
+	}
+	return valErrs
 }
 
 // SubmitDaySummaryInput is the payload for the day-end count-based summary
@@ -283,8 +312,11 @@ func SubmitDaySummary(
 				return fmt.Errorf("parse count: %w", err)
 			}
 			entry, err := qtx.CreateReportEntry(ctx, store.CreateReportEntryParams{
-				ReportID:    report.ID,
-				Category:    cat.String(),
+				ReportID: report.ID,
+				Category: cat.String(),
+				// Empty (NOT nil) slice: a nil []string encodes as NULL and
+				// violates photo_urls NOT NULL.
+				PhotoUrls:  []string{},
 				ValueNumber: valueNumber,
 				OccurredAt:  pgtype.Timestamptz{Time: now, Valid: true},
 			})
@@ -296,9 +328,10 @@ func SubmitDaySummary(
 
 		if input.Note != nil && strings.TrimSpace(*input.Note) != "" {
 			note, err := qtx.CreateReportEntry(ctx, store.CreateReportEntryParams{
-				ReportID:  report.ID,
-				Category:  domain.LogCategoryNote.String(),
+				ReportID: report.ID,
+				Category: domain.LogCategoryNote.String(),
 				ValueText: pgtype.Text{String: strings.TrimSpace(*input.Note), Valid: true},
+				PhotoUrls: []string{},
 				OccurredAt: pgtype.Timestamptz{
 					Time:  now,
 					Valid: true,
@@ -397,6 +430,9 @@ func AddEntry(
 	recipientID uuid.UUID,
 	contributorID uuid.UUID,
 	input AddEntryInput,
+	// photoBaseURL is the configured uploader's URL prefix (CGR-008);
+	// attachment URLs must fall under it.
+	photoBaseURL string,
 ) (store.ReportEntry, error) {
 	// 1. Validation — workspace-scoped lookup prevents cross-tenant writes.
 	recipient, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
@@ -412,6 +448,14 @@ func AddEntry(
 
 	if err := validateAddEntryInput(input, domain.CareType(recipient.CareType)); err != nil {
 		return store.ReportEntry{}, err
+	}
+	if photoErrs := validatePhotoURLs(input.PhotoUrls, photoBaseURL); len(photoErrs) > 0 {
+		return store.ReportEntry{}, ErrValidation{Errors: photoErrs}
+	}
+	// Normalize: nil would encode as NULL and violate photo_urls NOT NULL.
+	photoUrls := input.PhotoUrls
+	if photoUrls == nil {
+		photoUrls = []string{}
 	}
 
 	// 2. Transactional Upsert Report + Add Entry
@@ -481,6 +525,7 @@ func AddEntry(
 			ValueText:   valueText,
 			ValueNumber: valueNumber,
 			ValueJson:   input.ValueJson,
+			PhotoUrls:   photoUrls,
 			OccurredAt:  pgtype.Timestamptz{Time: occurredAt, Valid: true},
 		})
 		if err != nil {

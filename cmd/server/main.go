@@ -19,6 +19,7 @@ import (
 	"github.com/sicecep/carelog/internal/config"
 	"github.com/sicecep/carelog/internal/jobs"
 	"github.com/sicecep/carelog/internal/mail"
+	"github.com/sicecep/carelog/internal/media"
 	apihttp "github.com/sicecep/carelog/internal/http"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -90,6 +91,21 @@ func main() {
 		logger.Info("using noop mailer (no RESEND_API_KEY set)")
 	}
 
+	// Photo uploader (CGR-008). Same optional-dep pattern as the mailer:
+	// without IMAGEKIT_* config we fall back to deterministic dev URLs so
+	// the whole flow stays testable; production requires the real keys.
+	var uploader media.PhotoUploader
+	if cfg.ImageKitPrivateKey != "" {
+		uploader = &media.ImageKitUploader{
+			PrivateKey: cfg.ImageKitPrivateKey,
+			Endpoint:   cfg.ImageKitURLEndpoint,
+		}
+		logger.Info("using ImageKit photo uploader", "endpoint", cfg.ImageKitURLEndpoint)
+	} else {
+		uploader = media.NewDevUploader()
+		logger.Info("using DEV photo uploader (no IMAGEKIT_* set) — photos are fake URLs")
+	}
+
 	// Background jobs: the daily 17:00 WIB digest (OWN-011) and the
 	// 15-minute overdue-task sweep (TSK-003). The fire-loops and processor
 	// run inside this process — no external cron needed; task IDs in Redis
@@ -128,6 +144,7 @@ func main() {
 		RefreshSvc:   refreshSvc,
 		Signer:       signer,
 		Mailer:       mailer,
+		Uploader:     uploader,
 		WebBaseURL:   cfg.WebBaseURL,
 		APIBaseURL:   cfg.AppBaseURL,
 		CookieDomain: cfg.CookieDomain,
