@@ -129,18 +129,15 @@ async function main() {
     // ("Tandai Selesai"), so this locator would no longer resolve and
     // boundingBox() would hang until timeout.
     //
-    // NOTE: asserted at 48px, which is what .btn-base/.touch-target actually
-    // ship app-wide in globals.css. The written project standard is 56px —
-    // that gap is real and pre-existing across EVERY button in CareLog, not
-    // something this feature introduced. Raise this threshold to 56 in the
-    // same change that bumps the design tokens, otherwise this test fails for
-    // a reason that has nothing to do with tasks.
+    // 56px is now the real shipped value (the design tokens were raised from
+    // 48px app-wide). scripts/e2e-touch-targets.cjs enforces this across every
+    // screen; this check keeps the task tile honest in isolation.
     if (advanceCount === 1) {
       const box = await advanceBtn.boundingBox();
-      check("U7. advance button meets the 48px shipped touch target",
-        !!box && box.height >= 48, box ? `h=${Math.round(box.height)}` : "no box");
+      check("U7. advance button meets the 56px touch target",
+        !!box && box.height >= 56, box ? `h=${Math.round(box.height)}` : "no box");
     } else {
-      check("U7. advance button meets the 48px shipped touch target", false, "button missing");
+      check("U7. advance button meets the 56px touch target", false, "button missing");
     }
 
     // ── Real click advances the status, and the DB agrees ───────────────

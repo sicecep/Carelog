@@ -53,7 +53,7 @@ export default async function LoginPage({ params }: LoginPageProps) {
             disabled
             aria-disabled="true"
             aria-describedby="google-coming-soon"
-            className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-base font-medium text-gray-700 opacity-50"
+            className="btn-base btn-secondary touch-target w-full cursor-not-allowed opacity-50"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
               <path

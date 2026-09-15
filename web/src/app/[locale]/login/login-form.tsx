@@ -62,8 +62,11 @@ export function LoginForm({ variant = "login" }: { variant?: "login" | "register
         <label htmlFor="email" className="block text-base font-medium text-gray-700">
           {t("email")}
         </label>
-        {/* h-12 (48px) and text-base (16px) are deliberate: large tap target, and
-            >=16px stops iOS Safari zooming in on focus. */}
+        {/* input-base carries the 56px height and the >=16px font that stops
+            iOS Safari zooming on focus. This form predated the design system
+            and hardcoded h-12 (48px) with raw Tailwind colors, which is how
+            the first screen every caregiver sees ended up below the project's
+            own touch-target standard. */}
         <input
           id="email"
           name="email"
@@ -74,14 +77,14 @@ export function LoginForm({ variant = "login" }: { variant?: "login" | "register
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t("emailPlaceholder")}
-          className="mt-1 block h-12 w-full rounded-md border border-gray-300 px-3 text-base text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-base mt-1 block w-full"
         />
       </div>
 
       <button
         type="submit"
         disabled={status === "loading"}
-        className="flex h-12 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn-base btn-primary touch-target w-full"
       >
         {status === "loading"
           ? isRegister

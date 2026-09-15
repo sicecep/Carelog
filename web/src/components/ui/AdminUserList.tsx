@@ -156,7 +156,7 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                       type="button"
                       onClick={() => handleApprove(u.id)}
                       disabled={busy}
-                      className="btn-base btn-primary touch-target min-h-[56px] px-4 disabled:opacity-50"
+                      className="btn-base btn-primary touch-target px-4 disabled:opacity-50"
                     >
                       {busy ? t("approving") : t("approve")}
                     </button>
@@ -166,7 +166,7 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                       type="button"
                       onClick={() => handleReject(u.id)}
                       disabled={busy}
-                      className="btn-base btn-ghost touch-target min-h-[56px] px-4 text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
+                      className="btn-base btn-ghost touch-target px-4 text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
                     >
                       {busy ? t("rejecting") : t("reject")}
                     </button>
