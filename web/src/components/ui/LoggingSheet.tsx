@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { X, CheckCircle, Clock } from "phosphor-react";
 import { cn } from "@/lib/utils";
-import { type LogCategory } from "@/lib/constants.generated";
+import { type LogCategory, VITAL_SPECS } from "@/lib/constants.generated";
 import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories";
 import { recipientApi, APIError } from "@/lib/api-client";
 import { CategoryGrid } from "./CategoryGrid";
@@ -20,7 +20,7 @@ interface LoggingSheetProps {
   onLogged?: () => void;
 }
 
-type Step = "category" | "subcategory" | "backfill";
+type Step = "category" | "subcategory" | "backfill" | "vital";
 
 const NOTE_MAX = 500;
 
@@ -28,6 +28,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   const t = useTranslations("logging");
   const tCategories = useTranslations("reports.categories");
   const tSubcategories = useTranslations("logging.subcategories");
+  const tVitalFields = useTranslations("logging.vitalFields");
 
   const [step, setStep] = useState<Step>("category");
   const [category, setCategory] = useState<LogCategory | null>(null);
@@ -38,8 +39,12 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   const [occurredAt, setOccurredAt] = useState<Date | undefined>(undefined);
   const [backfillMode, setBackfillMode] = useState(false);
   const [pendingSub, setPendingSub] = useState<LogSubcategory | undefined>(undefined);
+  const [vitalValues, setVitalValues] = useState<Record<string, string>>({});
 
   const backfillOptions = useMemo(() => buildBackfillOptions(), []);
+
+  // The spec for the vital being entered, when the sheet is on the vital step.
+  const vitalSpec = pendingSub ? VITAL_SPECS[pendingSub] : undefined;
 
   const reset = useCallback(() => {
     setStep("category");
@@ -51,6 +56,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setOccurredAt(undefined);
     setBackfillMode(false);
     setPendingSub(undefined);
+    setVitalValues({});
   }, []);
 
   const handleClose = useCallback(() => {
@@ -59,7 +65,13 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   }, [reset, onClose]);
 
   const submitEntry = useCallback(
-    async (cat: LogCategory, sub: LogSubcategory | undefined, text?: string, time?: Date) => {
+    async (
+      cat: LogCategory,
+      sub: LogSubcategory | undefined,
+      text?: string,
+      time?: Date,
+      vitals?: Record<string, number>
+    ) => {
       setSubmitting(sub ?? (text ? "__text__" : "__none__"));
       setError(null);
       try {
@@ -67,6 +79,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           category: cat,
           subcategory: sub,
           value_text: text,
+          value_json: vitals,
           occurred_at: (time ?? occurredAt ?? new Date()).toISOString(),
         });
         setSuccess(true);
@@ -102,6 +115,15 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   }, [backfillMode, submitEntry]);
 
   const handleSubSelect = useCallback((sub: LogSubcategory) => {
+    if (VITAL_SPECS[sub]) {
+      // Vitals (CGR-009) need a numeric measurement before they can be
+      // logged — a health record without a number is worse than none.
+      setPendingSub(sub);
+      setVitalValues({});
+      setError(null);
+      setStep("vital");
+      return;
+    }
     if (backfillMode) {
       setPendingSub(sub);
       setStep("backfill");
@@ -112,8 +134,16 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   const handleBackfillSelect = useCallback((opt: BackfillOption) => {
     if (!category) return;
-    void submitEntry(category, pendingSub, category === "note" ? noteText : undefined, opt.date);
-  }, [category, pendingSub, noteText, submitEntry]);
+    const vitals = vitalSpec ? parseVitalValues(vitalSpec, vitalValues) : undefined;
+    if (vitalSpec && vitals === undefined) return; // invalid entries: stay put
+    void submitEntry(
+      category,
+      pendingSub,
+      category === "note" ? noteText : undefined,
+      opt.date,
+      vitals
+    );
+  }, [category, pendingSub, noteText, vitalSpec, vitalValues, submitEntry]);
 
   if (!open) return null;
 
@@ -156,7 +186,15 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           <div>
             <button
               type="button"
-              onClick={() => setStep(category === "note" || subcategories.length > 0 ? "subcategory" : "category")}
+              onClick={() =>
+                setStep(
+                  pendingSub && VITAL_SPECS[pendingSub]
+                    ? "vital"
+                    : category === "note" || subcategories.length > 0
+                      ? "subcategory"
+                      : "category"
+                )
+              }
               className="mb-4 text-base font-semibold text-[var(--color-accent)] touch-target"
             >
               {t("back")}
@@ -198,6 +236,88 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                   {opt.label}
                 </button>
               ))}
+            </div>
+          </div>
+        ) : step === "vital" && vitalSpec && category ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setStep("subcategory")}
+              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+            >
+              {t("back")}
+            </button>
+
+            <div className="space-y-4">
+              {vitalSpec.fields.map((field) => {
+                const raw = vitalValues[field] ?? "";
+                const parsed = raw.trim() === "" ? NaN : Number(raw);
+                // A spec always carries ranges for exactly its own fields;
+                // the fallbacks only satisfy the Partial<Record> type.
+                const min = vitalSpec.min[field] ?? Number.NEGATIVE_INFINITY;
+                const max = vitalSpec.max[field] ?? Number.POSITIVE_INFINITY;
+                const outOfRange = Number.isFinite(parsed) && (parsed < min || parsed > max);
+                return (
+                  <div key={field}>
+                    <label
+                      htmlFor={`vital-${field}`}
+                      className="mb-1 block text-sm font-semibold text-[var(--color-text)]"
+                    >
+                      {tVitalFields(field)} ({vitalSpec.unit})
+                    </label>
+                    <input
+                      id={`vital-${field}`}
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      autoFocus={field === vitalSpec.fields[0]}
+                      value={raw}
+                      onChange={(e) => setVitalValues((prev) => ({ ...prev, [field]: e.target.value }))}
+                      aria-invalid={outOfRange}
+                      className={cn(
+                        "input-base touch-target w-full py-3 text-base tabular-nums",
+                        outOfRange && "border-[var(--color-error-ink)]"
+                      )}
+                    />
+                    {outOfRange && (
+                      <p className="mt-1 text-xs text-[var(--color-error-ink)]" role="alert">
+                        {t("vitalRangeError", { min, max, unit: vitalSpec.unit })}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => setBackfillMode(!backfillMode)}
+                className={cn(
+                  "flex-1 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
+                  backfillMode
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
+                    : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                )}
+              >
+                {t("backfillToggle")}
+              </button>
+              <button
+                type="button"
+                disabled={submitting !== null || parseVitalValues(vitalSpec, vitalValues) === undefined}
+                onClick={() => {
+                  const vitals = parseVitalValues(vitalSpec, vitalValues);
+                  if (vitals === undefined) return;
+                  if (backfillMode) {
+                    setStep("backfill");
+                  } else {
+                    void submitEntry(category, pendingSub, undefined, undefined, vitals);
+                  }
+                }}
+                className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
+              >
+                {submitting !== null ? t("noteSaving") : t("vitalSave")}
+              </button>
             </div>
           </div>
         ) : category === "note" ? (
@@ -300,4 +420,29 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
       </div>
     </div>
   );
+}
+
+// parseVitalValues validates the raw text inputs against the spec's ranges
+// (mirroring the server's rules) and returns the numeric payload, or
+// undefined when any field is missing, non-numeric, or out of range —
+// including the blood-pressure rule that systolic must exceed diastolic.
+function parseVitalValues(
+  spec: (typeof VITAL_SPECS)[keyof typeof VITAL_SPECS],
+  raw: Record<string, string>
+): Record<string, number> | undefined {
+  const out: Record<string, number> = {};
+  for (const field of spec.fields) {
+    const text = (raw[field] ?? "").trim();
+    if (text === "") return undefined;
+    const num = Number(text);
+    if (!Number.isFinite(num)) return undefined;
+    const min = spec.min[field] ?? Number.NEGATIVE_INFINITY;
+    const max = spec.max[field] ?? Number.POSITIVE_INFINITY;
+    if (num < min || num > max) return undefined;
+    out[field] = num;
+  }
+  if ("systolic" in out && "diastolic" in out && out.systolic <= out.diastolic) {
+    return undefined;
+  }
+  return out;
 }

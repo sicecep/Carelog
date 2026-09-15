@@ -63,4 +63,47 @@ export const PLAN_LIMITS = {
   pro: { maxRecipients: null, maxCaregivers: null, historyDays: null, storageMB: 20480, maxBackfillDays: 7 },
 } as const satisfies Record<Plan, PlanLimit>;
 
+export type VitalField = "diastolic" | "systolic" | "value";
+
+export interface VitalSpec {
+  subcategory: string;
+  fields: readonly VitalField[];
+  min: Readonly<Partial<Record<VitalField, number>>>;
+  max: Readonly<Partial<Record<VitalField, number>>>;
+  unit: string;
+}
+
+export const VITAL_SUBCATEGORIES = ["temperature", "blood_pressure", "spo2", "weight"] as const;
+
+export const VITAL_SPECS: Record<string, VitalSpec> = {
+  "temperature": {
+    subcategory: "temperature",
+    fields: ["value"],
+    min: { "value": 34, },
+    max: { "value": 42, },
+    unit: "°C",
+  },
+  "blood_pressure": {
+    subcategory: "blood_pressure",
+    fields: ["systolic", "diastolic"],
+    min: { "systolic": 40, "diastolic": 20, },
+    max: { "systolic": 300, "diastolic": 200, },
+    unit: "mmHg",
+  },
+  "spo2": {
+    subcategory: "spo2",
+    fields: ["value"],
+    min: { "value": 70, },
+    max: { "value": 100, },
+    unit: "%",
+  },
+  "weight": {
+    subcategory: "weight",
+    fields: ["value"],
+    min: { "value": 1, },
+    max: { "value": 300, },
+    unit: "kg",
+  },
+} satisfies Record<string, VitalSpec>;
+
 export const DEFAULT_LOCALE: Locale = "id";

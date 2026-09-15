@@ -16,9 +16,23 @@ import {
   WhatsappLogo,
   CheckCircle,
 } from "phosphor-react";
-import { CARE_TYPES, MODULES, type CareType, type Module } from "@/lib/constants.generated";
+import { CARE_TYPES, MODULES, VITAL_SPECS, type CareType, type Module } from "@/lib/constants.generated";
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
+
+// formatVitalMeasurement renders a stored vital for the timeline (CGR-009):
+// single-field vitals as "36.8 °C", blood pressure as "120/80 mmHg".
+function formatVitalMeasurement(subcategory: string, values: Record<string, number>): string {
+  const spec = VITAL_SPECS[subcategory];
+  if (!spec) return "";
+  if (values.systolic !== undefined && values.diastolic !== undefined) {
+    return `${values.systolic}/${values.diastolic} ${spec.unit}`;
+  }
+  if (values.value !== undefined) {
+    return `${values.value} ${spec.unit}`;
+  }
+  return "";
+}
 
 const careTypeIcons = {
   infant: Baby,
@@ -321,6 +335,11 @@ export function TimelineList({
                 </div>
                 {entry.value_text && (
                   <p className="mt-1 text-base text-[var(--color-text)]">{entry.value_text}</p>
+                )}
+                {entry.value_json && entry.subcategory && VITAL_SPECS[entry.subcategory] && (
+                  <p className="mt-1 text-base font-semibold tabular-nums text-[var(--color-text)]">
+                    {formatVitalMeasurement(entry.subcategory, entry.value_json)}
+                  </p>
                 )}
                 {entry.contributor_name && (
                   <p className="mt-1 text-sm text-[var(--color-text-muted)]">

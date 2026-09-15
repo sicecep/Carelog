@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -42,6 +43,15 @@ func validateAddEntryInput(input AddEntryInput, careType domain.CareType) error 
 		valErrs = append(valErrs, RecipientError{Field: "value_text", Message: fmt.Sprintf("note too long (max %d chars)", domain.MaxNoteLength)})
 	}
 
+	// Vitals (CGR-009 / HLT-001): a vital entry without a valid structured
+	// measurement must never be stored — a medical record that says
+	// "temperature" with no number is worse than no record, because it looks
+	// like one.
+	if input.Category == domain.LogCategoryHealth && input.Subcategory != nil &&
+		domain.IsVitalSubcategory(*input.Subcategory) {
+		valErrs = append(valErrs, validateVitalPayload(*input.Subcategory, input.ValueJson)...)
+	}
+
 	// Time validation (LOG-003.4)
 	occurredAt := time.Now()
 	if input.OccurredAt != nil {
@@ -62,6 +72,60 @@ func validateAddEntryInput(input AddEntryInput, careType domain.CareType) error 
 		return ErrValidation{Errors: valErrs}
 	}
 	return nil
+}
+
+// validateVitalPayload ensures the JSON payload for a vital sign conforms to
+// its specification (HLT-001).
+func validateVitalPayload(sub domain.LogSubcategory, payload []byte) []RecipientError {
+	var valErrs []RecipientError
+
+	spec, ok := domain.VitalSpecs[sub]
+	if !ok {
+		// Not a vital subcategory, skip validation
+		return nil
+	}
+
+	if len(payload) == 0 {
+		valErrs = append(valErrs, RecipientError{Field: "value_json", Message: "measurement is required"})
+		return valErrs
+	}
+
+	var data map[string]float64
+	if err := json.Unmarshal(payload, &data); err != nil {
+		valErrs = append(valErrs, RecipientError{Field: "value_json", Message: "invalid JSON format"})
+		return valErrs
+	}
+
+	for _, field := range spec.Fields {
+		val, exists := data[string(field)]
+		if !exists {
+			valErrs = append(valErrs, RecipientError{Field: "value_json", Message: fmt.Sprintf("missing required field: %s", field)})
+			continue
+		}
+
+		min := spec.Min[field]
+		max := spec.Max[field]
+		if val < min || val > max {
+			valErrs = append(valErrs, RecipientError{
+				Field:   "value_json",
+				Message: fmt.Sprintf("%s must be between %v and %v %s", field, min, max, spec.Unit),
+			})
+		}
+	}
+
+	// Cross-field rule: systolic must exceed diastolic
+	if sub == domain.SubcategoryHealthBloodPressure {
+		sys := data[string(domain.VitalFieldSystolic)]
+		dia := data[string(domain.VitalFieldDiastolic)]
+		if sys > 0 && dia > 0 && sys <= dia {
+			valErrs = append(valErrs, RecipientError{
+				Field:   "value_json",
+				Message: "systolic pressure must be greater than diastolic pressure",
+			})
+		}
+	}
+
+	return valErrs
 }
 
 // AddEntryInput is the payload for adding an entry to a daily report.

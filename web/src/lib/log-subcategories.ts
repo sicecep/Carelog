@@ -9,7 +9,7 @@ export const LOG_SUBCATEGORIES: Record<LogCategory, LogSubcategory[]> = {
   medication: ["vitamin_d", "iron", "multivitamin", "custom"],
   activity: ["outdoor_play", "indoor_play", "reading", "tv", "bath", "walk", "educational_toy", "drawing", "singing"],
   mood: ["happy", "calm", "fussy", "crying", "sleepy", "irritable"],
-  health: ["sneezing", "coughing", "vomiting", "rash", "normal"],
+  health: ["sneezing", "coughing", "vomiting", "rash", "normal", "temperature", "blood_pressure", "spo2", "weight"],
   learning: [],
   therapy: [],
   note: [],

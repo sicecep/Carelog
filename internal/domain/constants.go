@@ -196,6 +196,14 @@ const (
 	SubcategoryHealthVomiting LogSubcategory = "vomiting"
 	SubcategoryHealthRash     LogSubcategory = "rash"
 	SubcategoryHealthNormal   LogSubcategory = "normal"
+
+	// Health vitals (CGR-009 / HLT-001). Quantitative measurements, unlike the
+	// symptom subcategories above: each carries a structured value_json and is
+	// range-checked before it can be stored.
+	SubcategoryHealthTemperature   LogSubcategory = "temperature"
+	SubcategoryHealthBloodPressure LogSubcategory = "blood_pressure"
+	SubcategoryHealthSpO2          LogSubcategory = "spo2"
+	SubcategoryHealthWeight        LogSubcategory = "weight"
 )
 
 func (s LogSubcategory) String() string { return string(s) }
@@ -228,7 +236,86 @@ var subcategories = map[LogCategory][]LogSubcategory{
 	LogCategoryHealth: {
 		SubcategoryHealthSneezing, SubcategoryHealthCoughing, SubcategoryHealthVomiting,
 		SubcategoryHealthRash, SubcategoryHealthNormal,
+		SubcategoryHealthTemperature, SubcategoryHealthBloodPressure,
+		SubcategoryHealthSpO2, SubcategoryHealthWeight,
 	},
+}
+
+// VitalField is one numeric measurement inside a vital reading.
+type VitalField string
+
+const (
+	VitalFieldValue     VitalField = "value"     // single-number vitals
+	VitalFieldSystolic  VitalField = "systolic"  // blood pressure
+	VitalFieldDiastolic VitalField = "diastolic" // blood pressure
+)
+
+// VitalSpec describes a vital sign (CGR-009 / HLT-001): the fields its
+// value_json must carry, and the inclusive numeric range each field accepts.
+//
+// Ranges come from the PRD (HLT-001): Temperature 34.0–42.0 °C, SpO2 70–100 %,
+// Weight 1–300 kg. The PRD gives no blood-pressure bounds, so systolic and
+// diastolic use clinically sane envelopes (40–300 / 20–200 mmHg) wide enough
+// to never reject a real reading, tight enough to catch a swapped/typo value.
+// Systolic must additionally exceed diastolic — enforced by the service, not
+// expressible as per-field ranges.
+type VitalSpec struct {
+	Subcategory LogSubcategory
+	// Fields is the exact set value_json must provide, in order.
+	Fields []VitalField
+	Min    map[VitalField]float64
+	Max    map[VitalField]float64
+	// Unit is the display unit, shared by API responses and the tsgen mirror.
+	Unit string
+}
+
+// VitalSpecs is the vitals table, keyed by subcategory.
+var VitalSpecs = map[LogSubcategory]VitalSpec{
+	SubcategoryHealthTemperature: {
+		Subcategory: SubcategoryHealthTemperature,
+		Fields:      []VitalField{VitalFieldValue},
+		Min:         map[VitalField]float64{VitalFieldValue: 34.0},
+		Max:         map[VitalField]float64{VitalFieldValue: 42.0},
+		Unit:        "°C",
+	},
+	SubcategoryHealthBloodPressure: {
+		Subcategory: SubcategoryHealthBloodPressure,
+		Fields:      []VitalField{VitalFieldSystolic, VitalFieldDiastolic},
+		Min: map[VitalField]float64{
+			VitalFieldSystolic: 40, VitalFieldDiastolic: 20,
+		},
+		Max: map[VitalField]float64{
+			VitalFieldSystolic: 300, VitalFieldDiastolic: 200,
+		},
+		Unit: "mmHg",
+	},
+	SubcategoryHealthSpO2: {
+		Subcategory: SubcategoryHealthSpO2,
+		Fields:      []VitalField{VitalFieldValue},
+		Min:         map[VitalField]float64{VitalFieldValue: 70},
+		Max:         map[VitalField]float64{VitalFieldValue: 100},
+		Unit:        "%",
+	},
+	SubcategoryHealthWeight: {
+		Subcategory: SubcategoryHealthWeight,
+		Fields:      []VitalField{VitalFieldValue},
+		Min:         map[VitalField]float64{VitalFieldValue: 1},
+		Max:         map[VitalField]float64{VitalFieldValue: 300},
+		Unit:        "kg",
+	},
+}
+
+// VitalSubcategories lists the vital subcategories in display order.
+var VitalSubcategories = []LogSubcategory{
+	SubcategoryHealthTemperature, SubcategoryHealthBloodPressure,
+	SubcategoryHealthSpO2, SubcategoryHealthWeight,
+}
+
+// IsVitalSubcategory reports whether a health subcategory is a quantitative
+// vital rather than a qualitative symptom.
+func IsVitalSubcategory(s LogSubcategory) bool {
+	_, ok := VitalSpecs[s]
+	return ok
 }
 
 // LogSubcategoriesFor returns the valid subcategories for a category.
