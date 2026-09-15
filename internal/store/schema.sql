@@ -299,3 +299,53 @@ CREATE INDEX idx_notifications_unread
 CREATE UNIQUE INDEX idx_notifications_once_per_subject
     ON notifications(user_id, type, subject_id)
     WHERE subject_id IS NOT NULL;
+
+-- ─── AUTH-005: caregiver phone + device-bound PIN ────────────────────────────
+
+CREATE TABLE user_pins (
+    user_id      UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    -- argon2id PHC string; parameters travel with the hash.
+    pin_hash     TEXT NOT NULL,
+    failed_count INT NOT NULL DEFAULT 0,
+    locked_until TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The raw device secret lives only in the client cookie; we store SHA-256.
+CREATE TABLE trusted_devices (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash   BYTEA NOT NULL UNIQUE,
+    label        TEXT,
+    last_seen_at TIMESTAMPTZ,
+    revoked_at   TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_trusted_devices_user ON trusted_devices(user_id) WHERE revoked_at IS NULL;
+
+-- Owner-approved PIN reset. Approval yields a single-use re-enrolment token
+-- bound to the requesting device, never a session.
+CREATE TABLE pin_reset_requests (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    workspace_id  UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    device_hash   BYTEA NOT NULL,
+    device_label  TEXT,
+    requested_ip  INET,
+    status        TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'denied', 'used', 'expired')),
+    reset_hash    BYTEA,
+    approved_by   UUID REFERENCES users(id) ON DELETE SET NULL,
+    approved_at   TIMESTAMPTZ,
+    expires_at    TIMESTAMPTZ NOT NULL,
+    consumed_at   TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_pin_reset_pending ON pin_reset_requests(workspace_id, created_at)
+    WHERE status = 'pending';
+
+CREATE UNIQUE INDEX idx_pin_reset_one_pending ON pin_reset_requests(user_id)
+    WHERE status = 'pending';
