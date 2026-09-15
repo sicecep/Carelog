@@ -18,6 +18,9 @@ type Querier interface {
 	// Scoped by workspace_id for tenant safety.
 	AcknowledgeIncident(ctx context.Context, arg AcknowledgeIncidentParams) (Incident, error)
 	AddWorkspaceMember(ctx context.Context, arg AddWorkspaceMemberParams) error
+	// Guarded on status and expiry so an already-approved or stale request
+	// cannot be re-approved into a second valid token.
+	ApprovePINReset(ctx context.Context, arg ApprovePINResetParams) (PinResetRequest, error)
 	// Records who approved and when, so the decision is auditable after the fact.
 	// Clears any previous rejection_reason: approving supersedes a past rejection.
 	ApproveUser(ctx context.Context, arg ApproveUserParams) (User, error)
@@ -30,6 +33,8 @@ type Querier interface {
 	// own shift, and only while it is still open.
 	CheckOutShift(ctx context.Context, arg CheckOutShiftParams) (Shift, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
+	// Called after a successful verification.
+	ClearPINFailures(ctx context.Context, userID uuid.UUID) error
 	// Single-use claim. The WHERE clause is the guard: it only matches a row that
 	// is still unconsumed, unrevoked and unexpired, so a double-claim affects zero
 	// rows and returns ErrNoRows rather than granting access twice.
@@ -39,6 +44,9 @@ type Querier interface {
 	// A miss means the link was already consumed, expired, or never existed —
 	// GetMagicLinkByHash tells the three apart for logging.
 	ConsumeMagicLink(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
+	// Single-use: the same token can never be redeemed twice, and it only works
+	// from the device that asked (device_hash must match).
+	ConsumePINReset(ctx context.Context, arg ConsumePINResetParams) (PinResetRequest, error)
 	CountActiveRecipientsByWorkspace(ctx context.Context, workspaceID uuid.UUID) (int64, error)
 	// NOT-002: the unread badge.
 	CountUnreadNotifications(ctx context.Context, arg CountUnreadNotificationsParams) (int64, error)
@@ -67,6 +75,10 @@ type Querier interface {
 	// Returns no row when the notification was already sent, which callers use to
 	// count what was actually delivered.
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	// ─── PIN reset requests ─────────────────────────────────────────────────────
+	// One pending request per user (partial unique index): re-asking refreshes
+	// the existing row instead of queueing a second prompt for the owner.
+	CreatePINResetRequest(ctx context.Context, arg CreatePINResetRequestParams) (PinResetRequest, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateReportEntry(ctx context.Context, arg CreateReportEntryParams) (ReportEntry, error)
 	// Tasks (OWN-006 / TSK-001 / TSK-002): owner creates and assigns tasks to a
@@ -76,6 +88,8 @@ type Querier interface {
 	// Owner-side create. assigned_to may be NULL when the owner is drafting a
 	// household reminder without picking a caregiver yet.
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
+	// ─── Trusted devices ────────────────────────────────────────────────────────
+	CreateTrustedDevice(ctx context.Context, arg CreateTrustedDeviceParams) (TrustedDevice, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error
@@ -101,6 +115,7 @@ type Querier interface {
 	// otherwise the allow-list is write-only and a removed operator keeps access
 	// forever. Approval status is left untouched — demotion is not rejection.
 	DemoteSuperAdminsNotIn(ctx context.Context, emails []string) error
+	DenyPINReset(ctx context.Context, arg DenyPINResetParams) error
 	// The caregiver's currently open shift (checked_out_at IS NULL), if any.
 	// Scoped by workspace_id for tenant safety.
 	GetActiveShift(ctx context.Context, arg GetActiveShiftParams) (Shift, error)
@@ -131,12 +146,16 @@ type Querier interface {
 	// Workspace-scoped fetch. Returns nothing across workspaces, so a tenant
 	// guessing an ID gets 404 not 403 (no existence leak).
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
+	// Only unrevoked devices authenticate. A revoked row is kept for the audit
+	// trail but must never match.
+	GetTrustedDeviceByHash(ctx context.Context, tokenHash []byte) (TrustedDevice, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
 	// Phone is stored canonically (E.164), so this is an exact match — callers
 	// must normalize before looking up, or a user types "0812…" and gets a
 	// second account.
 	GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error)
+	GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
 	// Resolved per request by the workspace middleware. Role is never a JWT claim
@@ -207,6 +226,8 @@ type Querier interface {
 	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
 	// Owner-facing list of outstanding invites for the workspace.
 	ListPendingInvitations(ctx context.Context, workspaceID uuid.UUID) ([]Invitation, error)
+	// Backs the owner's approval UI.
+	ListPendingPINResets(ctx context.Context, workspaceID uuid.UUID) ([]ListPendingPINResetsRow, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
@@ -217,6 +238,7 @@ type Querier interface {
 	// Owner/viewer view: everything for one recipient in date/time order.
 	// NULL due_time sorts LAST within a day (end-of-day sentinel).
 	ListTasksForRecipient(ctx context.Context, arg ListTasksForRecipientParams) ([]Task, error)
+	ListTrustedDevices(ctx context.Context, userID uuid.UUID) ([]TrustedDevice, error)
 	// Backs the super-admin dashboard. Oldest first: the person who has been
 	// waiting longest should be the first one an admin sees.
 	ListUsersByApprovalStatus(ctx context.Context, arg ListUsersByApprovalStatusParams) ([]ListUsersByApprovalStatusRow, error)
@@ -261,16 +283,23 @@ type Querier interface {
 	// guard: it makes restoring another workspace's recipient impossible even with
 	// a guessed ID.
 	ReactivateCareRecipient(ctx context.Context, arg ReactivateCareRecipientParams) error
+	// Increments the counter and locks once the threshold is crossed. Doing both
+	// in one statement keeps concurrent attempts from racing past the limit.
+	RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (UserPin, error)
 	// Rejection is reversible (an admin can approve later), so the row is kept
 	// rather than deleted — the audit trail is the point.
 	RejectUser(ctx context.Context, arg RejectUserParams) (User, error)
 	RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error
+	// Used when an owner removes a caregiver, or the caregiver resets their PIN:
+	// every previously enrolled device must stop being a valid possession factor.
+	RevokeAllTrustedDevices(ctx context.Context, userID uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	// WRK-004.2: owner cancels an outstanding invite. Workspace-scoped so an owner
 	// cannot revoke another tenant's invitation.
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (Invitation, error)
 	// Used by logout and by reuse detection; kills every token in the lineage.
 	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
+	RevokeTrustedDevice(ctx context.Context, arg RevokeTrustedDeviceParams) error
 	// Marks a brand-new self-registering user as awaiting admin approval.
 	//
 	// This is deliberately NOT folded into UpsertUserByEmail: that statement runs on
@@ -297,6 +326,7 @@ type Querier interface {
 	// window they covered. LEFT JOIN keeps a contributor who opened a report but
 	// logged nothing — that absence is itself information for the owner.
 	SummarizeShiftsByRecipientAndDate(ctx context.Context, arg SummarizeShiftsByRecipientAndDateParams) ([]SummarizeShiftsByRecipientAndDateRow, error)
+	TouchTrustedDevice(ctx context.Context, id uuid.UUID) error
 	UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipientParams) (CareRecipient, error)
 	UpdateDailyReport(ctx context.Context, arg UpdateDailyReportParams) (DailyReport, error)
 	// Scoped by workspace_id for tenant safety.
@@ -341,6 +371,11 @@ type Querier interface {
 	// caller must not learn whether the account already existed, so insert and
 	// lookup are one statement.
 	UpsertUserByPhone(ctx context.Context, arg UpsertUserByPhoneParams) (User, error)
+	// AUTH-005: caregiver phone + device-bound PIN.
+	// Setting a PIN clears any lockout: the user has proven control through
+	// enrolment or an approved reset, so stale failure state must not follow
+	// them into the new PIN.
+	UpsertUserPIN(ctx context.Context, arg UpsertUserPINParams) (UserPin, error)
 }
 
 var _ Querier = (*Queries)(nil)

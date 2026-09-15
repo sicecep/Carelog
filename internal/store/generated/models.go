@@ -119,6 +119,22 @@ type ParentNote struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PinResetRequest struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	WorkspaceID uuid.UUID          `json:"workspace_id"`
+	DeviceHash  []byte             `json:"device_hash"`
+	DeviceLabel pgtype.Text        `json:"device_label"`
+	RequestedIp *netip.Addr        `json:"requested_ip"`
+	Status      string             `json:"status"`
+	ResetHash   []byte             `json:"reset_hash"`
+	ApprovedBy  pgtype.UUID        `json:"approved_by"`
+	ApprovedAt  pgtype.Timestamptz `json:"approved_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type PlanConfig struct {
 	Plan            string      `json:"plan"`
 	MaxRecipients   pgtype.Int4 `json:"max_recipients"`
@@ -182,6 +198,16 @@ type Task struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type TrustedDevice struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	TokenHash  []byte             `json:"token_hash"`
+	Label      pgtype.Text        `json:"label"`
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type User struct {
 	ID                  uuid.UUID          `json:"id"`
 	Email               pgtype.Text        `json:"email"`
@@ -201,6 +227,15 @@ type User struct {
 	IsSuperAdmin        bool               `json:"is_super_admin"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserPin struct {
+	UserID      uuid.UUID          `json:"user_id"`
+	PinHash     string             `json:"pin_hash"`
+	FailedCount int32              `json:"failed_count"`
+	LockedUntil pgtype.Timestamptz `json:"locked_until"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Workspace struct {
