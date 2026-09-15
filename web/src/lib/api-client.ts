@@ -149,6 +149,8 @@ export interface ReportEntry {
   subcategory?: LogSubcategory;
   value_text?: string;
   value_number?: number;
+  /** Structured vital measurement, e.g. {"value":36.8} or {"systolic":120,"diastolic":80}. */
+  value_json?: Record<string, number>;
   occurred_at: string;
   contributor_id: string;
   contributor_name: string;
@@ -247,6 +249,8 @@ export const recipientApi = {
       subcategory?: LogSubcategory;
       value_text?: string;
       value_number?: number;
+      /** Structured vital measurement, e.g. {"value": 36.8} or {"systolic": 120, "diastolic": 80}. */
+      value_json?: Record<string, number>;
       occurred_at?: string;
     }
   ) =>

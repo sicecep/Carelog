@@ -238,9 +238,20 @@
         "coughing": "Batuk",
         "vomiting": "Muntah",
         "rash": "Ruam",
-        "normal": "Normal"
+        "normal": "Normal",
+        "temperature": "Suhu Tubuh",
+        "blood_pressure": "Tekanan Darah",
+        "spo2": "SpO2",
+        "weight": "Berat Badan"
       }
     },
+    "vitalFields": {
+      "value": "Nilai",
+      "systolic": "Sistolik",
+      "diastolic": "Diastolik"
+    },
+    "vitalSave": "Simpan",
+    "vitalRangeError": "Harus antara {min} dan {max} {unit}",
     "notePlaceholder": "Apa yang ingin dicatat?",
     "noteSave": "Simpan catatan",
     "noteSaving": "Menyimpan...",

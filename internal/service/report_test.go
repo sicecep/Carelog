@@ -126,6 +126,159 @@ func TestGetOrCreateTodayReport_RaceCondition(t *testing.T) {
 	require.True(t, true)
 }
 
+// --- Vitals validation (CGR-009 / HLT-001) ---
+
+func TestAddEntryValidation_VitalMissingPayload_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthTemperature
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+	require.Contains(t, valErr.Errors[0].Message, "required")
+}
+
+func TestAddEntryValidation_VitalInvalidJSON_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthTemperature
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": "thirty-seven"}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+	require.Contains(t, valErr.Errors[0].Message, "invalid JSON")
+}
+
+func TestAddEntryValidation_VitalMissingField_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthSpO2
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+	require.Contains(t, valErr.Errors[0].Message, "missing")
+}
+
+func TestAddEntryValidation_TemperatureOutOfRange_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthTemperature
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": 43.5}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+	require.Contains(t, valErr.Errors[0].Message, "between 34 and 42")
+}
+
+func TestAddEntryValidation_TemperatureInRange_Passes(t *testing.T) {
+	sub := domain.SubcategoryHealthTemperature
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": 36.8}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.NoError(t, err)
+}
+
+func TestAddEntryValidation_BloodPressureSwapped_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthBloodPressure
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"systolic": 70, "diastolic": 120}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeElderly)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	found := false
+	for _, e := range valErr.Errors {
+		if e.Field == "value_json" && e.Message == "systolic pressure must be greater than diastolic pressure" {
+			found = true
+		}
+	}
+	require.True(t, found, "expected systolic>diastolic error, got %v", valErr.Errors)
+}
+
+func TestAddEntryValidation_BloodPressureValid_Passes(t *testing.T) {
+	sub := domain.SubcategoryHealthBloodPressure
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"systolic": 120, "diastolic": 80}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeElderly)
+	require.NoError(t, err)
+}
+
+func TestAddEntryValidation_SpO2OutOfRange_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthSpO2
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": 65}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+}
+
+func TestAddEntryValidation_WeightOutOfRange_Fails(t *testing.T) {
+	sub := domain.SubcategoryHealthWeight
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": 350}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "value_json", valErr.Errors[0].Field)
+}
+
+func TestAddEntryValidation_WeightValid_Passes(t *testing.T) {
+	sub := domain.SubcategoryHealthWeight
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+		ValueJson:   []byte(`{"value": 12.5}`),
+	}
+	err := validateAddEntryInput(input, domain.CareTypeInfant)
+	require.NoError(t, err)
+}
+
+func TestAddEntryValidation_SymptomNotVital_NoJSONRequired(t *testing.T) {
+	// Qualitative symptoms (e.g. sneezing) need no structured measurement.
+	sub := domain.SubcategoryHealthSneezing
+	input := AddEntryInput{
+		Category:    domain.LogCategoryHealth,
+		Subcategory: &sub,
+	}
+	err := validateAddEntryInput(input, domain.CareTypeChild)
+	require.NoError(t, err)
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

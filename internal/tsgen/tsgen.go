@@ -8,6 +8,7 @@ package tsgen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/sicecep/carelog/internal/domain"
@@ -43,6 +44,7 @@ func Render() []byte {
 
 	writeDefaultModules(&b)
 	writePlanLimits(&b)
+	writeVitalSpecs(&b)
 
 	fmt.Fprintf(&b, "\nexport const DEFAULT_LOCALE: Locale = %q;\n", domain.DefaultLocale.String())
 
@@ -105,6 +107,82 @@ func nullableInt(p *int) string {
 		return "null"
 	}
 	return fmt.Sprintf("%d", *p)
+}
+
+// writeVitalSpecs emits the vitals table (CGR-009 / HLT-001) the logging UI
+// uses to render the right numeric inputs. Emitting it (rather than
+// hand-writing it in TS) keeps the client's ranges and the server's validation
+// from drifting apart — a wider client range would just surface a server 400.
+func writeVitalSpecs(b *strings.Builder) {
+	fields := make(map[domain.VitalField]struct{})
+	for _, spec := range domain.VitalSpecs {
+		for _, f := range spec.Fields {
+			fields[f] = struct{}{}
+		}
+	}
+	fieldList := make([]string, 0, len(fields))
+	for f := range fields {
+		fieldList = append(fieldList, string(f))
+	}
+	// Map iteration is randomised in Go; sort so the emitted union type is
+	// byte-stable and the drift test doesn't flake.
+	sort.Strings(fieldList)
+	for i, f := range fieldList {
+		fieldList[i] = fmt.Sprintf("%q", f)
+	}
+	b.WriteString("\nexport type VitalField = ")
+	if len(fieldList) > 0 {
+		b.WriteString(strings.Join(fieldList, " | ") + ";")
+	} else {
+		b.WriteString("never;")
+	}
+	b.WriteString("\n")
+
+	b.WriteString("\nexport interface VitalSpec {\n")
+	b.WriteString("  subcategory: string;\n")
+	b.WriteString("  fields: readonly VitalField[];\n")
+	// Partial because a spec only carries ranges for its own fields — a
+	// temperature has no systolic, so Record<VitalField, number> would fail.
+	b.WriteString("  min: Readonly<Partial<Record<VitalField, number>>>;\n")
+	b.WriteString("  max: Readonly<Partial<Record<VitalField, number>>>;\n")
+	b.WriteString("  unit: string;\n")
+	b.WriteString("}\n")
+
+	b.WriteString("\nexport const VITAL_SUBCATEGORIES = [")
+	quoted := make([]string, 0, len(domain.VitalSubcategories))
+	for _, s := range domain.VitalSubcategories {
+		quoted = append(quoted, fmt.Sprintf("%q", s.String()))
+	}
+	b.WriteString(strings.Join(quoted, ", "))
+	b.WriteString("] as const;\n")
+
+	b.WriteString("\nexport const VITAL_SPECS: Record<string, VitalSpec> = {\n")
+	for _, s := range domain.VitalSubcategories {
+		spec := domain.VitalSpecs[s]
+		fieldsQuoted := make([]string, len(spec.Fields))
+		for i, f := range spec.Fields {
+			fieldsQuoted[i] = fmt.Sprintf("%q", string(f))
+		}
+		fmt.Fprintf(b, "  %q: {\n", s.String())
+		fmt.Fprintf(b, "    subcategory: %q,\n", spec.Subcategory.String())
+		fmt.Fprintf(b, "    fields: [%s],\n", strings.Join(fieldsQuoted, ", "))
+		b.WriteString("    min: { ")
+		for _, f := range spec.Fields {
+			fmt.Fprintf(b, "%q: %v, ", string(f), spec.Min[f])
+		}
+		b.WriteString("},\n")
+		b.WriteString("    max: { ")
+		for _, f := range spec.Fields {
+			fmt.Fprintf(b, "%q: %v, ", string(f), spec.Max[f])
+		}
+		b.WriteString("},\n")
+		fmt.Fprintf(b, "    unit: %q,\n", spec.Unit)
+		b.WriteString("  },\n")
+	}
+	// An explicit Record<string, VitalSpec> annotation (not `as const`, not
+	// bare `satisfies`) widens the literal object types so consumers can
+	// index min/max with a general VitalField.
+	b.WriteString("} satisfies Record<string, VitalSpec>;\n")
 }
 
 func toStrings[T ~string](in []T) []string {

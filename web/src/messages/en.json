@@ -238,9 +238,20 @@
         "coughing": "Coughing",
         "vomiting": "Vomiting",
         "rash": "Rash",
-        "normal": "Normal"
+        "normal": "Normal",
+        "temperature": "Temperature",
+        "blood_pressure": "Blood Pressure",
+        "spo2": "SpO2",
+        "weight": "Weight"
       }
     },
+    "vitalFields": {
+      "value": "Value",
+      "systolic": "Systolic",
+      "diastolic": "Diastolic"
+    },
+    "vitalSave": "Save",
+    "vitalRangeError": "Must be between {min} and {max} {unit}",
     "notePlaceholder": "What would you like to note?",
     "noteSave": "Save note",
     "noteSaving": "Saving...",

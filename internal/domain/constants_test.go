@@ -229,12 +229,17 @@ func TestLogSubcategories(t *testing.T) {
 
 	t.Run("Health subcategories", func(t *testing.T) {
 		subs := domain.LogSubcategoriesFor(domain.LogCategoryHealth)
-		require.Equal(t, 5, len(subs))
+		require.Equal(t, 9, len(subs))
 		require.Contains(t, subs, domain.SubcategoryHealthSneezing)
 		require.Contains(t, subs, domain.SubcategoryHealthCoughing)
 		require.Contains(t, subs, domain.SubcategoryHealthVomiting)
 		require.Contains(t, subs, domain.SubcategoryHealthRash)
 		require.Contains(t, subs, domain.SubcategoryHealthNormal)
+		// Vitals (CGR-009 / HLT-001)
+		require.Contains(t, subs, domain.SubcategoryHealthTemperature)
+		require.Contains(t, subs, domain.SubcategoryHealthBloodPressure)
+		require.Contains(t, subs, domain.SubcategoryHealthSpO2)
+		require.Contains(t, subs, domain.SubcategoryHealthWeight)
 	})
 
 	t.Run("Categories without subcategories return nil", func(t *testing.T) {
