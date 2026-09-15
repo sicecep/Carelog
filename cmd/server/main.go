@@ -145,6 +145,7 @@ func main() {
 		Signer:       signer,
 		Mailer:       mailer,
 		Uploader:     uploader,
+		Limiter:      redisClient,
 		WebBaseURL:   cfg.WebBaseURL,
 		APIBaseURL:   cfg.AppBaseURL,
 		CookieDomain: cfg.CookieDomain,

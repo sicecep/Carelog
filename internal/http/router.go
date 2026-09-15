@@ -45,6 +45,10 @@ type Deps struct {
 	// 500 and photo attachments fail validation — same optional-dep pattern
 	// as the mailer.
 	Uploader media.PhotoUploader
+	// Limiter backs the rate-limit middleware. Separate from Cache (typed
+	// Pinger for readiness) because limiting needs atomic INCR. nil is
+	// valid: the middleware then fails open.
+	Limiter middleware.Limiter
 	WebBaseURL   string
 	APIBaseURL   string
 	CookieDomain string
@@ -112,7 +116,7 @@ func NewRouter(deps Deps) http.Handler {
 			CookieDomain:  deps.CookieDomain,
 			Config:        deps.Config,
 		}
-		RegisterAuthRoutes(api, authHandlers)
+		RegisterAuthRoutes(api, authHandlers, deps.Limiter, logger)
 
 		// Public invitation routes (must NOT sit behind WorkspaceMiddleware as invitees aren't members yet)
 		invitationHandlers := &InvitationHandlers{
@@ -170,8 +174,17 @@ func NewRouter(deps Deps) http.Handler {
 			// Always mounted — a nil Uploader 500s at request time, but the
 			// route table stays stable across deployments (the #46 lesson:
 			// conditional mounts make route drift invisible to gates).
+			//
+			// PRD §14.4 caps photo uploads at 20/hour/caregiver. Keyed by
+			// user (not IP) so caregivers sharing a household connection
+			// get their own budgets.
 			uploadHandlers := &UploadHandlers{Uploader: deps.Uploader}
-			r.Post("/uploads", HandlerFunc(uploadHandlers.handleUploadPhoto).Wrap())
+			r.With(middleware.RateLimitMiddleware(deps.Limiter, logger, middleware.RateLimit{
+				Name:    "photo_upload",
+				Max:     20,
+				Window:  time.Hour,
+				KeyFunc: middleware.KeyByUser,
+			})).Post("/uploads", HandlerFunc(uploadHandlers.handleUploadPhoto).Wrap())
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,

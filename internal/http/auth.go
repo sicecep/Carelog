@@ -47,12 +47,49 @@ type AuthHandlers struct {
 }
 
 // RegisterAuthRoutes registers auth endpoints on the given router.
-func RegisterAuthRoutes(r chi.Router, h *AuthHandlers) {
+//
+// limiter may be nil (deployments without Redis): the rate-limit middleware
+// then passes every request through, matching its fail-open policy.
+func RegisterAuthRoutes(r chi.Router, h *AuthHandlers, limiter middleware.Limiter, logger *slog.Logger) {
 	r.Route("/auth", func(r chi.Router) {
-		// Public endpoints (no auth required)
-		r.Post("/magic-link", HandlerFunc(h.handleMagicLink).Wrap())
+		// Public endpoints (no auth required).
+		//
+		// Magic-link is the expensive one: each call sends a real email, so
+		// an unlimited endpoint is both an account-enumeration probe and a
+		// way to bill us for someone else's spam. Keyed by IP because there
+		// is no authenticated identity yet.
+		//
+		// The limit guards the EMAIL SEND, not the endpoint: when
+		// AUTH_DEV_EXPOSE_LINK is on, no mail goes out and the whole E2E
+		// suite signs in dozens of users from one IP. Limiting that path
+		// would only throttle our own test runs, so it opts out via an
+		// empty key. The flag already cannot be set outside development.
+		magicLinkLimit := middleware.RateLimit{
+			Name:   "auth_magic_link",
+			Max:    5,
+			Window: 15 * time.Minute,
+			KeyFunc: func(r *http.Request) string {
+				if h.Config != nil && h.Config.AuthDevExposeLink {
+					return ""
+				}
+				return middleware.KeyByIP(r)
+			},
+		}
+		r.With(middleware.RateLimitMiddleware(limiter, logger, magicLinkLimit)).
+			Post("/magic-link", HandlerFunc(h.handleMagicLink).Wrap())
+
 		r.Get("/verify", HandlerFunc(h.handleVerify).Wrap())
-		r.Post("/refresh", HandlerFunc(h.handleRefresh).Wrap())
+
+		// Refresh is a token-guessing surface; generous enough for real
+		// clients (which refresh on a 15m access TTL) and tight enough to
+		// make brute force pointless.
+		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+			Name:    "auth_refresh",
+			Max:     60,
+			Window:  time.Hour,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/refresh", HandlerFunc(h.handleRefresh).Wrap())
+
 		r.Post("/logout", HandlerFunc(h.handleLogout).Wrap())
 
 		// Protected endpoints (require auth)
