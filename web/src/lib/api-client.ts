@@ -30,10 +30,13 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<Envelope<T>> {
+  const isForm = options.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      // FormData must NOT carry a JSON content-type — the browser sets the
+      // multipart boundary itself. A hand-set header breaks the upload.
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
       ...(options.headers || {}),
     },
     credentials: "include", // include cookies for auth
@@ -76,6 +79,9 @@ export const api = {
   // server logs and browser history.
   deleteWithBody: <T>(path: string, body: unknown, headers?: Record<string, string>) =>
     request<T>(path, { method: "DELETE", body: JSON.stringify(body), headers }),
+  // POST multipart (photo upload). Content-type handled by request().
+  upload: <T>(path: string, form: FormData, headers?: Record<string, string>) =>
+    request<T>(path, { method: "POST", body: form, headers }),
 };
 
 // Shapes returned by the Go API. Kept here so components import one canonical
@@ -151,6 +157,8 @@ export interface ReportEntry {
   value_number?: number;
   /** Structured vital measurement, e.g. {"value":36.8} or {"systolic":120,"diastolic":80}. */
   value_json?: Record<string, number>;
+  /** Photo attachments (CGR-008); [] when none — never null. */
+  photo_urls: string[];
   occurred_at: string;
   contributor_id: string;
   contributor_name: string;
@@ -266,12 +274,27 @@ export const recipientApi = {
       value_number?: number;
       /** Structured vital measurement, e.g. {"value": 36.8} or {"systolic": 120, "diastolic": 80}. */
       value_json?: Record<string, number>;
+      /** URLs previously issued by uploadsApi.upload (CGR-008), max 5. */
+      photo_urls?: string[];
       occurred_at?: string;
     }
   ) =>
     api.post<ReportEntry>(`/api/v1/recipients/${recipientId}/entries`, body, {
       "X-Workspace-ID": workspaceId,
     }),
+};
+
+// Photo uploads (CGR-008). Compress first (lib/photo.ts) — the browser-side
+// pass keeps 4G uploads under the PRD's 5s target; the server caps at 5MB.
+export const uploadsApi = {
+  // POST /api/v1/uploads (multipart, field "photo") → { url }.
+  upload: (workspaceId: string, photo: Blob) => {
+    const form = new FormData();
+    form.append("photo", photo, "photo.jpg");
+    return api.upload<{ url: string }>("/api/v1/uploads", form, {
+      "X-Workspace-ID": workspaceId,
+    });
+  },
 };
 
 // Incidents (PRD §6.5). Severity ordering matters for INC-003 visual weighting.

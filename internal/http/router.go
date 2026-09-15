@@ -13,6 +13,7 @@ import (
 	"github.com/sicecep/carelog/internal/config"
 	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/mail"
+	"github.com/sicecep/carelog/internal/media"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -39,7 +40,11 @@ type Deps struct {
 	MagicLinkSvc *auth.MagicLinkService
 	RefreshSvc   *auth.RefreshTokenService
 	Signer       *auth.Signer
-	Mailer       mail.Mailer
+	Mailer mail.Mailer
+	// Uploader stores entry photos (CGR-008). nil-safe: without it uploads
+	// 500 and photo attachments fail validation — same optional-dep pattern
+	// as the mailer.
+	Uploader media.PhotoUploader
 	WebBaseURL   string
 	APIBaseURL   string
 	CookieDomain string
@@ -149,8 +154,9 @@ func NewRouter(deps Deps) http.Handler {
 			// group — a second same-prefix mount would REPLACE that subrouter
 			// in chi's tree (see reports.go's warning comment).
 			reportHandlers := &ReportHandlers{
-				Queries: deps.Queries,
-				Pool:    deps.Pool,
+				Queries:  deps.Queries,
+				Pool:     deps.Pool,
+				Uploader: deps.Uploader,
 			}
 			recipientHandlers := &RecipientHandlers{
 				Queries: deps.Queries,
@@ -158,6 +164,14 @@ func NewRouter(deps Deps) http.Handler {
 				Reports: reportHandlers,
 			}
 			RegisterRecipientRoutes(r, recipientHandlers)
+
+			// CGR-008: photo upload for care log entries (writer role via
+			// the group's RequireWriter). Reused by incidents (CGR-015).
+			// Always mounted — a nil Uploader 500s at request time, but the
+			// route table stays stable across deployments (the #46 lesson:
+			// conditional mounts make route drift invisible to gates).
+			uploadHandlers := &UploadHandlers{Uploader: deps.Uploader}
+			r.Post("/uploads", HandlerFunc(uploadHandlers.handleUploadPhoto).Wrap())
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,

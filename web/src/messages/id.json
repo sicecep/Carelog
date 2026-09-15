@@ -264,7 +264,9 @@
       "morning": "Pagi",
       "midday": "Siang",
       "afternoon": "Sore"
-    }
+    },
+    "addPhoto": "Tambah foto",
+    "photoLimit": "Maks {max} foto"
   },
   "incidents": {
     "title": "Insiden",

@@ -61,6 +61,9 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		"GET /api/v1/recipients/{recipientID}/summary",
 		"POST /api/v1/recipients/{recipientID}/summary",
 
+		// CGR-008: photo upload (writer group).
+		"POST /api/v1/uploads",
+
 		// Incidents
 		"GET /api/v1/incidents",
 		"POST /api/v1/recipients/{recipientID}/incidents",

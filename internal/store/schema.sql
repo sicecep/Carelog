@@ -103,6 +103,9 @@ CREATE TABLE report_entries (
     value_text    TEXT,
     value_number  NUMERIC,
     value_json    JSONB,
+    -- CGR-008: photos attached to an entry (meal quality, visible symptom).
+    -- URLs produced by the upload endpoint only — never arbitrary user input.
+    photo_urls    TEXT[] NOT NULL DEFAULT '{}',
     occurred_at   TIMESTAMPTZ NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -1,5 +1,9 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- uploaded photos are remote
+   storage URLs (per-deployment host); next/image would require every
+   deployment to preconfigure remotePatterns for no optimization win. */
+
 // Client component for the same reason as dashboard/recipients-section.tsx:
 // phosphor-react icons read IconContext via useContext, which Server
 // Components can't call. All data arrives as props from the server page.
@@ -347,6 +351,22 @@ export function TimelineList({
                   <p className="mt-1 text-base font-semibold tabular-nums text-[var(--color-text)]">
                     ×{entry.value_number}
                   </p>
+                )}
+                {entry.photo_urls && entry.photo_urls.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {entry.photo_urls.map((url) => (
+                      <li key={url}>
+                        <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                          <img
+                            src={url}
+                            alt=""
+                            loading="lazy"
+                            className="h-20 w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-accent-soft)] object-cover"
+                          />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 )}
                 {entry.contributor_name && (
                   <p className="mt-1 text-sm text-[var(--color-text-muted)]">
