@@ -15,10 +15,12 @@ import {
   WarningCircle,
   WhatsappLogo,
   CheckCircle,
+  ClipboardText,
 } from "phosphor-react";
 import { CARE_TYPES, MODULES, VITAL_SPECS, type CareType, type Module } from "@/lib/constants.generated";
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
+import { SummarySheet } from "@/components/ui/SummarySheet";
 
 // formatVitalMeasurement renders a stored vital for the timeline (CGR-009):
 // single-field vitals as "36.8 °C", blood pressure as "120/80 mmHg".
@@ -341,6 +343,11 @@ export function TimelineList({
                     {formatVitalMeasurement(entry.subcategory, entry.value_json)}
                   </p>
                 )}
+                {entry.value_number !== undefined && entry.value_number !== null && (
+                  <p className="mt-1 text-base font-semibold tabular-nums text-[var(--color-text)]">
+                    ×{entry.value_number}
+                  </p>
+                )}
                 {entry.contributor_name && (
                   <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                     {entry.contributor_name}
@@ -352,5 +359,47 @@ export function TimelineList({
         </ul>
       )}
     </div>
+  );
+}
+
+// DaySummaryTrigger opens the CGR-007 day-end count summary from the timeline
+// heading. Rendered only for writers (owner/caregiver); a viewer's button
+// would be a dead control — the API 403s them.
+export function DaySummaryTrigger({
+  recipientId,
+  workspaceId,
+  modules,
+}: {
+  recipientId: string;
+  workspaceId: string;
+  modules: Module[];
+}) {
+  const t = useTranslations("recipients");
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  const handleLogged = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn-base btn-ghost touch-target text-sm font-semibold"
+      >
+        <ClipboardText size={18} weight="bold" aria-hidden="true" />
+        <span className="ml-1">{t("summaryTrigger")}</span>
+      </button>
+      <SummarySheet
+        open={open}
+        onClose={() => setOpen(false)}
+        recipientId={recipientId}
+        workspaceId={workspaceId}
+        modules={modules}
+        onLogged={handleLogged}
+      />
+    </>
   );
 }

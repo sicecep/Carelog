@@ -31,6 +31,14 @@ type CreateEntryRequest struct {
 	OccurredAt  *string         `json:"occurred_at,omitempty"` // ISO 8601 timestamp
 }
 
+// SubmitDaySummaryRequest is the JSON body for the day-end count summary.
+// Counts maps a log category to how many times it happened today. JSON
+// numbers must be integers — 2.5 meals fails the decode with a 400.
+type SubmitDaySummaryRequest struct {
+	Counts map[string]int `json:"counts"`
+	Note   *string        `json:"note,omitempty"`
+}
+
 // EntryResponse is the JSON response for a single report entry.
 type EntryResponse struct {
 	ID          uuid.UUID  `json:"id"`
@@ -73,9 +81,12 @@ func toEntryResponse(e store.ReportEntry, contributorID uuid.UUID, contributorNa
 		resp.ValueText = &e.ValueText.String
 	}
 	if e.ValueNumber.Valid {
-		val, _ := e.ValueNumber.Value()
-		f, _ := val.(float64)
-		resp.ValueNumber = &f
+		// Numeric.Value() returns a STRING (pgx keeps precision), so a
+		// val.(float64) assertion always fails and zeroes the count —
+		// caught by e2e-day-summary once value_number finally carried data.
+		if f, ferr := e.ValueNumber.Float64Value(); ferr == nil {
+			resp.ValueNumber = &f.Float64
+		}
 	}
 	if len(e.ValueJson) > 0 {
 		resp.ValueJson = e.ValueJson
@@ -118,9 +129,10 @@ func toTimelineEntryResponse(
 		resp.ValueText = &valueText.String
 	}
 	if valueNumber.Valid {
-		val, _ := valueNumber.Value()
-		f, _ := val.(float64)
-		resp.ValueNumber = &f
+		// Same string-vs-float64 trap as toEntryResponse — use Float64Value.
+		if f, ferr := valueNumber.Float64Value(); ferr == nil {
+			resp.ValueNumber = &f.Float64
+		}
 	}
 	if len(valueJson) > 0 {
 		resp.ValueJson = valueJson
@@ -290,6 +302,57 @@ func (h *ReportHandlers) handleGetWhatsAppSummary(w http.ResponseWriter, r *http
 	}
 
 	OK(w, ptr(summary))
+	return nil
+}
+
+// handleSubmitDaySummary handles POST /api/v1/recipients/{recipientID}/summary
+// (CGR-007): day-end count-based summary for care that was never logged in
+// real time. One entry per count (value_number) plus an optional note entry.
+func (h *ReportHandlers) handleSubmitDaySummary(w http.ResponseWriter, r *http.Request) error {
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if workspaceID == uuid.Nil || !ok {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace or user context"}}}
+	}
+
+	recipientIDStr := chi.URLParam(r, "recipientID")
+	recipientID, err := uuid.Parse(recipientIDStr)
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}
+	}
+
+	var req SubmitDaySummaryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
+	}
+
+	input := service.SubmitDaySummaryInput{
+		Counts: make(map[domain.LogCategory]int, len(req.Counts)),
+		Note:   req.Note,
+	}
+	for cat, n := range req.Counts {
+		// Non-integer counts (e.g. 2.5) fail the decode above; here we only
+		// promote valid keys.
+		input.Counts[domain.LogCategory(cat)] = n
+	}
+
+	entries, err := service.SubmitDaySummary(r.Context(), h.Queries, h.Pool, workspaceID, recipientID, userID, input)
+	if err != nil {
+		return err
+	}
+
+	// Attribution from the authenticated caller (same rule as entries).
+	contributorRole := middleware.GetWorkspaceRole(r.Context())
+	contributorName := ""
+	if u, uerr := h.Queries.GetUser(r.Context(), userID); uerr == nil && u.FullName.Valid {
+		contributorName = u.FullName.String
+	}
+
+	resp := make([]EntryResponse, len(entries))
+	for i, e := range entries {
+		resp[i] = toEntryResponse(e, userID, contributorName, contributorRole)
+	}
+	Created(w, &resp)
 	return nil
 }
 

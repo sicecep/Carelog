@@ -60,6 +60,9 @@ func RegisterRecipientRoutes(r chi.Router, h *RecipientHandlers) {
 				r.Post("/entries", HandlerFunc(h.Reports.handleCreateEntry).Wrap())
 				r.Get("/timeline", HandlerFunc(h.Reports.handleGetTimeline).Wrap())
 				r.Get("/summary", HandlerFunc(h.Reports.handleGetWhatsAppSummary).Wrap())
+				// CGR-007: day-end count-based summary (same path as the
+				// read-side GET, different method).
+				r.Post("/summary", HandlerFunc(h.Reports.handleSubmitDaySummary).Wrap())
 			}
 		})
 	})

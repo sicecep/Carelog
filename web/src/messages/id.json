@@ -134,6 +134,7 @@
     },
     "detailBack": "Kembali ke dasbor",
     "detailTimelineHeading": "Linimasa hari ini",
+    "summaryTrigger": "Ringkasan Akhir Hari",
     "detailTimelineEmpty": "Belum ada catatan hari ini.",
     "detailIncidentsHeading": "Insiden hari ini",
     "detailNotFoundTitle": "Penerima perawatan tidak ditemukan",
@@ -373,15 +374,16 @@
     "endShift": "Akhiri Shift"
   },
   "summarysheet": {
-    "title": "Ringkasan Harian",
-    "hint": "Tinjau aktivitas hari ini dan bagikan ke orang tua.",
+    "title": "Ringkasan Akhir Hari",
+    "hint": "Tidak sempat mencatat langsung? Hitung yang terjadi hari ini — satu catatan dibuat per kategori.",
     "save": "Simpan Ringkasan",
     "saving": "Menyimpan...",
-    "summaryPrefix": "Ringkasan:",
-    "errorGeneric": "Gagal memuat ringkasan.",
-    "copySummary": "Salin Ringkasan untuk WhatsApp",
-    "copied": "Tersalin!",
-    "preview": "Pratinjau"
+    "saved": "Tersimpan!",
+    "close": "Tutup",
+    "notePlaceholder": "Catatan tambahan (opsional)…",
+    "increase": "Tambah {category}",
+    "decrease": "Kurangi {category}",
+    "errorGeneric": "Gagal menyimpan ringkasan."
   },
   "invite": {
     "title": "Selamat datang di CareLog",

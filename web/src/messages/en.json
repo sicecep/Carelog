@@ -134,6 +134,7 @@
     },
     "detailBack": "Back to dashboard",
     "detailTimelineHeading": "Today's timeline",
+    "summaryTrigger": "Day-End Summary",
     "detailTimelineEmpty": "No entries logged today yet.",
     "detailIncidentsHeading": "Today's incidents",
     "detailNotFoundTitle": "Recipient not found",
@@ -373,15 +374,16 @@
     "endShift": "End Shift"
   },
   "summarysheet": {
-    "title": "Daily Summary",
-    "hint": "Review today's activities and share with parents.",
+    "title": "Day-End Summary",
+    "hint": "Didn't get to log in real time? Count what happened today — one entry is created per category.",
     "save": "Save Summary",
     "saving": "Saving...",
-    "summaryPrefix": "Summary:",
-    "errorGeneric": "Could not load summary.",
-    "copySummary": "Copy Summary for WhatsApp",
-    "copied": "Copied!",
-    "preview": "Preview"
+    "saved": "Saved!",
+    "close": "Close",
+    "notePlaceholder": "Optional note…",
+    "increase": "Increase {category}",
+    "decrease": "Decrease {category}",
+    "errorGeneric": "Could not save the summary."
   },
   "invite": {
     "title": "Welcome to CareLog",
