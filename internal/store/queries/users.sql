@@ -6,6 +6,39 @@ WHERE id = $1;
 SELECT * FROM users
 WHERE LOWER(email) = LOWER($1);
 
+-- name: GetUserByPhone :one
+-- Phone is stored canonically (E.164), so this is an exact match — callers
+-- must normalize before looking up, or a user types "0812…" and gets a
+-- second account.
+SELECT * FROM users
+WHERE phone = $1;
+
+-- name: UpsertUserByPhone :one
+-- Phone-primary sign-in for caregivers, mirroring UpsertUserByEmail: the
+-- caller must not learn whether the account already existed, so insert and
+-- lookup are one statement.
+INSERT INTO users (phone, locale)
+VALUES (sqlc.arg(phone), sqlc.arg(locale))
+ON CONFLICT (phone) WHERE phone IS NOT NULL DO UPDATE
+    SET updated_at = now()
+RETURNING *;
+
+-- name: SetUserPhone :one
+-- Attaches a phone to an existing account (an invited caregiver claiming
+-- their invite). The partial unique index rejects a number already in use.
+UPDATE users
+SET phone = sqlc.arg(phone), updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: MarkPhoneVerified :one
+-- COALESCE for the same reason as MarkEmailVerified: re-authenticating later
+-- is a login, not a re-verification.
+UPDATE users
+SET phone_verified_at = COALESCE(phone_verified_at, now()), updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: CreateUser :one
 INSERT INTO users (email, full_name, avatar_url, google_id, locale)
 VALUES ($1, $2, $3, $4, $5)
@@ -108,7 +141,7 @@ RETURNING *;
 -- name: ListUsersByApprovalStatus :many
 -- Backs the super-admin dashboard. Oldest first: the person who has been
 -- waiting longest should be the first one an admin sees.
-SELECT id, email, full_name, avatar_url, locale, approval_status,
+SELECT id, email, phone, full_name, avatar_url, locale, approval_status,
        approved_at, approved_by, rejection_reason, is_super_admin, created_at
 FROM users
 WHERE approval_status = sqlc.arg(approval_status)

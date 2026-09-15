@@ -66,10 +66,16 @@ func (n *IncidentNotifier) NotifyIncident(ctx context.Context, inc store.Inciden
 
 	reporterName := "—"
 	if reporter, err := n.Queries.GetUser(ctx, reporterID); err == nil {
-		if reporter.FullName.Valid && reporter.FullName.String != "" {
+		// Name, then whichever identity the reporter actually has. A
+		// phone-primary caregiver has no email, so falling back to it alone
+		// would put an empty name in the owner's incident alert.
+		switch {
+		case reporter.FullName.Valid && reporter.FullName.String != "":
 			reporterName = reporter.FullName.String
-		} else {
-			reporterName = reporter.Email
+		case reporter.Email.Valid && reporter.Email.String != "":
+			reporterName = reporter.Email.String
+		case reporter.Phone.Valid && reporter.Phone.String != "":
+			reporterName = reporter.Phone.String
 		}
 	}
 
@@ -81,6 +87,13 @@ func (n *IncidentNotifier) NotifyIncident(ctx context.Context, inc store.Inciden
 
 	sent := 0
 	for _, owner := range owners {
+		// No address, nothing to send. Counting a skipped owner as "sent"
+		// would make the notifier report success for an alert nobody got.
+		if !owner.Email.Valid || owner.Email.String == "" {
+			n.Logger.Warn("incident alert skipped: owner has no email",
+				"incident_id", inc.ID, "owner_id", owner.ID)
+			continue
+		}
 		locale := owner.Locale
 		data := mail.IncidentAlertData{
 			WorkspaceName: workspace.Name,
@@ -97,11 +110,11 @@ func (n *IncidentNotifier) NotifyIncident(ctx context.Context, inc store.Inciden
 			Urgent: urgent,
 		}
 
-		if err := n.Mailer.SendIncidentAlert(ctx, owner.Email, data); err != nil {
+		if err := n.Mailer.SendIncidentAlert(ctx, owner.Email.String, data); err != nil {
 			// Log and continue: one owner's bounced address must not stop
 			// the other owners from being told.
 			n.Logger.Error("incident alert email failed",
-				"incident_id", inc.ID, "to", owner.Email, "error", err)
+				"incident_id", inc.ID, "to", owner.Email.String, "error", err)
 			continue
 		}
 		sent++

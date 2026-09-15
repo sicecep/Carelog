@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -132,6 +133,10 @@ type Querier interface {
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, lower string) (User, error)
+	// Phone is stored canonically (E.164), so this is an exact match — callers
+	// must normalize before looking up, or a user types "0812…" and gets a
+	// second account.
+	GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
 	// Resolved per request by the workspace middleware. Role is never a JWT claim
@@ -239,6 +244,9 @@ type Querier interface {
 	// Scoped by user so one member cannot clear another's badge.
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (Notification, error)
 	MarkOnboardingCompleted(ctx context.Context, id uuid.UUID) error
+	// COALESCE for the same reason as MarkEmailVerified: re-authenticating later
+	// is a login, not a re-verification.
+	MarkPhoneVerified(ctx context.Context, id uuid.UUID) (User, error)
 	// The guard clause is the race protection: two requests presenting the same
 	// valid token both reach this statement, exactly one updates a row, and the
 	// loser is indistinguishable from a replay — which is the desired outcome.
@@ -278,6 +286,9 @@ type Querier interface {
 	// stamped by ApproveUser and never cleared, so it distinguishes "never
 	// reviewed" from "reviewed and approved" — only the former is gated.
 	SetUserPendingApproval(ctx context.Context, id uuid.UUID) (User, error)
+	// Attaches a phone to an existing account (an invited caregiver claiming
+	// their invite). The partial unique index rejects a number already in use.
+	SetUserPhone(ctx context.Context, arg SetUserPhoneParams) (User, error)
 	// Numeric roll-up (sleep minutes, medication doses) for the categories that
 	// carry a value_number. Kept separate from the count query so a category can
 	// report both "3 entries" and "410 minutes" without a second pass in Go.
@@ -326,6 +337,10 @@ type Querier interface {
 	// insert and the lookup have to be one statement. Conflict inference targets
 	// idx_users_email_lower, which is why the email is lowered on the way in.
 	UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailParams) (User, error)
+	// Phone-primary sign-in for caregivers, mirroring UpsertUserByEmail: the
+	// caller must not learn whether the account already existed, so insert and
+	// lookup are one statement.
+	UpsertUserByPhone(ctx context.Context, arg UpsertUserByPhoneParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -143,6 +143,12 @@ func SendDailyDigests(
 
 		// Send email to each owner
 		for _, owner := range owners {
+			// Phone-only accounts have no address to send to. Skipping is
+			// correct (and silent-by-design would not be): the digest is an
+			// email feature, and an owner without email simply isn't in it.
+			if !owner.Email.Valid || owner.Email.String == "" {
+				continue
+			}
 			emailData := mail.DigestEmailData{
 				WorkspaceName: ws.Name,
 				Date:          targetDate.Format("02 Jan 2006"),
@@ -150,10 +156,10 @@ func SendDailyDigests(
 				Recipients:    recipientDigestData,
 			}
 
-			err = mailer.SendDailyDigest(ctx, owner.Email, emailData)
+			err = mailer.SendDailyDigest(ctx, owner.Email.String, emailData)
 			if err != nil {
 				// Don't halt fanning out to other owners if one fails
-				fmt.Printf("failed to send daily digest to %s: %v\n", owner.Email, err)
+				fmt.Printf("failed to send daily digest to %s: %v\n", owner.Email.String, err)
 			}
 		}
 	}

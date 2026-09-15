@@ -20,7 +20,7 @@ SET approval_status  = 'approved',
     rejection_reason = NULL,
     updated_at       = now()
 WHERE id = $2
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type ApproveUserParams struct {
@@ -37,6 +37,8 @@ func (q *Queries) ApproveUser(ctx context.Context, arg ApproveUserParams) (User,
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -70,11 +72,11 @@ func (q *Queries) CountUsersByApprovalStatus(ctx context.Context, approvalStatus
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, full_name, avatar_url, google_id, locale)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	Email     string      `json:"email"`
+	Email     pgtype.Text `json:"email"`
 	FullName  pgtype.Text `json:"full_name"`
 	AvatarUrl pgtype.Text `json:"avatar_url"`
 	GoogleID  pgtype.Text `json:"google_id"`
@@ -94,6 +96,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -127,7 +131,7 @@ func (q *Queries) DemoteSuperAdminsNotIn(ctx context.Context, emails []string) e
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -138,6 +142,8 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -156,7 +162,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
 WHERE LOWER(email) = LOWER($1)
 `
 
@@ -167,6 +173,42 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+WHERE phone = $1
+`
+
+// Phone is stored canonically (E.164), so this is an exact match — callers
+// must normalize before looking up, or a user types "0812…" and gets a
+// second account.
+func (q *Queries) GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByPhone, phone)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -210,7 +252,7 @@ func (q *Queries) HasPendingInvitationForEmail(ctx context.Context, lower string
 }
 
 const listUsersByApprovalStatus = `-- name: ListUsersByApprovalStatus :many
-SELECT id, email, full_name, avatar_url, locale, approval_status,
+SELECT id, email, phone, full_name, avatar_url, locale, approval_status,
        approved_at, approved_by, rejection_reason, is_super_admin, created_at
 FROM users
 WHERE approval_status = $1
@@ -225,7 +267,8 @@ type ListUsersByApprovalStatusParams struct {
 
 type ListUsersByApprovalStatusRow struct {
 	ID              uuid.UUID          `json:"id"`
-	Email           string             `json:"email"`
+	Email           pgtype.Text        `json:"email"`
+	Phone           pgtype.Text        `json:"phone"`
 	FullName        pgtype.Text        `json:"full_name"`
 	AvatarUrl       pgtype.Text        `json:"avatar_url"`
 	Locale          string             `json:"locale"`
@@ -251,6 +294,7 @@ func (q *Queries) ListUsersByApprovalStatus(ctx context.Context, arg ListUsersBy
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
+			&i.Phone,
 			&i.FullName,
 			&i.AvatarUrl,
 			&i.Locale,
@@ -275,7 +319,7 @@ const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE users
 SET email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 // COALESCE keeps the original verification timestamp: clicking a second magic
@@ -287,6 +331,8 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, er
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -315,6 +361,41 @@ func (q *Queries) MarkOnboardingCompleted(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const markPhoneVerified = `-- name: MarkPhoneVerified :one
+UPDATE users
+SET phone_verified_at = COALESCE(phone_verified_at, now()), updated_at = now()
+WHERE id = $1
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+// COALESCE for the same reason as MarkEmailVerified: re-authenticating later
+// is a login, not a re-verification.
+func (q *Queries) MarkPhoneVerified(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, markPhoneVerified, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const promoteSuperAdminByEmail = `-- name: PromoteSuperAdminByEmail :one
 
 UPDATE users
@@ -324,7 +405,7 @@ SET is_super_admin  = true,
     updated_at      = now()
 WHERE LOWER(email) = LOWER($1)
   AND (NOT is_super_admin OR approval_status <> 'approved')
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 // ─── Super-admin bootstrap ───────────────────────────────────────────────────
@@ -339,6 +420,8 @@ func (q *Queries) PromoteSuperAdminByEmail(ctx context.Context, email string) (U
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -364,7 +447,7 @@ SET approval_status  = 'rejected',
     rejection_reason = $2,
     updated_at       = now()
 WHERE id = $3
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type RejectUserParams struct {
@@ -382,6 +465,8 @@ func (q *Queries) RejectUser(ctx context.Context, arg RejectUserParams) (User, e
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -406,7 +491,7 @@ WHERE id = $1
   AND approval_status = 'approved'
   AND approved_at IS NULL
   AND NOT is_super_admin
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 // Marks a brand-new self-registering user as awaiting admin approval.
@@ -430,6 +515,48 @@ func (q *Queries) SetUserPendingApproval(ctx context.Context, id uuid.UUID) (Use
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setUserPhone = `-- name: SetUserPhone :one
+UPDATE users
+SET phone = $1, updated_at = now()
+WHERE id = $2
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+type SetUserPhoneParams struct {
+	Phone pgtype.Text `json:"phone"`
+	ID    uuid.UUID   `json:"id"`
+}
+
+// Attaches a phone to an existing account (an invited caregiver claiming
+// their invite). The partial unique index rejects a number already in use.
+func (q *Queries) SetUserPhone(ctx context.Context, arg SetUserPhoneParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserPhone, arg.Phone, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -451,12 +578,12 @@ const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET email = $2, full_name = $3, avatar_url = $4, google_id = $5, locale = $6, email_verified_at = $7, is_active = $8, updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type UpdateUserParams struct {
 	ID              uuid.UUID          `json:"id"`
-	Email           string             `json:"email"`
+	Email           pgtype.Text        `json:"email"`
 	FullName        pgtype.Text        `json:"full_name"`
 	AvatarUrl       pgtype.Text        `json:"avatar_url"`
 	GoogleID        pgtype.Text        `json:"google_id"`
@@ -481,6 +608,8 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,
@@ -503,7 +632,7 @@ INSERT INTO users (email, locale)
 VALUES (LOWER($1), $2)
 ON CONFLICT (LOWER(email)) DO UPDATE
     SET updated_at = now()
-RETURNING id, email, email_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
 `
 
 type UpsertUserByEmailParams struct {
@@ -522,6 +651,50 @@ func (q *Queries) UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailPa
 		&i.ID,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertUserByPhone = `-- name: UpsertUserByPhone :one
+INSERT INTO users (phone, locale)
+VALUES ($1, $2)
+ON CONFLICT (phone) WHERE phone IS NOT NULL DO UPDATE
+    SET updated_at = now()
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+`
+
+type UpsertUserByPhoneParams struct {
+	Phone  pgtype.Text `json:"phone"`
+	Locale string      `json:"locale"`
+}
+
+// Phone-primary sign-in for caregivers, mirroring UpsertUserByEmail: the
+// caller must not learn whether the account already existed, so insert and
+// lookup are one statement.
+func (q *Queries) UpsertUserByPhone(ctx context.Context, arg UpsertUserByPhoneParams) (User, error) {
+	row := q.db.QueryRow(ctx, upsertUserByPhone, arg.Phone, arg.Locale)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.GoogleID,

@@ -87,7 +87,7 @@ type ListActiveCaregiversForRecipientParams struct {
 
 type ListActiveCaregiversForRecipientRow struct {
 	UserID     uuid.UUID          `json:"user_id"`
-	Email      string             `json:"email"`
+	Email      pgtype.Text        `json:"email"`
 	FullName   pgtype.Text        `json:"full_name"`
 	AvatarUrl  pgtype.Text        `json:"avatar_url"`
 	AssignedAt pgtype.Timestamptz `json:"assigned_at"`

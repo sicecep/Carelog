@@ -226,8 +226,13 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 	// Super-admin allow-list reconciliation. Runs on every login so the DB
 	// tracks whatever SUPER_ADMIN_EMAILS currently says. Config is optional
 	// for tests that construct a bare AuthHandlers; production always sets it.
-	if h.Config != nil && h.Config.IsSuperAdminEmail(user.Email) {
-		if promoted, perr := h.Queries.PromoteSuperAdminByEmail(r.Context(), user.Email); perr == nil {
+	//
+	// Guarded on a present email: a phone-only account must never be matched
+	// against the allow-list, and an empty string must never compare equal to
+	// a misconfigured empty entry.
+	if h.Config != nil && user.Email.Valid && user.Email.String != "" &&
+		h.Config.IsSuperAdminEmail(user.Email.String) {
+		if promoted, perr := h.Queries.PromoteSuperAdminByEmail(r.Context(), user.Email.String); perr == nil {
 			user = promoted
 		} else if !errors.Is(perr, pgx.ErrNoRows) {
 			// The reconciliation is best-effort — a failure here must not
@@ -266,7 +271,15 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 		// who lands on their magic link first would be marked pending and
 		// unable to reach the claim endpoint (claim requires a session,
 		// pending users don't get one). The invitation itself IS the approval.
-		hasInvite, invErr := h.Queries.HasPendingInvitationForEmail(r.Context(), user.Email)
+		// A phone-only user has no email to match an invitation against, so
+		// the exemption simply cannot apply — fall through to the normal
+		// approval gate rather than querying with an empty string (which
+		// would match any invitation stored with a blank email hint).
+		var hasInvite bool
+		var invErr error
+		if user.Email.Valid && user.Email.String != "" {
+			hasInvite, invErr = h.Queries.HasPendingInvitationForEmail(r.Context(), user.Email.String)
+		}
 		if invErr != nil {
 			// A lookup failure here must not silently open the gate: log and
 			// fall through to marking pending. That's the safe direction.
@@ -492,10 +505,12 @@ type MeResponse struct {
 	User struct {
 		ID             string `json:"id"`
 		Email          string `json:"email"`
+		Phone          string `json:"phone,omitempty"`
 		FullName       string `json:"full_name,omitempty"`
 		AvatarURL      string `json:"avatar_url,omitempty"`
 		Locale         string `json:"locale"`
 		EmailVerified  bool   `json:"email_verified"`
+		PhoneVerified  bool   `json:"phone_verified"`
 		OnboardingDone bool   `json:"onboarding_completed"`
 	} `json:"user"`
 	Workspaces []struct {
@@ -550,18 +565,22 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) error {
 		User: struct {
 			ID             string `json:"id"`
 			Email          string `json:"email"`
+			Phone          string `json:"phone,omitempty"`
 			FullName       string `json:"full_name,omitempty"`
 			AvatarURL      string `json:"avatar_url,omitempty"`
 			Locale         string `json:"locale"`
 			EmailVerified  bool   `json:"email_verified"`
+			PhoneVerified  bool   `json:"phone_verified"`
 			OnboardingDone bool   `json:"onboarding_completed"`
 		}{
 			ID:             user.ID.String(),
-			Email:          user.Email,
+			Email:          user.Email.String,
+			Phone:          user.Phone.String,
 			FullName:       user.FullName.String,
 			AvatarURL:      user.AvatarUrl.String,
 			Locale:         user.Locale,
 			EmailVerified:  user.EmailVerifiedAt.Valid,
+			PhoneVerified:  user.PhoneVerifiedAt.Valid,
 			OnboardingDone: user.OnboardingCompleted,
 		},
 		Workspaces: workspaces,
