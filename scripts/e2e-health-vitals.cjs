@@ -15,19 +15,13 @@
 //   9. Touch targets in the open sheet are ≥56px; no pageerror events
 
 const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";
 const API = process.env.E2E_API || "http://localhost:8080";
 
-function sql(q) {
-  return execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", q],
-    { encoding: "utf8" }
-  ).trim().split("\n").filter(Boolean).map((l) => l.split("\t"));
-}
 
 const results = [];
 function check(name, passed, detail = "") {
@@ -35,39 +29,8 @@ function check(name, passed, detail = "") {
   console.log(`${passed ? "PASS" : "FAIL"}  ${name}${detail ? `  :: ${detail}` : ""}`);
 }
 
-async function requestMagicLink(email) {
-  const res = await fetch(`${API}/api/v1/auth/magic-link`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) throw new Error(`magic-link ${res.status}`);
-}
 
-function mintVerifyURL(email) {
-  const raw = crypto.randomBytes(32);
-  const hashHex = crypto.createHash("sha256").update(raw).digest("hex");
-  const rows = sql(`SELECT id FROM users WHERE LOWER(email)=LOWER('${email}')`);
-  if (!rows.length) throw new Error(`no user row for ${email}`);
-  sql(
-    `INSERT INTO auth_magic_links (user_id, token_hash, expires_at, created_at)
-     VALUES ('${rows[0][0]}', decode('${hashHex}','hex'), now() + interval '15 minutes', now())`
-  );
-  return `${API}/api/v1/auth/verify?token=${raw.toString("base64url")}`;
-}
 
-async function signIn(browser, email) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const page = await ctx.newPage();
-  await requestMagicLink(email);
-  await page.goto(mintVerifyURL(email), { waitUntil: "domcontentloaded" });
-  sql(
-    `UPDATE users SET approval_status='approved', approved_at=now(), approved_by=id
-     WHERE LOWER(email)=LOWER('${email}')`
-  );
-  await page.goto(mintVerifyURL(email), { waitUntil: "domcontentloaded" });
-  return { ctx, page };
-}
 
 let REC = "";
 
