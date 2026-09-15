@@ -81,6 +81,29 @@ func TestLoad_jwtRequiredInProd(t *testing.T) {
 	require.Contains(t, err.Error(), "JWT_ED25519_SEED is required")
 }
 
+// TestLoad_devExposeLinkForbiddenOutsideDev guards the E2E fast path: the
+// raw-link response is an account-takeover primitive in any real deployment.
+func TestLoad_devExposeLinkForbiddenOutsideDev(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:***@localhost/db")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("JWT_ED25519_SEED", "seed")
+	t.Setenv("AUTH_DEV_EXPOSE_LINK", "true")
+
+	_, err := config.Load()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "AUTH_DEV_EXPOSE_LINK must not be set outside development")
+}
+
+func TestLoad_devExposeLinkAllowedInDev(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://user:***@localhost/db")
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("AUTH_DEV_EXPOSE_LINK", "1")
+
+	c, err := config.Load()
+	require.NoError(t, err)
+	require.True(t, c.AuthDevExposeLink)
+}
+
 // TestLoad_googleOAuthPaired requires both ID and secret together.
 func TestLoad_googleOAuthPaired(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/db")

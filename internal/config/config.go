@@ -28,6 +28,12 @@ type Config struct {
 	// App
 	AppEnv string // "development" | "staging" | "production"
 
+	// AuthDevExposeLink (AUTH_DEV_EXPOSE_LINK) makes POST /auth/magic-link
+	// return the raw verification link in the response and skip the email
+	// send, so browser automation can sign in without Resend or DB access.
+	// E2E-only: validate() refuses to boot with it in production.
+	AuthDevExposeLink bool
+
 	// JWT (Ed25519 seed, base64-encoded, 32 bytes)
 	JWTEd25519Seed string
 
@@ -91,6 +97,7 @@ func Load() (*Config, error) {
 		DatabaseURL:          os.Getenv("DATABASE_URL"),
 		RedisURL:             getenv("REDIS_URL", "redis://localhost:6379"),
 		AppEnv:               getenv("APP_ENV", "development"),
+		AuthDevExposeLink:    parseBool(getenv("AUTH_DEV_EXPOSE_LINK", "false")),
 		JWTEd25519Seed:       os.Getenv("JWT_ED25519_SEED"),
 		AccessTokenTTL:       parseDuration(getenv("ACCESS_TOKEN_TTL", "15m")),
 		RefreshTokenTTL:      parseDuration(getenv("REFRESH_TOKEN_TTL", "720h")), // 30 days
@@ -145,6 +152,13 @@ func (c *Config) validate() error {
 	// Required: JWT Ed25519 seed (non-empty in non-dev)
 	if strings.TrimSpace(c.JWTEd25519Seed) == "" && c.AppEnv != "development" {
 		errs = append(errs, "JWT_ED25519_SEED is required in non-development environments")
+	}
+
+	// AUTH_DEV_EXPOSE_LINK hands out raw sign-in links — an account-takeover
+	// primitive anywhere but a throwaway dev box. Refuse to boot with it
+	// outside development rather than trusting deploy hygiene.
+	if c.AuthDevExposeLink && c.AppEnv != "development" {
+		errs = append(errs, "AUTH_DEV_EXPOSE_LINK must not be set outside development")
 	}
 
 	// Optional but validated if set
@@ -213,6 +227,16 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// parseBool accepts the usual truthy spellings env files tend to use.
+func parseBool(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // parseEmailList splits a comma-separated env value into a normalised email

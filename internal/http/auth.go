@@ -40,8 +40,9 @@ type AuthHandlers struct {
 	WebBaseURL   string
 	APIBaseURL   string
 	CookieDomain string
-	// Config carries the super-admin allow-list consulted on every verify.
-	// Never nil in production; guarded at the call site so tests may omit it.
+	// Config carries the super-admin allow-list consulted on every verify,
+	// plus AUTH_DEV_EXPOSE_LINK for the E2E fast path. Never nil in
+	// production; guarded at the call site so tests may omit it.
 	Config *config.Config
 }
 
@@ -70,6 +71,10 @@ type MagicLinkRequest struct {
 // MagicLinkResponse is the JSON response for POST /auth/magic-link.
 type MagicLinkResponse struct {
 	Message string `json:"message"`
+	// DevVerifyURL carries the raw verification link when
+	// AUTH_DEV_EXPOSE_LINK is on (dev only, guarded by config validation).
+	// Empty — omitted — in every real deployment.
+	DevVerifyURL string `json:"dev_verify_url,omitempty"`
 }
 
 // handleMagicLink handles POST /auth/magic-link.
@@ -112,6 +117,18 @@ func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) e
 	// cookies and then redirects the browser into the app. Pointing it at the
 	// web origin would 404 — there is no client-side verify page.
 	verifyLink := h.APIBaseURL + "/api/v1/auth/verify?token=" + rawToken
+
+	// E2E fast path (AUTH_DEV_EXPOSE_LINK, dev only): return the link in the
+	// response and skip the email entirely — browser automation signs in
+	// without burning Resend quota or minting tokens via psql.
+	if h.Config != nil && h.Config.AuthDevExposeLink {
+		slog.Info("magic link dev-expose: returning link, skipping email", "email", req.Email)
+		response.Created(w, ptr(MagicLinkResponse{
+			Message:     "If the email exists, a magic link has been sent",
+			DevVerifyURL: verifyLink,
+		}))
+		return nil
+	}
 
 	// Send the email out of band so a slow provider doesn't stall the response.
 	// The error must be logged: swallowing it made a Resend rejection (e.g. an
