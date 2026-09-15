@@ -9,7 +9,7 @@
 // no inbox to read from in CI.
 
 const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
-const { sql, signIn } = require("./lib/e2e-auth");
+const { sql, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");
 

@@ -9,7 +9,7 @@
 // sees an empty list (not everything — that was the pre-fix behavior).
 
 const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
-const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth");
+const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");
 
