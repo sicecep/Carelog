@@ -17,7 +17,7 @@ import {
   type Task,
 } from "@/lib/api-client";
 import { DetailActions } from "./detail-actions";
-import { DetailHeader, TimelineList } from "./detail-sections";
+import { DaySummaryTrigger, DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ParentNotes } from "@/components/ui/ParentNotes";
 import { AssignmentManager } from "@/components/ui/AssignmentManager";
@@ -40,6 +40,7 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
   let incidents: Incident[] = [];
   let workspaceId: string | null = null;
   let isOwner = false;
+  let canWrite = false;
   let assignments: AssignedCaregiver[] = [];
   let members: Member[] = [];
   let tasks: Task[] = [];
@@ -55,6 +56,9 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
     if (!workspace) redirect(`/${locale}/dashboard`);
     workspaceId = workspace.id;
     isOwner = workspace.role === "owner";
+    // CGR-007: the day-end summary trigger is a writer control — the API
+    // 403s viewers, so the button is hidden (not disabled) for them.
+    canWrite = workspace.role === "owner" || workspace.role === "caregiver";
     currentUserId = me.data?.user.id ?? "";
 
     const res = await recipientApi.get(workspace.id, id, forwarded);
@@ -164,12 +168,21 @@ export default async function RecipientDetailPage({ params }: RecipientPageProps
             )}
 
             <section aria-labelledby="timeline-heading" className="mt-8">
-              <h2
-                id="timeline-heading"
-                className="mb-4 text-xl font-medium text-[var(--color-text)]"
-              >
-                {t("detailTimelineHeading")}
-              </h2>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2
+                  id="timeline-heading"
+                  className="text-xl font-medium text-[var(--color-text)]"
+                >
+                  {t("detailTimelineHeading")}
+                </h2>
+                {workspaceId && canWrite && (
+                  <DaySummaryTrigger
+                    recipientId={recipient.id}
+                    workspaceId={workspaceId}
+                    modules={recipient.enabled_modules}
+                  />
+                )}
+              </div>
               <TimelineList entries={entries} incidents={incidents} isOwner={isOwner} workspaceId={workspaceId!} />
             </section>
 

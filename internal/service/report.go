@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,6 +138,185 @@ type AddEntryInput struct {
 	ValueNumber *float64
 	ValueJson   []byte
 	OccurredAt  *time.Time
+}
+
+// SubmitDaySummaryInput is the payload for the day-end count-based summary
+// (CGR-007): per-category counts of care that was given but never logged in
+// real time, plus an optional free-text note.
+type SubmitDaySummaryInput struct {
+	Counts map[domain.LogCategory]int
+	Note   *string
+}
+
+// validateSummaryCounts validates a day-end summary without database calls.
+//
+// Rules:
+//   - At least one count must be present and nonzero — an empty summary is a
+//     no-op button mash, not a record.
+//   - Counts are 1..99. A caregiver summarizing "100+ meals" has mistyped.
+//   - note and other are not countable categories.
+//   - The diaper care-type rule (LOG-002.1) applies to summaries too.
+//   - Note length obeys LOG-005.
+func validateSummaryCounts(input SubmitDaySummaryInput, careType domain.CareType) error {
+	var valErrs []RecipientError
+
+	nonZero := 0
+	for cat, n := range input.Counts {
+		if !domain.IsValidLogCategory(cat.String()) {
+			valErrs = append(valErrs, RecipientError{Field: "counts", Message: fmt.Sprintf("unknown category %q", cat)})
+			continue
+		}
+		if cat == domain.LogCategoryNote || cat == domain.LogCategoryOther {
+			valErrs = append(valErrs, RecipientError{Field: "counts", Message: fmt.Sprintf("category %q is not countable", cat)})
+			continue
+		}
+		if cat == domain.LogCategoryDiaper && !domain.IsDiaperAllowedFor(careType) {
+			valErrs = append(valErrs, RecipientError{Field: "counts", Message: "diaper counts only for infants/children"})
+			continue
+		}
+		// A zero count is a no-op stepper, not an error — only a summary
+		// where NOTHING is countable is rejected (below).
+		if n == 0 {
+			continue
+		}
+		if n < 0 || n > 99 {
+			valErrs = append(valErrs, RecipientError{Field: "counts", Message: fmt.Sprintf("count for %q must be between 1 and 99", cat)})
+			continue
+		}
+		nonZero++
+	}
+	if nonZero == 0 && len(valErrs) == 0 {
+		valErrs = append(valErrs, RecipientError{Field: "counts", Message: "at least one count is required"})
+	}
+
+	if input.Note != nil && len(*input.Note) > domain.MaxNoteLength {
+		valErrs = append(valErrs, RecipientError{Field: "note", Message: fmt.Sprintf("note too long (max %d chars)", domain.MaxNoteLength)})
+	}
+
+	if len(valErrs) > 0 {
+		return ErrValidation{Errors: valErrs}
+	}
+	return nil
+}
+
+// SubmitDaySummary records a day-end count-based summary (CGR-007): one
+// report entry per nonzero count with the count in value_number, plus an
+// optional note entry. Everything commits atomically — a failed summary must
+// not leave phantom entries behind.
+func SubmitDaySummary(
+	ctx context.Context,
+	queries store.Querier,
+	pool *pgxpool.Pool,
+	workspaceID uuid.UUID,
+	recipientID uuid.UUID,
+	contributorID uuid.UUID,
+	input SubmitDaySummaryInput,
+) ([]store.ReportEntry, error) {
+	// Validation — workspace-scoped lookup prevents cross-tenant writes.
+	recipient, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
+		ID:          recipientID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrRecipientNotFound
+		}
+		return nil, fmt.Errorf("get recipient: %w", err)
+	}
+
+	if err := validateSummaryCounts(input, domain.CareType(recipient.CareType)); err != nil {
+		return nil, err
+	}
+
+	role, err := queries.GetWorkspaceRoleForUser(ctx, store.GetWorkspaceRoleForUserParams{
+		WorkspaceID: workspaceID,
+		UserID:      contributorID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get workspace role: %w", err)
+	}
+
+	var contributorRole domain.ContributorRole
+	switch domain.Role(role) {
+	case domain.RoleOwner:
+		contributorRole = domain.ContributorRoleOwner
+	case domain.RoleCaregiver:
+		contributorRole = domain.ContributorRoleCaregiver
+	default:
+		return nil, fmt.Errorf("unsupported role for logging: %s", role)
+	}
+
+	// Deterministic order so tests (and the timeline) are stable.
+	cats := make([]domain.LogCategory, 0, len(input.Counts))
+	for cat := range input.Counts {
+		cats = append(cats, cat)
+	}
+	sort.Slice(cats, func(i, j int) bool { return cats[i] < cats[j] })
+
+	var entries []store.ReportEntry
+	err = func() error {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx: %w", err)
+		}
+		defer func() {
+			_ = tx.Rollback(ctx)
+		}()
+
+		qtx := store.New(tx)
+
+		// A summary filed by someone who logged nothing today gets its own
+		// summary-typed report; someone who did log reuses their report.
+		report, err := GetOrCreateTodayReport(ctx, qtx, workspaceID, recipientID, contributorID, contributorRole, domain.ReportTypeSummary)
+		if err != nil {
+			return err
+		}
+
+		now := time.Now()
+		for _, cat := range cats {
+			n := input.Counts[cat]
+			if n < 1 {
+				continue
+			}
+			var valueNumber pgtype.Numeric
+			if err := valueNumber.Scan(fmt.Sprintf("%d", n)); err != nil {
+				return fmt.Errorf("parse count: %w", err)
+			}
+			entry, err := qtx.CreateReportEntry(ctx, store.CreateReportEntryParams{
+				ReportID:    report.ID,
+				Category:    cat.String(),
+				ValueNumber: valueNumber,
+				OccurredAt:  pgtype.Timestamptz{Time: now, Valid: true},
+			})
+			if err != nil {
+				return fmt.Errorf("create summary entry: %w", err)
+			}
+			entries = append(entries, entry)
+		}
+
+		if input.Note != nil && strings.TrimSpace(*input.Note) != "" {
+			note, err := qtx.CreateReportEntry(ctx, store.CreateReportEntryParams{
+				ReportID:  report.ID,
+				Category:  domain.LogCategoryNote.String(),
+				ValueText: pgtype.Text{String: strings.TrimSpace(*input.Note), Valid: true},
+				OccurredAt: pgtype.Timestamptz{
+					Time:  now,
+					Valid: true,
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("create summary note: %w", err)
+			}
+			entries = append(entries, note)
+		}
+
+		return tx.Commit(ctx)
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	return entries, nil
 }
 
 // GetOrCreateTodayReport ensures a report exists for the given recipient, date (today), and contributor.

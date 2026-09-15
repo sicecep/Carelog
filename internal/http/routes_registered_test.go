@@ -59,6 +59,7 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		"POST /api/v1/recipients/{recipientID}/entries",
 		"GET /api/v1/recipients/{recipientID}/timeline",
 		"GET /api/v1/recipients/{recipientID}/summary",
+		"POST /api/v1/recipients/{recipientID}/summary",
 
 		// Incidents
 		"GET /api/v1/incidents",

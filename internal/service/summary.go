@@ -11,10 +11,12 @@ import (
 )
 
 type SummaryItem struct {
-	Category    string
-	Subcategory string
-	Count       int64
-	Total       float64
+	// Tags matter: the api-client SummaryItem type expects lowercase keys,
+	// and encoding/json silently uses the Go field names without them.
+	Category    string  `json:"category"`
+	Subcategory string  `json:"subcategory"`
+	Count       int64   `json:"count"`
+	Total       float64 `json:"total"`
 }
 
 func GetWhatsAppSummary(ctx context.Context, q *store.Queries, recipientID uuid.UUID, date string) ([]SummaryItem, error) {

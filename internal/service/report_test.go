@@ -282,3 +282,93 @@ func TestAddEntryValidation_SymptomNotVital_NoJSONRequired(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
+
+// --- Day-end count summary validation (CGR-007) ---
+
+func TestValidateSummaryCounts_Valid_Passes(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{
+			domain.LogCategoryMeal:  3,
+			domain.LogCategoryDiaper: 2,
+		},
+		Note: stringPtr("Hari yang panjang"),
+	}
+	err := validateSummaryCounts(input, domain.CareTypeInfant)
+	require.NoError(t, err)
+}
+
+func TestValidateSummaryCounts_Empty_Fails(t *testing.T) {
+	err := validateSummaryCounts(SubmitDaySummaryInput{}, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "counts", valErr.Errors[0].Field)
+}
+
+func TestValidateSummaryCounts_ZeroCountsOnly_Fails(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 0},
+	}
+	err := validateSummaryCounts(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Contains(t, valErr.Errors[0].Message, "at least one count")
+}
+
+func TestValidateSummaryCounts_CountTooHigh_Fails(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 150},
+	}
+	err := validateSummaryCounts(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Contains(t, valErr.Errors[0].Message, "between 1 and 99")
+}
+
+func TestValidateSummaryCounts_UnknownCategory_Fails(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategory("yoga"): 1},
+	}
+	err := validateSummaryCounts(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Contains(t, valErr.Errors[0].Message, "unknown category")
+}
+
+func TestValidateSummaryCounts_NoteIsNotCountable_Fails(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategoryNote: 3},
+	}
+	err := validateSummaryCounts(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Contains(t, valErr.Errors[0].Message, "not countable")
+}
+
+func TestValidateSummaryCounts_DiaperForElderly_Fails(t *testing.T) {
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategoryDiaper: 2},
+	}
+	err := validateSummaryCounts(input, domain.CareTypeElderly)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Contains(t, valErr.Errors[0].Message, "diaper")
+}
+
+func TestValidateSummaryCounts_NoteTooLong_Fails(t *testing.T) {
+	longNote := string(make([]byte, domain.MaxNoteLength+1))
+	input := SubmitDaySummaryInput{
+		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 1},
+		Note:   &longNote,
+	}
+	err := validateSummaryCounts(input, domain.CareTypeChild)
+	require.Error(t, err)
+	var valErr ErrValidation
+	require.True(t, errors.As(err, &valErr))
+	require.Equal(t, "note", valErr.Errors[0].Field)
+}

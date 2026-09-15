@@ -240,6 +240,21 @@ export const recipientApi = {
       { "X-Workspace-ID": workspaceId }
     ),
 
+  // POST /api/v1/recipients/{id}/summary - day-end count-based summary
+  // (CGR-007): counts of care that was given but never logged in real time.
+  submitDaySummary: (
+    workspaceId: string,
+    recipientId: string,
+    body: {
+      /** Countable categories only (note/other are rejected server-side). */
+      counts: Partial<Record<LogCategory, number>>;
+      note?: string;
+    }
+  ) =>
+    api.post<ReportEntry[]>(`/api/v1/recipients/${recipientId}/summary`, body, {
+      "X-Workspace-ID": workspaceId,
+    }),
+
   // POST /api/v1/recipients/{recipientID}/entries - Add a log entry.
   createEntry: (
     workspaceId: string,
