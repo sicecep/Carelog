@@ -68,7 +68,7 @@ CareLog gives caregivers a simple, low-friction daily logging interface (three U
 
 ### MVP Delivery Target
 
-An 8–12 week MVP delivering P0 features: care profile creation, three-mode daily logging, parent report viewing, WhatsApp-based caregiver invitation, multi-caregiver assignment & revocation, magic link + Google OAuth, bilingual UI, daily email notifications, parent instruction notes, caregiver shift check-in/check-out, and incident reporting.
+An 8–12 week MVP delivering P0 features: care profile creation, three-mode daily logging, parent report viewing, WhatsApp-based caregiver invitation, multi-caregiver assignment & revocation, magic link + Google OAuth for owners, phone + PIN for caregivers, bilingual UI, daily email notifications, parent instruction notes, caregiver shift check-in/check-out, and incident reporting.
 
 ---
 
@@ -273,10 +273,11 @@ Caregiving in Indonesian households sits at the intersection of intimate trust a
 
 | No. | Feature | Actor | Requirement | Note |
 |---|---|---|---|---|
-| AUTH-001 | **Magic link authentication** — *As a user, I want to sign up and log in via email magic link so that I don't need a password.* | All users | **Objective:** Reduce auth friction, especially for caregivers with lower digital literacy. **Acceptance Criteria:** (1) User enters email → receives magic link within 60 seconds. (2) Clicking link creates or resumes a session. (3) Link is single-use and expires after 15 minutes. (4) 30-day session persistence on trusted devices. (5) Expired link shows clear error with resend option. | P0 |
-| AUTH-002 | **Google OAuth** — *As a user, I want to sign in with Google so that I can skip email verification.* | All users | **Acceptance Criteria:** (1) "Sign in with Google" button on auth screen. (2) OAuth 2.0 flow completes → account created or matched by email. (3) 30-day session created. (4) If email already exists via magic link, accounts are linked. | P0 |
-| AUTH-003 | **WhatsApp-shareable invite link** — *As an owner, I want to share an invite via WhatsApp so that my caregiver can join without friction.* | Owner | **Acceptance Criteria:** (1) Owner generates invite link from workspace settings. (2) Link contains a signed cryptographic token. (3) Link valid for 72 hours, single-use. (4) Clicking opens CareLog → caregiver completes magic link auth → automatically added to workspace with Caregiver role. (5) Owner notified via email when invite is accepted. | P0 |
+| AUTH-001 | **Magic link authentication** — *As a user, I want to sign up and log in via email magic link so that I don't need a password.* | All users | **Objective:** Reduce auth friction for email-capable users (owners and viewers); caregivers use phone + PIN instead (AUTH-005). **Acceptance Criteria:** (1) User enters email → receives magic link within 60 seconds. (2) Clicking link creates or resumes a session. (3) Link is single-use and expires after 15 minutes. (4) 90-day sliding session persistence on trusted devices. (5) Expired link shows clear error with resend option. | P0 |
+| AUTH-002 | **Google OAuth** — *As a user, I want to sign in with Google so that I can skip email verification.* | All users | **Acceptance Criteria:** (1) "Sign in with Google" button on auth screen. (2) OAuth 2.0 flow completes → account created or matched by email. (3) 90-day sliding session created. (4) If email already exists via magic link, accounts are linked. | P0 |
+| AUTH-003 | **WhatsApp-shareable invite link** — *As an owner, I want to share an invite via WhatsApp so that my caregiver can join without friction.* | Owner | **Acceptance Criteria:** (1) Owner generates invite link from workspace settings. (2) Link contains a signed cryptographic token. (3) Link valid for 72 hours, single-use. (4) Clicking opens CareLog → caregiver **sets a 6-digit PIN (AUTH-005)** → automatically added to workspace with Caregiver role. No email step. (5) Owner notified via email when invite is accepted. | P0 |
 | AUTH-004 | **Role-based access control** | System | **Acceptance Criteria:** (1) Owner: full CRUD on workspace, profiles, instructions, reports. (2) Caregiver: create/edit own logs within same-day window, view instructions, check in/out, file incidents. (3) Viewer: read-only on reports and timeline. (4) No role can access another workspace's data. (5) Enforcement is at the database RLS layer, not only at the application layer. | P0 |
+| AUTH-005 | **Caregiver phone + PIN login** — *As a caregiver, I want to log in with my phone number and a short PIN so that I never have to open an email inbox.* | Caregiver | **Objective:** Email is the wrong primary channel for this persona — many caregivers have no working email account, and the invite already reaches them on WhatsApp. **Acceptance Criteria:** (1) Enrolment happens inside the AUTH-003 invite link: caregiver confirms their phone and chooses a 6-digit PIN. (2) Phone is stored canonically (E.164) so the same number typed any way resolves to one account. (3) Login is phone + PIN, accepted **only on an enrolled device** — a new device requires a fresh invite link, making the PIN a second factor rather than a standalone password. (4) PIN re-entry after 30 minutes idle; otherwise the session persists (90-day sliding refresh). (5) 5 failed attempts trigger lockout with backoff. (6) Forgotten PIN is recovered by the owner re-issuing the invite link over their own WhatsApp — no paid messaging channel, and the owner personally knows the caregiver. (7) PIN stored as argon2id hash, never recoverable. | P0 |
 
 ---
 
@@ -512,7 +513,7 @@ Indonesian credit card penetration is approximately 6-7%. CareLog must support t
 | ID | Requirement | Standard |
 |---|---|---|
 | SEC-001 | Workspace data isolation | RLS at DB level + API layer |
-| SEC-002 | Authentication token security | Single-use magic links; httpOnly cookies; no tokens in localStorage |
+| SEC-002 | Authentication token security | Single-use magic links; argon2id device-bound PINs; httpOnly cookies; no tokens in localStorage |
 | SEC-003 | Invite link security | Cryptographic token, single-use, 72-hour expiry |
 | SEC-004 | Photo storage | Private buckets, signed URLs (1-hour TTL) |
 | SEC-005 | PII protection | No PII in logs; AES-256 at rest |
@@ -1430,12 +1431,13 @@ Three enforcement layers:
 
 | Requirement | Implementation |
 |---|---|
-| Password policy | Min 8 chars, 1 uppercase, 1 number |
-| Password hashing | bcrypt (Supabase Auth default, cost 10) |
-| Session tokens | Short-lived JWT (1h) + refresh token (30 days) with rotation |
+| Credential policy | **Passwordless.** Owners: magic link / Google. Caregivers: 6-digit PIN, device-bound (AUTH-005). No passwords anywhere |
+| PIN hashing | argon2id (memory-hard; a 6-digit space must not be cheaply brute-forced offline if the DB leaks) |
+| Session tokens | Short-lived JWT access (15m) + rotating refresh token (90 days, sliding) |
 | Magic link expiry | 15 minutes, single-use |
-| Session invalidation | On password change; manual revocation per device |
-| Brute force protection | 10 failed attempts → 15-min lockout (Supabase Auth) |
+| PIN re-entry | After 30 minutes idle on a trusted device; full re-auth only on a new device |
+| Session invalidation | On PIN change; manual revocation per device; owner revoking a caregiver kills their token family |
+| Brute force protection | Redis fixed-window limits (RFC §6.6): magic link 5/15m per IP, refresh 60/h per IP; PIN attempts 5 per device then backoff |
 | Bot detection on signup | Cloudflare Turnstile |
 
 ### 17.2 RLS Hardening Checklist
@@ -1710,7 +1712,7 @@ Parallel tracks (independent after Week 2):
 ```
 [1] Browser: Form validation (client-side, Zod)
 [2] Next.js API Route: POST /api/v1/reports/:id/submit
-    - Verify JWT (Supabase Auth middleware)
+    - Verify JWT (Go API: internal/http/middleware AuthMiddleware)
     - Validate payload (server Zod)
     - Check duplicate report
     - Check free tier limits
@@ -1842,8 +1844,8 @@ WHERE report_date = (NOW() AT TIME ZONE workspace.timezone)::DATE
 
 | Feature | Acceptance Criteria |
 |---|---|
-| **User Registration** | (1) Email magic link creates account within 60s. (2) Confirmation email sent. (3) Duplicate email returns clear error. (4) Password min 8 chars enforced client + server. |
-| **User Login** | (1) Valid credentials return session and redirect to dashboard. (2) Invalid credentials show generic error (no field enumeration). (3) Session persists across refresh. (4) Logout clears session. |
+| **User Registration** | (1) Owner: email magic link creates account within 60s. (2) Caregiver: invite link enrols device + sets 6-digit PIN, no email required. (3) Duplicate identity resumes the existing account rather than erroring (no account enumeration). (4) No passwords — see §17.1. |
+| **User Login** | (1) Valid credentials return session and redirect to dashboard. (2) Invalid credentials show generic error (no field enumeration). (3) Session persists across refresh. (4) Logout clears session. (5) Caregiver PIN is accepted only on an enrolled device. |
 | **Workspace Creation** | (1) Owner creates workspace with name. (2) Owner auto-assigned Owner role. (3) Free tier: `plan = 'free'`. |
 | **Care Recipient Profile** | (1) Fields: name (required), DOB (required), care type (required), photo (optional), medical notes (optional). (2) Free tier: second profile blocked with upgrade modal. (3) Profile photo served from CDN. |
 | **Caregiver Invite** | (1) Owner generates invite link. (2) Expires 72h, single-use. (3) Accepting creates `workspace_members` record. (4) Owner email notification on acceptance. |
