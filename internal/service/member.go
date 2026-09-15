@@ -80,7 +80,7 @@ func ListMembers(
 	for i, row := range rows {
 		members[i] = Member{
 			UserID:    row.UserID,
-			Email:     row.Email,
+			Email:     row.Email.String,
 			FullName:  row.FullName.String,
 			AvatarURL: row.AvatarUrl.String,
 			Role:      row.Role,

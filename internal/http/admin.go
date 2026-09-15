@@ -44,6 +44,7 @@ func RegisterAdminRoutes(r chi.Router, h *AdminHandlers) {
 type AdminUserResponse struct {
 	ID              uuid.UUID `json:"id"`
 	Email           string    `json:"email"`
+	Phone           string    `json:"phone,omitempty"`
 	FullName        string    `json:"full_name,omitempty"`
 	AvatarURL       string    `json:"avatar_url,omitempty"`
 	Locale          string    `json:"locale"`
@@ -83,7 +84,8 @@ func (h *AdminHandlers) handleListUsers(w http.ResponseWriter, r *http.Request) 
 	for i, u := range rows {
 		resp[i] = AdminUserResponse{
 			ID:              u.ID,
-			Email:           u.Email,
+			Email:           u.Email.String,
+			Phone:           u.Phone.String,
 			FullName:        u.FullName.String,
 			AvatarURL:       u.AvatarUrl.String,
 			Locale:          u.Locale,

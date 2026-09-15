@@ -25,8 +25,13 @@ CREATE INDEX idx_workspace_members_user_id ON workspace_members(user_id);
 -- users
 CREATE TABLE users (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email                TEXT NOT NULL,
+    -- Optional: caregivers may authenticate by phone instead (auth track).
+    -- users_identity_present guarantees at least one of email/phone exists.
+    email                TEXT,
     email_verified_at    TIMESTAMPTZ,
+    -- E.164 (+628…), canonical so one person cannot become two accounts.
+    phone                TEXT,
+    phone_verified_at    TIMESTAMPTZ,
     full_name            TEXT,
     avatar_url           TEXT,
     google_id            TEXT UNIQUE,
@@ -43,10 +48,15 @@ CREATE TABLE users (
     rejection_reason     TEXT CHECK (char_length(rejection_reason) <= 500),
     is_super_admin       BOOLEAN NOT NULL DEFAULT false,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- An account with neither identity could never be authenticated as, yet
+    -- would still hold workspace memberships.
+    CONSTRAINT users_identity_present CHECK (email IS NOT NULL OR phone IS NOT NULL),
+    CONSTRAINT users_phone_e164 CHECK (phone IS NULL OR phone ~ '^\+[1-9][0-9]{6,14}$')
 );
 
 CREATE UNIQUE INDEX idx_users_email_lower ON users (LOWER(email));
+CREATE UNIQUE INDEX idx_users_phone ON users (phone) WHERE phone IS NOT NULL;
 CREATE INDEX idx_users_pending_approval ON users (created_at)
     WHERE approval_status = 'pending';
 CREATE INDEX idx_users_super_admin ON users (id) WHERE is_super_admin;

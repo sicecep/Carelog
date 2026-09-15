@@ -184,8 +184,10 @@ type Task struct {
 
 type User struct {
 	ID                  uuid.UUID          `json:"id"`
-	Email               string             `json:"email"`
+	Email               pgtype.Text        `json:"email"`
 	EmailVerifiedAt     pgtype.Timestamptz `json:"email_verified_at"`
+	Phone               pgtype.Text        `json:"phone"`
+	PhoneVerifiedAt     pgtype.Timestamptz `json:"phone_verified_at"`
 	FullName            pgtype.Text        `json:"full_name"`
 	AvatarUrl           pgtype.Text        `json:"avatar_url"`
 	GoogleID            pgtype.Text        `json:"google_id"`

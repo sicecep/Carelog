@@ -129,7 +129,7 @@ func ListCaregiversForRecipient(ctx context.Context, q *store.Queries, workspace
 	for i, row := range rows {
 		out[i] = AssignedCaregiver{
 			UserID:     row.UserID,
-			Email:      row.Email,
+			Email:      row.Email.String,
 			FullName:   row.FullName.String,
 			AvatarURL:  row.AvatarUrl.String,
 			AssignedAt: row.AssignedAt.Time.Format("2006-01-02T15:04:05Z07:00"),

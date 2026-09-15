@@ -152,7 +152,7 @@ type ListWorkspaceMembersWithUserRow struct {
 	UserID      uuid.UUID          `json:"user_id"`
 	Role        string             `json:"role"`
 	JoinedAt    pgtype.Timestamptz `json:"joined_at"`
-	Email       string             `json:"email"`
+	Email       pgtype.Text        `json:"email"`
 	FullName    pgtype.Text        `json:"full_name"`
 	AvatarUrl   pgtype.Text        `json:"avatar_url"`
 	IsActive    bool               `json:"is_active"`

@@ -77,7 +77,7 @@ ORDER BY u.email
 
 type ListDigestRecipientsForWorkspaceRow struct {
 	ID       uuid.UUID   `json:"id"`
-	Email    string      `json:"email"`
+	Email    pgtype.Text `json:"email"`
 	FullName pgtype.Text `json:"full_name"`
 	Locale   string      `json:"locale"`
 }
@@ -213,7 +213,12 @@ SELECT
     r.id AS report_id,
     r.contributor_id,
     r.contributor_role,
-    COALESCE(u.full_name, u.email) AS contributor_name,
+    -- Display fallback chain. Email is optional now (phone-primary
+    -- caregivers), so without the phone leg a named-less caregiver would
+    -- render as an empty string in the digest. COALESCE over all three
+    -- keeps the column NOT NULL for sqlc and always shows something a
+    -- human can recognise.
+    COALESCE(u.full_name, u.email, u.phone, 'Unknown') AS contributor_name,
     r.report_type,
     r.status,
     r.submitted_at,
