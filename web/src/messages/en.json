@@ -40,7 +40,11 @@
     "or": "or",
     "signInWithGoogle": "Sign in with Google",
     "comingSoon": "Coming soon",
-    "sessionExpired": "Session expired, please sign in again"
+    "sessionExpired": "Session expired, please sign in again",
+    "signInMethod": "Sign-in method",
+    "methodPin": "Phone & PIN",
+    "methodEmail": "Email link",
+    "loginIntro": "Sign in with your phone and PIN, or with an email sign-in link — no password needed."
   },
   "landing": {
     "tagline": "Daily care for your family, recorded and shared clearly.",
@@ -392,7 +396,12 @@
     "description": "You've been invited to join a workspace as a caregiver. Tap the button below to accept and start logging care.",
     "accept": "Accept Invitation",
     "claiming": "Joining...",
-    "errorClaiming": "Failed to join. The link may be expired or already used."
+    "errorClaiming": "Failed to join. The link may be expired or already used.",
+    "loading": "Loading…",
+    "titleNamed": "Join {workspace}",
+    "invalidTitle": "This invite link doesn't work",
+    "invalidBody": "It may have expired, already been used, or been cancelled. Ask your family to send a new one.",
+    "phoneIntro": "Enter your phone number to get started. You'll use it to sign in from now on."
   },
   "invitecaregiver": {
     "inviteButton": "Invite Caregiver",
@@ -553,5 +562,44 @@
     "openAria": "Notifications, {count} unread",
     "taskOverdueTitle": "Task overdue",
     "taskOverdueBody": "\"{task}\" for {recipient} was due {due} and is not done."
+  },
+  "pin": {
+    "phoneLabel": "Phone number",
+    "phonePlaceholder": "0812 3456 7890",
+    "phoneHint": "The number your family used to invite you.",
+    "phoneInvalid": "Enter a valid phone number.",
+    "continue": "Continue",
+    "enterPin": "Enter your PIN",
+    "choosePin": "Choose a 6-digit PIN",
+    "choosePinHint": "You'll use this to sign in. Don't use 123456 or your birth year.",
+    "confirmPin": "Enter it again",
+    "confirmPinHint": "Just to be sure you'll remember it.",
+    "mismatch": "Those PINs didn't match. Try again.",
+    "incorrect": "Phone number or PIN is incorrect.",
+    "locked": "Too many tries. Wait 15 minutes and try again.",
+    "notEnrolled": "No PIN set for this number yet. Use the invite link your family sent you.",
+    "deviceNotTrusted": "This phone isn't set up yet. Ask your family to send you a new invite link.",
+    "forgotPin": "I forgot my PIN",
+    "resetRequested": "We've told your family. They'll give you a code to set a new PIN.",
+    "changeNumber": "Use a different number",
+    "back": "Back",
+    "confirm": "Confirm",
+    "backspace": "Delete",
+    "complete": "PIN complete",
+    "digitsEntered": "{count} of {total} digits entered"
+  },
+  "pinResets": {
+    "loading": "Loading…",
+    "empty": "No PIN reset requests.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "device": "From: {device}",
+    "approvedTitle": "Approved",
+    "approvedBody": "Read this code to your caregiver so they can set a new PIN on their phone:",
+    "approvedExpiry": "This code works for 15 minutes, on their phone only.",
+    "loadError": "Couldn't load reset requests.",
+    "approveError": "Couldn't approve that request.",
+    "denyError": "Couldn't deny that request.",
+    "heading": "PIN reset requests"
   }
 }

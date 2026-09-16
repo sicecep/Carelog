@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { LoginForm } from "./login-form";
+import { LoginMethodTabs } from "./login-method-tabs";
 
 interface LoginPageProps {
   params: Promise<{ locale: string }>;
@@ -17,10 +17,10 @@ export default async function LoginPage({ params }: LoginPageProps) {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900">{common("appName")}</h1>
           <h2 className="mt-6 text-2xl font-semibold text-gray-700">{t("login")}</h2>
-          <p className="mt-2 text-base text-gray-600">{t("magicLinkIntro")}</p>
+          <p className="mt-2 text-base text-gray-600">{t("loginIntro")}</p>
         </div>
 
-        <LoginForm />
+        <LoginMethodTabs />
 
         {/* Mirror of the register page's "already have an account?" link:
             someone arriving straight at /login (bookmark, old link, the

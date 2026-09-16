@@ -40,7 +40,11 @@
     "or": "atau",
     "signInWithGoogle": "Masuk dengan Google",
     "comingSoon": "Segera hadir",
-    "sessionExpired": "Sesi berakhir, silakan masuk kembali"
+    "sessionExpired": "Sesi berakhir, silakan masuk kembali",
+    "signInMethod": "Cara masuk",
+    "methodPin": "HP & PIN",
+    "methodEmail": "Tautan email",
+    "loginIntro": "Masuk dengan nomor HP dan PIN, atau lewat tautan untuk masuk via email — tanpa kata sandi."
   },
   "landing": {
     "tagline": "Perawatan harian untuk keluarga Anda, tercatat dan terbagikan dengan jelas.",
@@ -392,7 +396,12 @@
     "description": "Anda telah diundang untuk bergabung ke workspace sebagai pengasuh. Ketuk tombol di bawah untuk menerima dan mulai mencatat kegiatan.",
     "accept": "Terima Undangan",
     "claiming": "Bergabung...",
-    "errorClaiming": "Gagal bergabung. Tautan mungkin kedaluwarsa atau sudah digunakan."
+    "errorClaiming": "Gagal bergabung. Tautan mungkin kedaluwarsa atau sudah digunakan.",
+    "loading": "Memuat…",
+    "titleNamed": "Gabung ke {workspace}",
+    "invalidTitle": "Tautan undangan ini tidak berlaku",
+    "invalidBody": "Mungkin sudah kedaluwarsa, sudah dipakai, atau dibatalkan. Minta keluarga mengirim tautan baru.",
+    "phoneIntro": "Masukkan nomor HP Anda untuk mulai. Nomor ini dipakai untuk masuk selanjutnya."
   },
   "invitecaregiver": {
     "inviteButton": "Undang Pengasuh",
@@ -553,5 +562,44 @@
     "openAria": "Notifikasi, {count} belum dibaca",
     "taskOverdueTitle": "Tugas terlambat",
     "taskOverdueBody": "\"{task}\" untuk {recipient} jatuh tempo {due} dan belum selesai."
+  },
+  "pin": {
+    "phoneLabel": "Nomor HP",
+    "phonePlaceholder": "0812 3456 7890",
+    "phoneHint": "Nomor yang dipakai keluarga untuk mengundang Anda.",
+    "phoneInvalid": "Masukkan nomor HP yang benar.",
+    "continue": "Lanjut",
+    "enterPin": "Masukkan PIN Anda",
+    "choosePin": "Buat PIN 6 angka",
+    "choosePinHint": "PIN ini untuk masuk. Jangan pakai 123456 atau tahun lahir.",
+    "confirmPin": "Masukkan sekali lagi",
+    "confirmPinHint": "Supaya Anda yakin ingat.",
+    "mismatch": "PIN tidak sama. Coba lagi.",
+    "incorrect": "Nomor HP atau PIN salah.",
+    "locked": "Terlalu banyak percobaan. Tunggu 15 menit lalu coba lagi.",
+    "notEnrolled": "Nomor ini belum punya PIN. Pakai tautan undangan dari keluarga Anda.",
+    "deviceNotTrusted": "HP ini belum didaftarkan. Minta keluarga mengirim tautan undangan baru.",
+    "forgotPin": "Saya lupa PIN",
+    "resetRequested": "Keluarga Anda sudah diberi tahu. Mereka akan memberi kode untuk membuat PIN baru.",
+    "changeNumber": "Pakai nomor lain",
+    "back": "Kembali",
+    "confirm": "Konfirmasi",
+    "backspace": "Hapus",
+    "complete": "PIN lengkap",
+    "digitsEntered": "{count} dari {total} angka dimasukkan"
+  },
+  "pinResets": {
+    "loading": "Memuat…",
+    "empty": "Tidak ada permintaan PIN baru.",
+    "approve": "Setujui",
+    "deny": "Tolak",
+    "device": "Dari: {device}",
+    "approvedTitle": "Disetujui",
+    "approvedBody": "Bacakan kode ini kepada perawat Anda agar dia bisa membuat PIN baru di HP-nya:",
+    "approvedExpiry": "Kode ini berlaku 15 menit, hanya di HP dia.",
+    "loadError": "Gagal memuat permintaan.",
+    "approveError": "Gagal menyetujui permintaan.",
+    "denyError": "Gagal menolak permintaan.",
+    "heading": "Permintaan PIN baru"
   }
 }

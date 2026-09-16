@@ -117,6 +117,46 @@ export const authApi = {
     return { sent: true };
   },
 
+  // ─── AUTH-005: caregiver phone + device-bound PIN ────────────────────────
+  //
+  // The cl_device cookie is httpOnly and rides along automatically via
+  // `credentials: "include"` — it is never read or set from JavaScript, so
+  // an XSS cannot exfiltrate the possession factor.
+
+  // POST /api/v1/auth/pin/login - Sign in with phone + PIN from an enrolled
+  // device. Fails with device_not_trusted if this browser was never enrolled.
+  pinLogin: (phone: string, pin: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/login", { phone, pin }),
+
+  // POST /api/v1/invites/{token}/claim-pin - Phone-primary invite claim:
+  // creates the account, sets the PIN, enrols this device, joins the
+  // workspace, and returns a session. No email involved at any point.
+  claimInviteWithPIN: (token: string, phone: string, pin: string, locale: string) =>
+    api.post<{ status: string }>(
+      `/api/v1/invites/${encodeURIComponent(token)}/claim-pin`,
+      { phone, pin, locale },
+    ),
+
+  // POST /api/v1/auth/pin/forgot - Ask the owner to approve a PIN reset.
+  // Always succeeds, even for unknown numbers (anti-enumeration).
+  forgotPIN: (phone: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/forgot", { phone }),
+
+  // POST /api/v1/auth/pin/reset/complete - Redeem an owner-approved reset
+  // token and set a new PIN. Only works from the device that requested it.
+  completePINReset: (resetToken: string, pin: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/reset/complete", {
+      reset_token: resetToken,
+      pin,
+    }),
+
+  // POST /api/v1/auth/pin/set - Change the PIN on a live session.
+  setPIN: (currentPin: string, pin: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/set", {
+      current_pin: currentPin,
+      pin,
+    }),
+
   // GET /api/v1/auth/me - Get current user and workspace memberships.
   // Requires cl_access cookie. Optionally accepts X-Workspace-ID header.
   //
@@ -396,6 +436,18 @@ export interface Invitation {
   whatsapp_url?: string;
 }
 
+// GET /api/v1/invites/{token} returns a PREVIEW, not the full Invitation row:
+// the endpoint is fully public, so it deliberately exposes only what an
+// invitee needs to decide whether to accept. The TS type previously claimed
+// this returned `Invitation`, which was wrong in both directions (no
+// workspace_name, and it implied ids that are never sent).
+export interface InvitationPreview {
+  invitee_name: string;
+  workspace_name: string;
+  role: "caregiver" | "viewer";
+  expires_at: string;
+}
+
 export const invitationApi = {
   // POST /api/v1/invitations - Owner creates an invite
   create: (
@@ -419,7 +471,7 @@ export const invitationApi = {
     }),
 
   // GET /api/v1/invites/{token} - Public preview
-  get: (token: string) => api.get<Invitation>(`/api/v1/invites/${token}`),
+  get: (token: string) => api.get<InvitationPreview>(`/api/v1/invites/${token}`),
 
   // POST /api/v1/invites/{token}/claim - Claim the invite
   claim: (token: string) => api.post<{ workspace_id: string }>(`/api/v1/invites/${token}/claim`, {}),
@@ -701,4 +753,42 @@ export const healthApi = {
   healthz: () => api.get<{ status: string }>("/healthz"),
   readyz: () => api.get<{ status: string }>("/readyz"),
   version: () => api.get<{ version: string; timestamp: string }>("/api/v1/version"),
+};
+
+// AUTH-005: owner-side PIN reset approvals.
+export interface PendingPINReset {
+  id: string;
+  requester_id: string;
+  name: string;
+  phone: string;
+  device_label?: string;
+  requested_at: string;
+  expires_at: string;
+}
+
+export const pinResetApi = {
+  // GET /api/v1/workspace/pin-resets - Pending requests awaiting the owner.
+  list: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<PendingPINReset[]>("/api/v1/workspace/pin-resets", {
+      "X-Workspace-ID": workspaceId,
+      ...extraHeaders,
+    }),
+
+  // POST /api/v1/workspace/pin-resets/{id}/approve - Mint a single-use,
+  // 15-minute token bound to the device that asked. The owner passes it to
+  // the caregiver's waiting phone; it never grants the owner anything.
+  approve: (workspaceId: string, requestId: string) =>
+    api.post<{ reset_token: string; expires_at: string }>(
+      `/api/v1/workspace/pin-resets/${requestId}/approve`,
+      {},
+      { "X-Workspace-ID": workspaceId },
+    ),
+
+  // POST /api/v1/workspace/pin-resets/{id}/deny
+  deny: (workspaceId: string, requestId: string) =>
+    api.post<{ status: string }>(
+      `/api/v1/workspace/pin-resets/${requestId}/deny`,
+      {},
+      { "X-Workspace-ID": workspaceId },
+    ),
 };

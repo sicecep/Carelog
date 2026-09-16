@@ -36,6 +36,7 @@ type AuthHandlers struct {
 	MagicLinkSvc *auth.MagicLinkService
 	RefreshSvc   *auth.RefreshTokenService
 	Signer       *auth.Signer
+	PINSvc       *service.PINAuthDeps // AUTH-005: device binding + argon2id PIN auth
 	Mailer       mail.Mailer
 	WebBaseURL   string
 	APIBaseURL   string
@@ -89,6 +90,46 @@ func RegisterAuthRoutes(r chi.Router, h *AuthHandlers, limiter middleware.Limite
 			Window:  time.Hour,
 			KeyFunc: middleware.KeyByIP,
 		})).Post("/refresh", HandlerFunc(h.handleRefresh).Wrap())
+
+		// POST /auth/pin/login — phone + PIN from an enrolled device
+		// (AUTH-005).
+		//
+		// pinLoginIPMax MUST stay above the per-account lockout threshold
+		// (service.PINMaxAttempts). The two controls have different jobs:
+		// the account lockout bounds guessing against ONE account, the IP
+		// limit blunts scripted guessing across MANY accounts. When they
+		// were both 5 the IP limit always fired first and the account
+		// lockout was unreachable — caught by e2e-caregiver-pin, which saw
+		// 429 rate_limited where it expected pin_locked. Guarded by
+		// TestPINLoginLimits_IPBudgetExceedsAccountLockout.
+		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+			Name:    "auth_pin_login",
+			Max:     pinLoginIPMax,
+			Window:  15 * time.Minute,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/pin/login", HandlerFunc(h.handlePINLogin).Wrap())
+
+		// POST /auth/pin/enrol — during invite claim or approved reset;
+		// auth via one-time token, not a session (the user has none yet).
+		r.Post("/pin/enrol", HandlerFunc(h.handlePINEnrol).Wrap())
+
+		// POST /auth/pin/forgot — records a reset request for the owner.
+		// Same envelope for existing and unknown phones.
+		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+			Name:    "auth_pin_forgot",
+			Max:     3,
+			Window:  time.Hour,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/pin/forgot", HandlerFunc(h.handlePINForgot).Wrap())
+
+		// POST /auth/pin/reset/complete — redeem an approved reset token.
+		r.Post("/pin/reset/complete", HandlerFunc(h.handlePINResetComplete).Wrap())
+
+		// POST /auth/pin/set — change PIN on a live session.
+		r.With(middleware.AuthMiddleware(h.Signer.Verifier())).Post("/pin/set", HandlerFunc(h.handleSetPIN).Wrap())
+
+		// PIN reset approvals live under the owner's workspace routes, not
+		// here: approving is a workspace-scoped decision.
 
 		r.Post("/logout", HandlerFunc(h.handleLogout).Wrap())
 

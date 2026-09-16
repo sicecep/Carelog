@@ -110,6 +110,7 @@ func NewRouter(deps Deps) http.Handler {
 			MagicLinkSvc:  deps.MagicLinkSvc,
 			RefreshSvc:    deps.RefreshSvc,
 			Signer:        deps.Signer,
+			PINSvc:        &service.PINAuthDeps{Queries: deps.Queries},
 			Mailer:        deps.Mailer,
 			WebBaseURL:    deps.WebBaseURL,
 			APIBaseURL:    deps.APIBaseURL,
@@ -125,6 +126,17 @@ func NewRouter(deps Deps) http.Handler {
 			WebBaseURL: deps.WebBaseURL,
 		}
 		RegisterPublicInvitationRoutes(api, invitationHandlers, middleware.AuthMiddleware(deps.Signer.Verifier()))
+
+		// AUTH-005: phone-primary claim. Public by necessity — a caregiver
+		// without email cannot obtain a session to authenticate with, which
+		// is the dependency this epic removes. The single-use invite token
+		// is the credential. Rate-limited per IP: it creates accounts.
+		api.With(middleware.RateLimitMiddleware(deps.Limiter, logger, middleware.RateLimit{
+			Name:    "invite_claim_pin",
+			Max:     10,
+			Window:  time.Hour,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/invites/{token}/claim-pin", HandlerFunc(authHandlers.handleClaimInvitationWithPIN).Wrap())
 
 		// Super-admin routes. Auth only — deliberately NOT behind
 		// WorkspaceMiddleware: platform administration is not scoped to a
@@ -222,6 +234,14 @@ func NewRouter(deps Deps) http.Handler {
 				Queries: deps.Queries,
 			}
 			RegisterMemberRoutes(r, memberHandlers)
+
+			// AUTH-005: caregiver PIN reset approvals (owner only,
+			// function-level role check inside the handlers).
+			pinResetHandlers := &PINResetHandlers{
+				Queries: deps.Queries,
+				PINSvc:  &service.PINAuthDeps{Queries: deps.Queries},
+			}
+			RegisterPINResetRoutes(r, pinResetHandlers)
 
 			taskHandlers := &TaskHandlers{
 				Queries: deps.Queries,

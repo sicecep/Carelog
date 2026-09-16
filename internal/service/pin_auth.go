@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -43,21 +44,65 @@ const (
 	deviceTokenBytes = 32
 )
 
-var (
-	// ErrPINNotSet means the user has no PIN enrolled.
-	ErrPINNotSet = errors.New("pin not set")
-	// ErrPINLocked means too many failed attempts.
-	ErrPINLocked = errors.New("pin locked")
-	// ErrPINIncorrect covers both a wrong PIN and an unknown phone — the
-	// caller must not be able to tell which.
-	ErrPINIncorrect = errors.New("pin incorrect")
-	// ErrDeviceNotTrusted means the PIN was correct but this device is not
-	// enrolled: the possession factor is missing.
-	ErrDeviceNotTrusted = errors.New("device not trusted")
-	// ErrResetNotApproved covers a missing, unapproved, expired, already
-	// used, or wrong-device reset token.
-	ErrResetNotApproved = errors.New("reset not approved")
-)
+// PIN auth errors implement the apiError contract (Code/Message/Status) so
+// mapError renders each as the right HTTP status instead of a 500. The codes
+// are coarse by design — the distinctions live in logs, not in responses
+// that an attacker could mine.
+
+// ErrPINNotSet means the user has no PIN enrolled. This one IS account
+// existence-revealing; the 5/15m-per-IP limit on the endpoint bounds the
+// probing, and the client needs it to route to enrolment.
+type ErrPINNotSet struct{}
+
+func (ErrPINNotSet) Error() string { return "pin not set" }
+func (ErrPINNotSet) Code() string  { return "pin_not_set" }
+func (ErrPINNotSet) Message() string {
+	return "no PIN set for this account — enrol first"
+}
+func (ErrPINNotSet) Status() int { return http.StatusUnauthorized }
+
+// ErrPINLocked means too many failed attempts.
+type ErrPINLocked struct{}
+
+func (ErrPINLocked) Error() string { return "pin locked" }
+func (ErrPINLocked) Code() string  { return "pin_locked" }
+func (ErrPINLocked) Message() string {
+	return "too many attempts — try again in 15 minutes"
+}
+func (ErrPINLocked) Status() int { return http.StatusTooManyRequests }
+
+// ErrPINIncorrect covers both a wrong PIN and an unknown phone — the caller
+// must not be able to tell which.
+type ErrPINIncorrect struct{}
+
+func (ErrPINIncorrect) Error() string { return "pin incorrect" }
+func (ErrPINIncorrect) Code() string  { return "invalid_credentials" }
+func (ErrPINIncorrect) Message() string {
+	return "phone number or PIN is incorrect"
+}
+func (ErrPINIncorrect) Status() int { return http.StatusUnauthorized }
+
+// ErrDeviceNotTrusted means the PIN was correct but this device is not
+// enrolled: the possession factor is missing.
+type ErrDeviceNotTrusted struct{}
+
+func (ErrDeviceNotTrusted) Error() string { return "device not trusted" }
+func (ErrDeviceNotTrusted) Code() string  { return "device_not_trusted" }
+func (ErrDeviceNotTrusted) Message() string {
+	return "this device is not enrolled — ask the owner for a new invite link"
+}
+func (ErrDeviceNotTrusted) Status() int { return http.StatusUnauthorized }
+
+// ErrResetNotApproved covers a missing, unapproved, expired, already used,
+// or wrong-device reset token.
+type ErrResetNotApproved struct{}
+
+func (ErrResetNotApproved) Error() string { return "reset not approved" }
+func (ErrResetNotApproved) Code() string  { return "reset_not_approved" }
+func (ErrResetNotApproved) Message() string {
+	return "this reset is not approved, expired, or already used"
+}
+func (ErrResetNotApproved) Status() int { return http.StatusBadRequest }
 
 // PINAuthDeps carries what the PIN flows need.
 type PINAuthDeps struct {
@@ -126,7 +171,7 @@ func (d PINAuthDeps) EnrolDevice(ctx context.Context, userID uuid.UUID, label st
 func (d PINAuthDeps) VerifyPINLogin(ctx context.Context, rawPhone, pin, deviceToken string) (store.User, error) {
 	phone, err := domain.NormalizePhone(rawPhone)
 	if err != nil {
-		return store.User{}, ErrPINIncorrect
+		return store.User{}, ErrPINIncorrect{}
 	}
 
 	user, err := d.Queries.GetUserByPhone(ctx, pgtype.Text{String: phone, Valid: true})
@@ -134,7 +179,7 @@ func (d PINAuthDeps) VerifyPINLogin(ctx context.Context, rawPhone, pin, deviceTo
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Unknown phone is reported exactly like a wrong PIN: telling
 			// them apart is an account-enumeration oracle.
-			return store.User{}, ErrPINIncorrect
+			return store.User{}, ErrPINIncorrect{}
 		}
 		return store.User{}, fmt.Errorf("lookup phone: %w", err)
 	}
@@ -142,13 +187,13 @@ func (d PINAuthDeps) VerifyPINLogin(ctx context.Context, rawPhone, pin, deviceTo
 	rec, err := d.Queries.GetUserPIN(ctx, user.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return store.User{}, ErrPINNotSet
+			return store.User{}, ErrPINNotSet{}
 		}
 		return store.User{}, fmt.Errorf("lookup pin: %w", err)
 	}
 
 	if rec.LockedUntil.Valid && rec.LockedUntil.Time.After(time.Now()) {
-		return store.User{}, ErrPINLocked
+		return store.User{}, ErrPINLocked{}
 	}
 
 	ok, err := auth.VerifyPIN(pin, rec.PinHash)
@@ -165,12 +210,12 @@ func (d PINAuthDeps) VerifyPINLogin(ctx context.Context, rawPhone, pin, deviceTo
 		}); ferr != nil {
 			return store.User{}, fmt.Errorf("record pin failure: %w", ferr)
 		}
-		return store.User{}, ErrPINIncorrect
+		return store.User{}, ErrPINIncorrect{}
 	}
 
 	// PIN is right. Now the possession factor.
 	if deviceToken == "" {
-		return store.User{}, ErrDeviceNotTrusted
+		return store.User{}, ErrDeviceNotTrusted{}
 	}
 	dev, err := d.Queries.GetTrustedDeviceByHash(ctx, hashToken(deviceToken))
 	if err != nil || dev.UserID != user.ID {
@@ -184,7 +229,7 @@ func (d PINAuthDeps) VerifyPINLogin(ctx context.Context, rawPhone, pin, deviceTo
 		}); ferr != nil {
 			return store.User{}, fmt.Errorf("record device failure: %w", ferr)
 		}
-		return store.User{}, ErrDeviceNotTrusted
+		return store.User{}, ErrDeviceNotTrusted{}
 	}
 
 	if err := d.Queries.ClearPINFailures(ctx, user.ID); err != nil {
@@ -276,7 +321,7 @@ func (d PINAuthDeps) ApprovePINReset(ctx context.Context, requestID, workspaceID
 			// Already approved/denied/expired, or not this workspace's
 			// request. Guarded in SQL so it cannot be re-approved into a
 			// second live token.
-			return "", ErrResetNotApproved
+			return "", ErrResetNotApproved{}
 		}
 		return "", fmt.Errorf("approve reset: %w", err)
 	}
@@ -293,7 +338,7 @@ func (d PINAuthDeps) ApprovePINReset(ctx context.Context, requestID, workspaceID
 // working.
 func (d PINAuthDeps) CompletePINReset(ctx context.Context, resetToken, deviceToken, newPIN, deviceLabel string) (uuid.UUID, string, error) {
 	if resetToken == "" || deviceToken == "" {
-		return uuid.Nil, "", ErrResetNotApproved
+		return uuid.Nil, "", ErrResetNotApproved{}
 	}
 	req, err := d.Queries.ConsumePINReset(ctx, store.ConsumePINResetParams{
 		ResetHash:  hashToken(resetToken),
@@ -301,7 +346,7 @@ func (d PINAuthDeps) CompletePINReset(ctx context.Context, resetToken, deviceTok
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, "", ErrResetNotApproved
+			return uuid.Nil, "", ErrResetNotApproved{}
 		}
 		return uuid.Nil, "", fmt.Errorf("consume reset: %w", err)
 	}
