@@ -4,10 +4,13 @@ import { getTranslations } from "next-intl/server";
 import {
   APIError,
   authApi,
+  pinResetApi,
   type MeResponse,
+  type PendingPINReset,
 } from "@/lib/api-client";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { InviteCaregiver } from "@/components/ui/InviteCaregiver";
+import { PinResetApprovals } from "@/components/ui/PinResetApprovals";
 import { InvitationList } from "@/components/ui/InvitationList";
 import { CareTeamList } from "@/components/ui/CareTeamList";
 
@@ -19,6 +22,7 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "careteam" });
   const dashboard = await getTranslations({ locale, namespace: "dashboard" });
+  const pinResets = await getTranslations({ locale, namespace: "pinResets" });
 
   const forwarded = { Cookie: (await cookies()).toString() };
 
@@ -43,6 +47,22 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
   const workspace = me?.workspaces.find((w) => w.active) ?? me?.workspaces[0] ?? null;
   const role = (workspace?.role ?? "viewer") as "owner" | "caregiver" | "viewer";
 
+  // AUTH-005: pending PIN resets, fetched server-side. Only owners can read
+  // this endpoint (403 otherwise), so don't even ask for other roles.
+  // A failure here must not blank the whole care-team page — the list
+  // degrades to an inline error while members and invitations still render.
+  let pendingResets: PendingPINReset[] = [];
+  let pendingResetsFailed = false;
+  if (workspace && role === "owner") {
+    try {
+      const res = await pinResetApi.list(workspace.id, forwarded);
+      pendingResets = res.data ?? [];
+    } catch (err) {
+      console.error("careteam page: pin-resets failed", err);
+      pendingResetsFailed = true;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
       <AppHeader locale={locale} />
@@ -66,6 +86,25 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
               currentUserId={me!.user.id}
               canManage={role === "owner"}
             />
+
+            {/* AUTH-005: caregivers who forget their PIN need an owner to
+                approve a reset. Owner-only, hidden (not disabled) for other
+                roles — the API 403s them anyway. */}
+            {role === "owner" && (
+              <section aria-labelledby="pin-resets-heading" className="mt-8">
+                <h2
+                  id="pin-resets-heading"
+                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
+                >
+                  {pinResets("heading")}
+                </h2>
+                <PinResetApprovals
+                  workspaceId={workspace.id}
+                  initialItems={pendingResets}
+                  initialError={pendingResetsFailed}
+                />
+              </section>
+            )}
 
             {role === "owner" && (
               <section aria-labelledby="invitations-heading" className="mt-8">

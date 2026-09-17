@@ -97,11 +97,11 @@ func TestPINLogin_CorrectPINWrongDeviceRejected(t *testing.T) {
 
 	// No device token at all.
 	_, err = deps.VerifyPINLogin(ctx, phone, "284917", "")
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted)
+	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
 
 	// A syntactically valid but unenrolled token.
 	_, err = deps.VerifyPINLogin(ctx, phone, "284917", "not-an-enrolled-device-token")
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted)
+	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
 }
 
 // Another user's device must not satisfy the possession factor.
@@ -123,7 +123,7 @@ func TestPINLogin_OtherUsersDeviceRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = deps.VerifyPINLogin(ctx, phoneA, "284917", tokenB)
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted)
+	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
 }
 
 func TestPINLogin_WrongPINRejected(t *testing.T) {
@@ -138,7 +138,7 @@ func TestPINLogin_WrongPINRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = deps.VerifyPINLogin(ctx, phone, "111999", token)
-	require.ErrorIs(t, err, service.ErrPINIncorrect)
+	require.ErrorIs(t, err, service.ErrPINIncorrect{})
 }
 
 // An unknown phone must be indistinguishable from a wrong PIN, or the
@@ -149,11 +149,11 @@ func TestPINLogin_UnknownPhoneLooksLikeWrongPIN(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := deps.VerifyPINLogin(ctx, "+628999888777", "284917", "whatever")
-	require.ErrorIs(t, err, service.ErrPINIncorrect,
+	require.ErrorIs(t, err, service.ErrPINIncorrect{},
 		"unknown phone must report the same error as a wrong PIN")
 
 	_, err = deps.VerifyPINLogin(ctx, "not-a-phone", "284917", "whatever")
-	require.ErrorIs(t, err, service.ErrPINIncorrect)
+	require.ErrorIs(t, err, service.ErrPINIncorrect{})
 }
 
 // Lockout bounds online guessing of a 10^6 keyspace.
@@ -170,12 +170,12 @@ func TestPINLogin_LocksAfterMaxAttempts(t *testing.T) {
 
 	for i := 0; i < service.PINMaxAttempts; i++ {
 		_, err = deps.VerifyPINLogin(ctx, phone, "111999", token)
-		require.ErrorIs(t, err, service.ErrPINIncorrect, "attempt %d", i+1)
+		require.ErrorIs(t, err, service.ErrPINIncorrect{}, "attempt %d", i+1)
 	}
 
 	// Even the CORRECT pin must now be refused.
 	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
-	require.ErrorIs(t, err, service.ErrPINLocked,
+	require.ErrorIs(t, err, service.ErrPINLocked{},
 		"after max attempts the account must lock even for the right PIN")
 }
 
@@ -194,7 +194,7 @@ func TestPINLogin_WrongDeviceAlsoBurnsAttempts(t *testing.T) {
 
 	for i := 0; i < service.PINMaxAttempts; i++ {
 		_, err = deps.VerifyPINLogin(ctx, phone, "284917", "bogus-device")
-		require.ErrorIs(t, err, service.ErrDeviceNotTrusted, "attempt %d", i+1)
+		require.ErrorIs(t, err, service.ErrDeviceNotTrusted{}, "attempt %d", i+1)
 	}
 	rec, err := store.New(pool).GetUserPIN(ctx, uid)
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestPINReset_RequiresApproval(t *testing.T) {
 
 	// An unapproved (or fabricated) token must never work.
 	_, _, err = deps.CompletePINReset(ctx, "fabricated-token", "some-device", "730264", "Phone")
-	require.ErrorIs(t, err, service.ErrResetNotApproved)
+	require.ErrorIs(t, err, service.ErrResetNotApproved{})
 }
 
 func TestPINReset_UnknownPhoneDoesNotError(t *testing.T) {
@@ -308,10 +308,10 @@ func TestPINReset_EmptyTokensRejected(t *testing.T) {
 	ctx := context.Background()
 
 	_, _, err := deps.CompletePINReset(ctx, "", "device", "730264", "Phone")
-	require.ErrorIs(t, err, service.ErrResetNotApproved)
+	require.ErrorIs(t, err, service.ErrResetNotApproved{})
 
 	_, _, err = deps.CompletePINReset(ctx, "token", "", "730264", "Phone")
-	require.ErrorIs(t, err, service.ErrResetNotApproved)
+	require.ErrorIs(t, err, service.ErrResetNotApproved{})
 }
 
 func TestTrustedDevice_RevokedDeviceStopsWorking(t *testing.T) {
@@ -330,7 +330,7 @@ func TestTrustedDevice_RevokedDeviceStopsWorking(t *testing.T) {
 	require.NoError(t, store.New(pool).RevokeAllTrustedDevices(ctx, uid))
 
 	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted,
+	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{},
 		"a revoked device must stop satisfying the possession factor")
 }
 
@@ -342,7 +342,7 @@ func TestPINLogin_NoPINSet(t *testing.T) {
 	defer cleanup()
 
 	_, err := deps.VerifyPINLogin(context.Background(), phone, "284917", "device")
-	require.ErrorIs(t, err, service.ErrPINNotSet)
+	require.ErrorIs(t, err, service.ErrPINNotSet{})
 }
 
 var _ = pgtype.Text{}

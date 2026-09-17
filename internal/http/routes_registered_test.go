@@ -64,6 +64,22 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		// CGR-008: photo upload (writer group).
 		"POST /api/v1/uploads",
 
+		// AUTH-005: caregiver phone + device-bound PIN. Public endpoints
+		// (no session yet) plus the session-authenticated PIN change.
+		"POST /api/v1/auth/pin/login",
+		"POST /api/v1/auth/pin/enrol",
+		"POST /api/v1/auth/pin/forgot",
+		"POST /api/v1/auth/pin/reset/complete",
+		"POST /api/v1/auth/pin/set",
+
+		// AUTH-005: owner-side reset approvals (workspace group).
+		"GET /api/v1/workspace/pin-resets",
+		"POST /api/v1/workspace/pin-resets/{requestID}/approve",
+		"POST /api/v1/workspace/pin-resets/{requestID}/deny",
+
+		// AUTH-005: phone-primary invite claim (public — no session yet).
+		"POST /api/v1/invites/{token}/claim-pin",
+
 		// Incidents
 		"GET /api/v1/incidents",
 		"POST /api/v1/recipients/{recipientID}/incidents",
