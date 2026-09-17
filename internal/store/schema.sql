@@ -137,6 +137,9 @@ CREATE TABLE incidents (
     acknowledged_by UUID REFERENCES users(id) ON DELETE SET NULL,
     acknowledged_at TIMESTAMPTZ,
     ack_comment     TEXT CHECK (char_length(ack_comment) <= 500),
+    -- CGR-015: photos attached to the incident. Same shape/rules as
+    -- report_entries.photo_urls (CGR-008); validated at the service layer.
+    photo_urls      TEXT[] NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

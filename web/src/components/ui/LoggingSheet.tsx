@@ -1,18 +1,18 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- photo previews are transient
-   object URLs and the timeline renders remote storage URLs; next/image gains
-   nothing in either case. */
+/* Photo previews render remote storage URLs; next/image gains nothing here.
+   The transient object-URL preview path now lives in ./photo-attachments,
+   which has its own eslint-disable next to the preview <img>. */
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { X, CheckCircle, Clock, Camera, Trash } from "phosphor-react";
+import { X, CheckCircle, Clock } from "phosphor-react";
 import { cn } from "@/lib/utils";
 import { type LogCategory, VITAL_SPECS } from "@/lib/constants.generated";
 import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories";
-import { recipientApi, uploadsApi, APIError } from "@/lib/api-client";
-import { compressPhoto } from "@/lib/photo";
+import { recipientApi, APIError } from "@/lib/api-client";
 import { CategoryGrid } from "./CategoryGrid";
+import { PhotoRow, PHOTO_MAX, usePhotoAttachments } from "./photo-attachments";
 import { buildBackfillOptions, type BackfillOption } from "@/lib/backfill";
 
 interface LoggingSheetProps {
@@ -28,14 +28,10 @@ interface LoggingSheetProps {
 type Step = "category" | "subcategory" | "backfill" | "vital";
 
 const NOTE_MAX = 500;
-const PHOTO_MAX = 5;
-
-// PendingPhoto couples the raw File with its preview object URL so the
-// thumbnails can render before anything is uploaded.
-interface PendingPhoto {
-  file: File;
-  previewUrl: string;
-}
+// PHOTO_MAX, PendingPhoto, PhotoRow and the pending-photo state machinery
+// live in ./photo-attachments so incidents (CGR-015) share one
+// implementation — including the FileList live-view fix and the object-URL
+// cleanup, both of which were real bugs here.
 
 export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged }: LoggingSheetProps) {
   const t = useTranslations("logging");
@@ -54,29 +50,16 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   const [pendingSub, setPendingSub] = useState<LogSubcategory | undefined>(undefined);
   const [vitalValues, setVitalValues] = useState<Record<string, string>>({});
   // CGR-008: photos picked before submit; compressed + uploaded on save.
-  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
-  // Ref so the unmount cleanup revokes the LATEST object URLs — a
-  // photos-keyed cleanup would revoke still-displayed previews on every add.
-  const photosRef = useRef<PendingPhoto[]>([]);
-  useEffect(() => {
-    photosRef.current = photos;
-  }, [photos]);
+  // Shared with the incident sheet via ./photo-attachments.
+  const { photos, addPhotos, removePhoto, clearPhotos, uploadPhotos } = usePhotoAttachments();
 
   const backfillOptions = useMemo(() => buildBackfillOptions(), []);
 
   // The spec for the vital being entered, when the sheet is on the vital step.
   const vitalSpec = pendingSub ? VITAL_SPECS[pendingSub] : undefined;
 
-  // Object URLs leak for the tab's lifetime if never revoked. Add/remove
-  // revoke eagerly; this catches whatever is still pending at unmount.
-  useEffect(() => {
-    return () => {
-      for (const p of photosRef.current) URL.revokeObjectURL(p.previewUrl);
-    };
-  }, []);
-
   const reset = useCallback(() => {
-    for (const p of photos) URL.revokeObjectURL(p.previewUrl);
+    clearPhotos();
     setStep("category");
     setCategory(null);
     setSubmitting(null);
@@ -87,56 +70,13 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setBackfillMode(false);
     setPendingSub(undefined);
     setVitalValues({});
-    setPhotos([]);
-  }, [photos]);
+  }, [clearPhotos]);
 
   const handleClose = useCallback(() => {
     reset();
     onClose();
   }, [reset, onClose]);
 
-  const addPhotos = useCallback(
-    (files: FileList | null) => {
-      // Materialize BEFORE returning: FileList is a LIVE view of the input.
-      // The caller clears input.value right after this call, and React runs
-      // the state updater later — reading files inside the updater would
-      // always see an empty list (caught by e2e-entry-photos).
-      const picked = files ? Array.from(files) : [];
-      if (picked.length === 0) return;
-      setError(null);
-      setPhotos((prev) => {
-        const room = PHOTO_MAX - prev.length;
-        const taken = picked.slice(0, room).map((file) => ({
-          file,
-          previewUrl: URL.createObjectURL(file),
-        }));
-        return [...prev, ...taken];
-      });
-    },
-    []
-  );
-
-  const removePhoto = useCallback((index: number) => {
-    setPhotos((prev) => {
-      // Filter (never splice): mutating prev is mutating state.
-      const removed = prev[index];
-      if (removed) URL.revokeObjectURL(removed.previewUrl);
-      return prev.filter((_, i) => i !== index);
-    });
-  }, []);
-
-  // uploadPhotos compresses and uploads every pending photo, returning the
-  // issued URLs. Runs before entry creation so the entry carries them.
-  const uploadPhotos = useCallback(async (): Promise<string[]> => {
-    const urls: string[] = [];
-    for (const p of photos) {
-      const blob = await compressPhoto(p.file);
-      const res = await uploadsApi.upload(workspaceId, blob);
-      if (!res.data) throw new Error("upload failed");
-      urls.push(res.data.url);
-    }
-    return urls;
-  }, [photos, workspaceId]);
 
   const submitEntry = useCallback(
     async (
@@ -151,7 +91,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
       try {
         // CGR-008: photos upload first; a failure here aborts the entry so
         // a "photo attached" promise is never silently broken.
-        const photoUrls = photos.length > 0 ? await uploadPhotos() : undefined;
+        const photoUrls = photos.length > 0 ? await uploadPhotos(workspaceId) : undefined;
         await recipientApi.createEntry(workspaceId, recipientId, {
           category: cat,
           subcategory: sub,
@@ -428,6 +368,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
               onRemove={removePhoto}
               label={t("addPhoto")}
               limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+              inputId="logging-photo-input-note"
             />
 
             <div className="mt-3 flex items-center justify-between gap-4">
@@ -503,6 +444,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
               onRemove={removePhoto}
               label={t("addPhoto")}
               limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+              inputId="logging-photo-input-sub"
             />
           </div>
         )}
@@ -541,81 +483,4 @@ function parseVitalValues(
     return undefined;
   }
   return out;
-}
-
-// PhotoRow (CGR-008): the add-photo control + pending thumbnails shared by
-// the subcategory and note steps. The file input is hidden behind a labelled
-// button (a bare input[type=file] is neither 56px nor screen-reader friendly).
-// multiple + image/* keeps the native picker camera-capable on phones.
-function PhotoRow({
-  photos,
-  disabled,
-  onAdd,
-  onRemove,
-  label,
-  limitLabel,
-}: {
-  photos: PendingPhoto[];
-  disabled: boolean;
-  onAdd: (files: FileList | null) => void;
-  onRemove: (index: number) => void;
-  label: string;
-  limitLabel: string;
-}) {
-  const inputId = "logging-photo-input";
-  const full = photos.length >= PHOTO_MAX;
-  return (
-    <div className="mt-4">
-      <input
-        id={inputId}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        disabled={disabled || full}
-        onChange={(e) => {
-          onAdd(e.target.files);
-          // Allow re-picking the same file after removing it.
-          e.target.value = "";
-        }}
-      />
-      <div className="flex items-center justify-between gap-3">
-        <label
-          htmlFor={inputId}
-          aria-disabled={disabled || full}
-          className={cn(
-            "touch-target inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-all",
-            disabled || full
-              ? "cursor-not-allowed border-[var(--color-border)] text-[var(--color-text-muted)] opacity-50"
-              : "border-[var(--color-border-strong)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
-          )}
-        >
-          <Camera size={18} weight="bold" aria-hidden="true" />
-          <span>{label}</span>
-        </label>
-        <span className="text-xs text-[var(--color-text-muted)]">{limitLabel}</span>
-      </div>
-      {photos.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-3">
-          {photos.map((p, i) => (
-            <li key={p.previewUrl} className="relative">
-              <img
-                src={p.previewUrl}
-                alt=""
-                className="h-20 w-20 rounded-lg border border-[var(--color-border)] object-cover"
-              />
-              <button
-                type="button"
-                aria-label={`${label} ${i + 1}`}
-                onClick={() => onRemove(i)}
-                className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-surface)] shadow-md touch-target"
-              >
-                <Trash size={16} weight="fill" aria-hidden="true" className="text-[var(--color-error-ink)]" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }

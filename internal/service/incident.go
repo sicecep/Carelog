@@ -38,6 +38,9 @@ type IncidentInput struct {
 	Description string
 	ActionTaken *string
 	OccurredAt  time.Time
+	// CGR-015: photos uploaded via POST /api/v1/uploads. Validated against
+	// the same host prefix rule as CGR-008 (see validatePhotoURLs).
+	PhotoURLs []string
 }
 
 // Validate returns an ErrValidation with per-field messages, or nil.
@@ -71,6 +74,9 @@ func (in IncidentInput) Validate() error {
 // CreateIncident validates the input and inserts one incident scoped to the
 // caller's workspace. Reporter attribution comes from the authenticated caller
 // — never from the request body (mirrors LOG-001.3).
+//
+// photoBaseURL is the uploader's public base; photo URLs must sit under it so
+// a caller cannot store an arbitrary external link (CGR-008 pattern).
 func CreateIncident(
 	ctx context.Context,
 	q *store.Queries,
@@ -78,9 +84,13 @@ func CreateIncident(
 	recipientID uuid.UUID,
 	reporterID uuid.UUID,
 	in IncidentInput,
+	photoBaseURL string,
 ) (store.Incident, error) {
 	if err := in.Validate(); err != nil {
 		return store.Incident{}, err
+	}
+	if errs := validatePhotoURLs(in.PhotoURLs, photoBaseURL); len(errs) > 0 {
+		return store.Incident{}, ErrValidation{Errors: errs}
 	}
 
 	// Verify the recipient actually belongs to the caller's workspace.
@@ -106,6 +116,9 @@ func CreateIncident(
 		Description: in.Description,
 		ActionTaken: actionTaken,
 		OccurredAt:  pgtype.Timestamptz{Time: in.OccurredAt, Valid: true},
+		// Normalize nil → empty slice: pgx encodes nil []string as NULL,
+		// which the NOT NULL constraint rejects. The lesson from CGR-008.
+		PhotoUrls: append([]string{}, in.PhotoURLs...),
 	})
 	if err != nil {
 		return store.Incident{}, fmt.Errorf("create incident: %w", err)

@@ -256,6 +256,24 @@ export function IncidentList({
                 </span>
               </div>
               <p className="mt-1 text-base text-[var(--color-text)]">{incident.description}</p>
+              {/* CGR-015: incident photos, same treatment as entry photos —
+                  tap to open the full image in a new tab. */}
+              {incident.photo_urls && incident.photo_urls.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2" data-testid="incident-photos">
+                  {incident.photo_urls.map((url) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        <img
+                          src={url}
+                          alt=""
+                          loading="lazy"
+                          className="h-20 w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-accent-soft)] object-cover"
+                        />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {incident.reporter_name && (
                 <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                   {incident.reporter_name}
