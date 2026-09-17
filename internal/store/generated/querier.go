@@ -134,6 +134,8 @@ type Querier interface {
 	GetInvitationByHash(ctx context.Context, tokenHash []byte) (GetInvitationByHashRow, error)
 	// SFT-003: most recently completed shift in the workspace (any caregiver),
 	// used to build the "Handoff from [Name]" banner for the next check-in.
+	// COALESCE so an AUTH-005 phone-only caregiver (NULL full_name) renders as
+	// their phone number rather than an empty "Handoff from " banner.
 	GetLastCompletedShiftForWorkspace(ctx context.Context, workspaceID uuid.UUID) (GetLastCompletedShiftForWorkspaceRow, error)
 	GetMagicLinkByHash(ctx context.Context, tokenHash []byte) (AuthMagicLink, error)
 	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
@@ -233,7 +235,9 @@ type Querier interface {
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
 	ListReportEntriesByRecipientAndDate(ctx context.Context, arg ListReportEntriesByRecipientAndDateParams) ([]ListReportEntriesByRecipientAndDateRow, error)
 	// SFT-004: owner's shift history, filterable by caregiver and date range.
-	// sqlc.narg lets each filter be optional independently.
+	// sqlc.narg lets each filter be optional independently. Same COALESCE
+	// treatment as above — a phone-only caregiver must not appear as a nameless
+	// row in the owner's history list.
 	ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error)
 	// Owner/viewer view: everything for one recipient in date/time order.
 	// NULL due_time sorts LAST within a day (end-of-day sentinel).
