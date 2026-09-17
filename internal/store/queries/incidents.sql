@@ -13,9 +13,11 @@ WHERE id = $1 AND workspace_id = $2;
 
 -- name: ListIncidents :many
 -- Lists incidents for a workspace, filterable by date range.
-SELECT 
+SELECT
     i.*,
-    u.full_name as reporter_name,
+    -- COALESCE so an AUTH-005 phone-only caregiver still renders as an
+    -- attributable reporter in RPT-002's contributor chips.
+    COALESCE(u.full_name, u.email, u.phone) as reporter_name,
     r.full_name as recipient_name
 FROM incidents i
 JOIN users u ON u.id = i.reporter_id
@@ -27,7 +29,7 @@ ORDER BY i.occurred_at DESC;
 -- RPT-001: Lists incidents for a specific recipient, pinned at the top of the timeline.
 SELECT 
     i.*,
-    u.full_name as reporter_name
+    COALESCE(u.full_name, u.email, u.phone) as reporter_name
 FROM incidents i
 JOIN users u ON u.id = i.reporter_id
 WHERE i.workspace_id = $1 AND i.recipient_id = $2 AND i.occurred_at::date = $3::date

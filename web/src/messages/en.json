@@ -613,6 +613,10 @@
     "emptyToday": "Nothing logged yet today.",
     "emptyPast": "Nothing was logged on this day.",
     "gatedTitle": "Older reports need a paid plan",
-    "gatedBody": "The Free plan keeps the last 7 days. Upgrade to see your full care history."
+    "gatedBody": "The Free plan keeps the last 7 days. Upgrade to see your full care history.",
+    "contributorFilterLabel": "Filter timeline by contributor",
+    "contributorAll": "All",
+    "contributorUnknown": "Unknown",
+    "emptyForContributor": "This contributor did not log anything on this day."
   }
 }

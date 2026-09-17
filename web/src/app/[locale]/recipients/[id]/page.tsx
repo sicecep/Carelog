@@ -21,6 +21,7 @@ import { PLAN_LIMITS } from "@/lib/constants.generated";
 import { DetailActions } from "./detail-actions";
 import { DaySummaryTrigger, DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { ContributorChips } from "@/components/ui/ContributorChips";
 import { DateNav } from "@/components/ui/DateNav";
 import { ParentNotes } from "@/components/ui/ParentNotes";
 import { AssignmentManager } from "@/components/ui/AssignmentManager";
@@ -28,7 +29,7 @@ import { TaskManager } from "@/components/ui/TaskManager";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; contributor?: string }>;
 }
 
 /** YYYY-MM-DD for `now` rendered in the given IANA timezone. */
@@ -60,7 +61,7 @@ export default async function RecipientDetailPage({
   searchParams,
 }: RecipientPageProps) {
   const { locale, id } = await params;
-  const { date: dateParam } = await searchParams;
+  const { date: dateParam, contributor: contributorParam } = await searchParams;
   const t = await getTranslations({ locale, namespace: "recipients" });
   const tTimeline = await getTranslations({ locale, namespace: "timeline" });
 
@@ -170,6 +171,39 @@ export default async function RecipientDetailPage({
   // redirect() throws NEXT_REDIRECT — must run outside try/catch.
   if (redirectToLogin) redirect(`/${locale}/login`);
 
+  // RPT-002: derive contributor chips from the day's actual activity.
+  // Building this from the SAME payload the timeline renders keeps the
+  // chip set impossible to disagree with the entries below (no ghost chip
+  // for a contributor whose entries were filtered out server-side, no
+  // missing chip for a contributor whose entry is visible). Order by first
+  // occurrence so the chips read chronologically alongside the timeline.
+  const contributors: Array<{ id: string; name: string }> = [];
+  const seenContribIds = new Set<string>();
+  for (const e of entries) {
+    if (!e.contributor_id || seenContribIds.has(e.contributor_id)) continue;
+    seenContribIds.add(e.contributor_id);
+    contributors.push({ id: e.contributor_id, name: e.contributor_name });
+  }
+  for (const i of incidents) {
+    if (!i.reporter_id || seenContribIds.has(i.reporter_id)) continue;
+    seenContribIds.add(i.reporter_id);
+    contributors.push({ id: i.reporter_id, name: i.reporter_name ?? "" });
+  }
+
+  // Filter the timeline to the selected contributor. A ?contributor= that
+  // doesn't match anyone falls back to "All" — a stale shared URL should
+  // not render an empty page it can't recover from with the UI alone.
+  const activeContributorId =
+    contributorParam && seenContribIds.has(contributorParam)
+      ? contributorParam
+      : undefined;
+  const filteredEntries = activeContributorId
+    ? entries.filter((e) => e.contributor_id === activeContributorId)
+    : entries;
+  const filteredIncidents = activeContributorId
+    ? incidents.filter((i) => i.reporter_id === activeContributorId)
+    : incidents;
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
       <AppHeader
@@ -272,6 +306,22 @@ export default async function RecipientDetailPage({
                 />
               </div>
 
+              {/* RPT-002: contributor chips render only when the day has
+                  more than one contributor. Hidden by the component itself
+                  otherwise — noise for the common case of one caregiver on
+                  a shift. */}
+              {!historyGated && contributors.length > 0 && (
+                <div className="mb-4">
+                  <ContributorChips
+                    locale={locale}
+                    recipientId={recipient.id}
+                    contributors={contributors}
+                    activeContributorId={activeContributorId}
+                    date={viewDate}
+                  />
+                </div>
+              )}
+
               {historyGated ? (
                 // The server refused this day. Show WHY, not a blank page:
                 // "there's nothing here" would read as a caregiver bug.
@@ -287,22 +337,24 @@ export default async function RecipientDetailPage({
                     {tTimeline("gatedBody")}
                   </p>
                 </div>
-              ) : entries.length === 0 && incidents.length === 0 ? (
+              ) : filteredEntries.length === 0 && filteredIncidents.length === 0 ? (
                 <div
                   role="status"
                   data-testid="timeline-empty"
                   className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-8 text-center"
                 >
                   <p className="text-base text-[var(--color-text)]">
-                    {viewDate === today
+                    {activeContributorId
+                      ? tTimeline("emptyForContributor")
+                      : viewDate === today
                       ? tTimeline("emptyToday")
                       : tTimeline("emptyPast")}
                   </p>
                 </div>
               ) : (
                 <TimelineList
-                  entries={entries}
-                  incidents={incidents}
+                  entries={filteredEntries}
+                  incidents={filteredIncidents}
                   isOwner={isOwner}
                   workspaceId={workspaceId!}
                 />
