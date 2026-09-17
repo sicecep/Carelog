@@ -613,6 +613,10 @@
     "emptyToday": "Belum ada catatan hari ini.",
     "emptyPast": "Tidak ada catatan pada tanggal ini.",
     "gatedTitle": "Laporan lama perlu paket berbayar",
-    "gatedBody": "Paket Gratis menyimpan 7 hari terakhir. Upgrade untuk melihat seluruh riwayat perawatan."
+    "gatedBody": "Paket Gratis menyimpan 7 hari terakhir. Upgrade untuk melihat seluruh riwayat perawatan.",
+    "contributorFilterLabel": "Filter linimasa berdasarkan kontributor",
+    "contributorAll": "Semua",
+    "contributorUnknown": "Tidak diketahui",
+    "emptyForContributor": "Kontributor ini tidak mencatat apa pun pada tanggal ini."
   }
 }
