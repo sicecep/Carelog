@@ -603,5 +603,16 @@
     "approveError": "Couldn't approve that request.",
     "denyError": "Couldn't deny that request.",
     "heading": "PIN reset requests"
+  },
+  "timeline": {
+    "dateNavLabel": "Timeline date navigation",
+    "dateLabel": "Show date",
+    "prevDay": "Previous",
+    "nextDay": "Next",
+    "today": "Today",
+    "emptyToday": "Nothing logged yet today.",
+    "emptyPast": "Nothing was logged on this day.",
+    "gatedTitle": "Older reports need a paid plan",
+    "gatedBody": "The Free plan keeps the last 7 days. Upgrade to see your full care history."
   }
 }

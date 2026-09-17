@@ -119,8 +119,11 @@ async function main() {
 
     // ── 2. Submit: upload first, then entry carries the URL ───────────────
     await cg.page.locator("[role='dialog'] button", { hasText: "Sarapan" }).click();
-    await cg.page.waitForSelector("[role='status']", { timeout: 15000 });
-    const saved = await cg.page.innerText("[role='status']").catch(() => "");
+    // Scope to the dialog: the timeline empty state (RPT-003) also uses
+    // role="status" and it lives on the page background, so an unscoped
+    // waitForSelector resolves to the wrong element and reads "empty".
+    await cg.page.waitForSelector("[role='dialog'] [role='status']", { timeout: 15000 });
+    const saved = await cg.page.innerText("[role='dialog'] [role='status']").catch(() => "");
     check("2a. save confirmation shown", saved.includes("Tersimpan"), saved.slice(0, 40));
 
     const rows = sql(
