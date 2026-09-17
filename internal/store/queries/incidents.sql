@@ -1,9 +1,9 @@
 -- name: CreateIncident :one
 INSERT INTO incidents (
     workspace_id, recipient_id, reporter_id, type, severity, 
-    description, action_taken, occurred_at
+    description, action_taken, occurred_at, photo_urls
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetIncident :one
@@ -41,7 +41,8 @@ SET
     severity = $3, 
     description = $4, 
     action_taken = $5,
-    occurred_at = $6
+    occurred_at = $6,
+    photo_urls = $8
 WHERE id = $1 AND workspace_id = $7
 RETURNING *;
 

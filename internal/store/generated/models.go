@@ -77,6 +77,7 @@ type Incident struct {
 	AcknowledgedBy pgtype.UUID        `json:"acknowledged_by"`
 	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
 	AckComment     pgtype.Text        `json:"ack_comment"`
+	PhotoUrls      []string           `json:"photo_urls"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 

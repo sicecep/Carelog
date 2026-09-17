@@ -200,6 +200,9 @@ func NewRouter(deps Deps) http.Handler {
 
 			incidentHandlers := &IncidentHandlers{
 				Queries: deps.Queries,
+				// CGR-015: same uploader as entry photos, so both paths
+				// enforce the identical host-prefix rule.
+				Uploader: deps.Uploader,
 				// OWN-012: owner alert on incident create. Nil-safe — a
 				// deployment without a mailer just skips notification.
 				Notifier: &service.IncidentNotifier{

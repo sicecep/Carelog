@@ -92,13 +92,13 @@ async function main() {
     await cg.page.goto(`${WEB}/id/recipients/${rec}`, { waitUntil: "networkidle" });
     await cg.page.locator("button", { hasText: "Catat kegiatan" }).click();
     await cg.page.locator("button", { hasText: "Makanan" }).click();
-    const addLabel = cg.page.locator("label[for='logging-photo-input']");
+    const addLabel = cg.page.locator("label[for='logging-photo-input-sub']");
     check("1a. add-photo control visible", await addLabel.isVisible().catch(() => false));
     const labelH = await addLabel.evaluate((el) => el.getBoundingClientRect().height);
     check("1b. add-photo control ≥56px", labelH >= 56, `${labelH}px`);
 
     // Pick a photo through the real (hidden) input.
-    await cg.page.setInputFiles("#logging-photo-input", {
+    await cg.page.setInputFiles("#logging-photo-input-sub", {
       name: "bubur.png",
       mimeType: "image/png",
       buffer: TINY_PNG,
@@ -110,7 +110,7 @@ async function main() {
     // Remove + re-add (object URL lifecycle works).
     await cg.page.locator("[role='dialog'] ul li button").first().click();
     check("1e. preview removable", (await cg.page.locator("[role='dialog'] ul li img").count()) === 0);
-    await cg.page.setInputFiles("#logging-photo-input", {
+    await cg.page.setInputFiles("#logging-photo-input-sub", {
       name: "bubur.png",
       mimeType: "image/png",
       buffer: TINY_PNG,
@@ -232,7 +232,7 @@ async function main() {
     await owner.page.goto(`${WEB}/en/recipients/${rec}`, { waitUntil: "networkidle" });
     await owner.page.locator("button", { hasText: "Log activity" }).click();
     await owner.page.locator("button", { hasText: "Meal" }).click();
-    const enLabel = await owner.page.locator("label[for='logging-photo-input']").innerText().catch(() => "");
+    const enLabel = await owner.page.locator("label[for='logging-photo-input-sub']").innerText().catch(() => "");
     check("6a. EN add-photo label", enLabel.includes("Add photo"), enLabel);
 
     // ── 7. No pageerror events ────────────────────────────────────────────

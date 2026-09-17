@@ -360,6 +360,8 @@ export interface Incident {
   action_taken?: string;
   occurred_at: string;
   created_at: string;
+  // CGR-015: always present (server sends [] not null).
+  photo_urls: string[];
   // INC-ACK: present once the owner has acknowledged this incident.
   acknowledged_by?: string;
   acknowledged_at?: string;
@@ -407,6 +409,7 @@ export const incidentApi = {
       description: string;
       action_taken?: string;
       occurred_at?: string;
+      photo_urls?: string[];
     }
   ) =>
     api.post<Incident>(`/api/v1/recipients/${recipientId}/incidents`, body, {

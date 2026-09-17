@@ -23,6 +23,7 @@ import {
   type IncidentSeverity,
   type IncidentType,
 } from "@/lib/api-client";
+import { PhotoRow, PHOTO_MAX, usePhotoAttachments } from "./photo-attachments";
 
 interface IncidentSheetProps {
   /** Whether the sheet is open. Controlled by the parent (red FAB). */
@@ -149,8 +150,12 @@ export function IncidentSheet({
   // Set only for high/emergency saves: drives the WhatsApp share block on the
   // success step (INC-003).
   const [savedIncident, setSavedIncident] = useState<Incident | null>(null);
+  // CGR-015: photos picked before submit; compressed + uploaded on save.
+  // Same machinery as the care-log sheet (./photo-attachments).
+  const { photos, addPhotos, removePhoto, clearPhotos, uploadPhotos } = usePhotoAttachments();
 
   const reset = useCallback(() => {
+    clearPhotos();
     setStep("severity");
     setSeverity(null);
     setType(null);
@@ -159,7 +164,7 @@ export function IncidentSheet({
     setSubmitting(false);
     setError(null);
     setSavedIncident(null);
-  }, []);
+  }, [clearPhotos]);
 
   const handleClose = useCallback(() => {
     reset();
@@ -181,11 +186,16 @@ export function IncidentSheet({
     setSubmitting(true);
     setError(null);
     try {
+      // CGR-015: photos upload first; a failure here aborts the incident so
+      // a "photo attached" promise is never silently broken. Matches the
+      // care-log entry ordering.
+      const photoUrls = photos.length > 0 ? await uploadPhotos(workspaceId) : undefined;
       const res = await incidentApi.create(workspaceId, recipientId, {
         type,
         severity,
         description: description.trim(),
         action_taken: actionTaken.trim() || undefined,
+        photo_urls: photoUrls,
       });
       if (res.data) onLogged?.(res.data);
 
@@ -209,7 +219,7 @@ export function IncidentSheet({
     } finally {
       setSubmitting(false);
     }
-  }, [severity, type, description, actionTaken, workspaceId, recipientId, onLogged, handleClose, t]);
+  }, [severity, type, description, actionTaken, workspaceId, recipientId, onLogged, handleClose, t, photos, uploadPhotos]);
 
   if (!open) return null;
 
@@ -382,6 +392,19 @@ export function IncidentSheet({
                 className="input-base w-full resize-y py-3"
               />
             </div>
+
+            {/* CGR-015: a photo of the fall, bruise or spill carries more
+                than the 1000-char description ever could. Optional — an
+                incident must never be blocked on attaching one. */}
+            <PhotoRow
+              photos={photos}
+              disabled={submitting}
+              onAdd={addPhotos}
+              onRemove={removePhoto}
+              label={t("addPhoto")}
+              limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+              inputId="incident-photo-input"
+            />
 
             {error && (
               <p role="alert" className="text-sm text-[var(--color-error-ink)]">

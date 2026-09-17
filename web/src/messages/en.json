@@ -331,6 +331,8 @@
     "optional": "optional",
     "descriptionPlaceholder": "Describe what happened...",
     "actionTaken": "Action taken",
+    "addPhoto": "Add photo",
+    "photoLimit": "Max {max} photos",
     "actionTakenPlaceholder": "Emergency action already taken (optional)",
     "descriptionTooShort": "Description must be at least {min} characters",
     "errorGeneric": "Could not save. Please try again.",

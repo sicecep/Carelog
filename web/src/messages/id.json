@@ -331,6 +331,8 @@
     "optional": "opsional",
     "descriptionPlaceholder": "Tuliskan apa yang terjadi...",
     "actionTaken": "Tindakan yang diambil",
+    "addPhoto": "Tambah foto",
+    "photoLimit": "Maks {max} foto",
     "actionTakenPlaceholder": "Tindakan darurat yang sudah dilakukan (opsional)",
     "descriptionTooShort": "Deskripsi minimal {min} karakter",
     "errorGeneric": "Gagal menyimpan. Coba lagi.",

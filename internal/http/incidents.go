@@ -13,6 +13,7 @@ import (
 
 	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/http/middleware"
+	"github.com/sicecep/carelog/internal/media"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -20,6 +21,10 @@ import (
 // IncidentHandlers holds the dependencies for incident endpoints (PRD §6.5).
 type IncidentHandlers struct {
 	Queries *store.Queries
+	// Uploader supplies the base URL that photo attachments must sit under
+	// (CGR-015). nil-safe: photos are optional, so an incident without any
+	// works even without a configured uploader.
+	Uploader media.PhotoUploader
 	// Notifier sends the OWN-012 owner alert after an incident is filed.
 	// Optional: nil disables notification (tests, or a deployment with no
 	// mailer) without changing the incident write path.
@@ -90,11 +95,12 @@ func (h *IncidentHandlers) handleAcknowledgeIncident(w http.ResponseWriter, r *h
 // Reporter attribution is never accepted from the body — it comes from the
 // authenticated session (mirrors LOG-001.3).
 type CreateIncidentRequest struct {
-	Type        string  `json:"type"`
-	Severity    string  `json:"severity"`
-	Description string  `json:"description"`
-	ActionTaken *string `json:"action_taken,omitempty"`
-	OccurredAt  *string `json:"occurred_at,omitempty"`
+	Type        string   `json:"type"`
+	Severity    string   `json:"severity"`
+	Description string   `json:"description"`
+	ActionTaken *string  `json:"action_taken,omitempty"`
+	OccurredAt  *string  `json:"occurred_at,omitempty"`
+	PhotoURLs   []string `json:"photo_urls,omitempty"`
 }
 
 // IncidentResponse is the API shape for a single incident.
@@ -111,6 +117,8 @@ type IncidentResponse struct {
 	ActionTaken  *string   `json:"action_taken,omitempty"`
 	OccurredAt   string    `json:"occurred_at"`
 	CreatedAt    string    `json:"created_at"`
+	// CGR-015: always [] never null, so the client can map without a guard.
+	PhotoUrls []string `json:"photo_urls"`
 	// INC-ACK: present once the owner has acknowledged this incident.
 	AcknowledgedBy *uuid.UUID `json:"acknowledged_by,omitempty"`
 	AcknowledgedAt *string    `json:"acknowledged_at,omitempty"`
@@ -129,6 +137,7 @@ func toIncidentResponse(i store.Incident) IncidentResponse {
 		Description:  i.Description,
 		OccurredAt:   i.OccurredAt.Time.Format(time.RFC3339),
 		CreatedAt:    i.CreatedAt.Time.Format(time.RFC3339),
+		PhotoUrls:    photoUrlsOrEmpty(i.PhotoUrls),
 	}
 	if i.ActionTaken.Valid {
 		resp.ActionTaken = &i.ActionTaken.String
@@ -145,6 +154,16 @@ func toIncidentResponse(i store.Incident) IncidentResponse {
 		resp.AckComment = &i.AckComment.String
 	}
 	return resp
+}
+
+// photoBase returns the uploader's base URL, or "" if none is configured.
+// Extracted so the two write paths (entries and incidents) share the same
+// nil-safe behaviour without duplicating the guard.
+func photoBase(u media.PhotoUploader) string {
+	if u == nil {
+		return ""
+	}
+	return u.BaseURL()
 }
 
 // handleCreateIncident handles POST /api/v1/recipients/{recipientID}/incidents.
@@ -183,7 +202,8 @@ func (h *IncidentHandlers) handleCreateIncident(w http.ResponseWriter, r *http.R
 		Description: req.Description,
 		ActionTaken: req.ActionTaken,
 		OccurredAt:  occurredAt,
-	})
+		PhotoURLs:   req.PhotoURLs,
+	}, photoBase(h.Uploader))
 	if err != nil {
 		if errors.Is(err, service.ErrRecipientNotFound) {
 			return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "recipient not found in this workspace"}}}
@@ -266,6 +286,7 @@ func (h *IncidentHandlers) handleListWorkspaceIncidents(w http.ResponseWriter, r
 			Description:  row.Description,
 			OccurredAt:   row.OccurredAt.Time.Format(time.RFC3339),
 			CreatedAt:    row.CreatedAt.Time.Format(time.RFC3339),
+			PhotoUrls:    photoUrlsOrEmpty(row.PhotoUrls),
 		}
 		if row.ActionTaken.Valid {
 			item.ActionTaken = &row.ActionTaken.String
@@ -336,6 +357,7 @@ func (h *IncidentHandlers) handleListRecipientIncidents(w http.ResponseWriter, r
 			Description:  row.Description,
 			OccurredAt:   row.OccurredAt.Time.Format(time.RFC3339),
 			CreatedAt:    row.CreatedAt.Time.Format(time.RFC3339),
+			PhotoUrls:    photoUrlsOrEmpty(row.PhotoUrls),
 		}
 		if row.ActionTaken.Valid {
 			item.ActionTaken = &row.ActionTaken.String
