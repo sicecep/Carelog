@@ -335,6 +335,12 @@ func (h *IncidentHandlers) handleListRecipientIncidents(w http.ResponseWriter, r
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "date", Message: "invalid date format, use YYYY-MM-DD"}}}
 	}
 
+	// RPT-003 / OWN-009: same history window as the timeline. Incidents
+	// pinned to a gated day must not leak past the paywall either.
+	if err := service.EnforceHistoryAccess(r.Context(), h.Queries, workspaceID, day.Time); err != nil {
+		return err
+	}
+
 	rows, err := h.Queries.ListIncidentsByRecipient(r.Context(), store.ListIncidentsByRecipientParams{
 		WorkspaceID: workspaceID,
 		RecipientID: recipientID,

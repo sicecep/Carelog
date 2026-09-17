@@ -261,6 +261,15 @@ func (h *ReportHandlers) handleGetTimeline(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// RPT-003 / OWN-009: gate access to dates older than the plan's
+	// history window. Runs BEFORE the recipient existence check so that a
+	// caller doesn't get 404 on a foreign profile and 403 on their own for
+	// the same URL — the gate is workspace-scoped and the recipient check
+	// is already tenant-safe on the query itself.
+	if err := service.EnforceHistoryAccess(r.Context(), h.Queries, workspaceID, reportDate.Time); err != nil {
+		return err
+	}
+
 	// Verify recipient belongs to workspace
 	exists, err := h.Queries.CareRecipientExistsInWorkspace(r.Context(), store.CareRecipientExistsInWorkspaceParams{
 		ID:          recipientID,
@@ -321,6 +330,21 @@ func (h *ReportHandlers) handleGetWhatsAppSummary(w http.ResponseWriter, r *http
 	date := r.URL.Query().Get("date")
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
+	}
+
+	// RPT-003 / OWN-009: gate the WhatsApp summary too — sharing yesterday's
+	// summary is the whole point of this feature, but a Free-plan caller
+	// must still hit the paywall for older days rather than smuggling data
+	// out through the share text.
+	workspaceID := middleware.GetWorkspaceID(r.Context())
+	if workspaceID != uuid.Nil {
+		var day pgtype.Date
+		if err := day.Scan(date); err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date", Message: "invalid date format, use YYYY-MM-DD"}}}
+		}
+		if err := service.EnforceHistoryAccess(r.Context(), h.Queries, workspaceID, day.Time); err != nil {
+			return err
+		}
 	}
 
 	summary, err := service.GetWhatsAppSummary(r.Context(), h.Queries, recipientID, date)

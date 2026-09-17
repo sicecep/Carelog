@@ -603,5 +603,16 @@
     "approveError": "Gagal menyetujui permintaan.",
     "denyError": "Gagal menolak permintaan.",
     "heading": "Permintaan PIN baru"
+  },
+  "timeline": {
+    "dateNavLabel": "Navigasi tanggal linimasa",
+    "dateLabel": "Tampilkan tanggal",
+    "prevDay": "Sebelumnya",
+    "nextDay": "Berikutnya",
+    "today": "Hari ini",
+    "emptyToday": "Belum ada catatan hari ini.",
+    "emptyPast": "Tidak ada catatan pada tanggal ini.",
+    "gatedTitle": "Laporan lama perlu paket berbayar",
+    "gatedBody": "Paket Gratis menyimpan 7 hari terakhir. Upgrade untuk melihat seluruh riwayat perawatan."
   }
 }

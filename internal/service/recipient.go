@@ -68,7 +68,15 @@ func (e ErrUpgradeRequired) Error() string {
 // Code implements the typed error interface used by mapError.
 func (e ErrUpgradeRequired) Code() string { return "upgrade_required" }
 func (e ErrUpgradeRequired) Message() string {
-	return fmt.Sprintf("You have reached the %s limit on the Free plan. Upgrade to create more.", e.Limit)
+	// The message is limit-aware: "reached the profile limit — upgrade to
+	// create more" reads fine, but the history limit isn't something you
+	// create your way past, so it needs its own copy.
+	switch e.Limit {
+	case "history":
+		return "Older reports are only available on paid plans. Upgrade to see the full history."
+	default:
+		return fmt.Sprintf("You have reached the %s limit on the Free plan. Upgrade to create more.", e.Limit)
+	}
 }
 func (e ErrUpgradeRequired) Status() int { return 403 }
 
