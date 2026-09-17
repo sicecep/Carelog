@@ -112,7 +112,7 @@ func (q *Queries) GetActiveShift(ctx context.Context, arg GetActiveShiftParams) 
 }
 
 const getLastCompletedShiftForWorkspace = `-- name: GetLastCompletedShiftForWorkspace :one
-SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, u.full_name AS caregiver_name
+SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1 AND s.checked_out_at IS NOT NULL
@@ -134,6 +134,8 @@ type GetLastCompletedShiftForWorkspaceRow struct {
 
 // SFT-003: most recently completed shift in the workspace (any caregiver),
 // used to build the "Handoff from [Name]" banner for the next check-in.
+// COALESCE so an AUTH-005 phone-only caregiver (NULL full_name) renders as
+// their phone number rather than an empty "Handoff from " banner.
 func (q *Queries) GetLastCompletedShiftForWorkspace(ctx context.Context, workspaceID uuid.UUID) (GetLastCompletedShiftForWorkspaceRow, error) {
 	row := q.db.QueryRow(ctx, getLastCompletedShiftForWorkspace, workspaceID)
 	var i GetLastCompletedShiftForWorkspaceRow
@@ -152,7 +154,7 @@ func (q *Queries) GetLastCompletedShiftForWorkspace(ctx context.Context, workspa
 }
 
 const listShiftsForWorkspace = `-- name: ListShiftsForWorkspace :many
-SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, u.full_name AS caregiver_name
+SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1
@@ -182,7 +184,9 @@ type ListShiftsForWorkspaceRow struct {
 }
 
 // SFT-004: owner's shift history, filterable by caregiver and date range.
-// sqlc.narg lets each filter be optional independently.
+// sqlc.narg lets each filter be optional independently. Same COALESCE
+// treatment as above — a phone-only caregiver must not appear as a nameless
+// row in the owner's history list.
 func (q *Queries) ListShiftsForWorkspace(ctx context.Context, arg ListShiftsForWorkspaceParams) ([]ListShiftsForWorkspaceRow, error) {
 	rows, err := q.db.Query(ctx, listShiftsForWorkspace,
 		arg.WorkspaceID,

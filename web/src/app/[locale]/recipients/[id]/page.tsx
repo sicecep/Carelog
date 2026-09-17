@@ -8,6 +8,7 @@ import {
   incidentApi,
   memberApi,
   recipientApi,
+  shiftApi,
   taskApi,
   workspaceApi,
   type AssignedCaregiver,
@@ -15,6 +16,7 @@ import {
   type Member,
   type Recipient,
   type ReportEntry,
+  type ShiftRow,
   type Task,
 } from "@/lib/api-client";
 import { PLAN_LIMITS } from "@/lib/constants.generated";
@@ -24,6 +26,7 @@ import { AppHeader } from "@/components/ui/AppHeader";
 import { ContributorChips } from "@/components/ui/ContributorChips";
 import { DateNav } from "@/components/ui/DateNav";
 import { ParentNotes } from "@/components/ui/ParentNotes";
+import { ShiftCard } from "@/components/ui/ShiftCard";
 import { AssignmentManager } from "@/components/ui/AssignmentManager";
 import { TaskManager } from "@/components/ui/TaskManager";
 
@@ -78,6 +81,8 @@ export default async function RecipientDetailPage({
   let assignments: AssignedCaregiver[] = [];
   let members: Member[] = [];
   let tasks: Task[] = [];
+  let shifts: ShiftRow[] = [];
+  let workspaceTimezone = "Asia/Jakarta";
   let currentUserId = "";
   let redirectToLogin = false;
   let notFound = false;
@@ -108,6 +113,7 @@ export default async function RecipientDetailPage({
       const ws = wsRes.data;
       if (ws) {
         today = dayInTimezone(new Date(), ws.timezone);
+        workspaceTimezone = ws.timezone;
         const limit = PLAN_LIMITS[ws.plan as keyof typeof PLAN_LIMITS];
         const historyDays = limit?.historyDays;
         if (historyDays != null) {
@@ -130,21 +136,34 @@ export default async function RecipientDetailPage({
     recipient = res.data;
 
     if (recipient) {
-      // Timeline, incidents, assignments, members, and tasks are non-fatal: the
-      // profile still renders if any of these fails.
-      const [entriesRes, incidentsRes, assignmentsRes, membersRes, tasksRes] =
-        await Promise.allSettled([
-          recipientApi.getTimeline(workspace.id, id, viewDate, forwarded),
-          incidentApi.listForRecipient(workspace.id, id, viewDate, forwarded),
-          assignmentApi.list(workspace.id, id, forwarded),
-          memberApi.list(workspace.id, forwarded),
-          taskApi.listForRecipient(workspace.id, id, forwarded),
-        ]);
+      // Timeline, incidents, assignments, members, tasks, and shifts are
+      // non-fatal: the profile still renders if any of these fails. Shifts
+      // are owner-only on the API — a caregiver's request 403s and the
+      // rejection is absorbed here so the timeline continues to render for
+      // them without the shift cards.
+      const [
+        entriesRes,
+        incidentsRes,
+        assignmentsRes,
+        membersRes,
+        tasksRes,
+        shiftsRes,
+      ] = await Promise.allSettled([
+        recipientApi.getTimeline(workspace.id, id, viewDate, forwarded),
+        incidentApi.listForRecipient(workspace.id, id, viewDate, forwarded),
+        assignmentApi.list(workspace.id, id, forwarded),
+        memberApi.list(workspace.id, forwarded),
+        taskApi.listForRecipient(workspace.id, id, forwarded),
+        isOwner
+          ? shiftApi.list(workspace.id, { date: viewDate }, forwarded)
+          : Promise.resolve({ data: [] as ShiftRow[] }),
+      ]);
       if (entriesRes.status === "fulfilled") entries = entriesRes.value.data ?? [];
       if (incidentsRes.status === "fulfilled") incidents = incidentsRes.value.data ?? [];
       if (assignmentsRes.status === "fulfilled") assignments = assignmentsRes.value.data ?? [];
       if (membersRes.status === "fulfilled") members = membersRes.value.data ?? [];
       if (tasksRes.status === "fulfilled") tasks = tasksRes.value.data ?? [];
+      if (shiftsRes.status === "fulfilled") shifts = shiftsRes.value.data ?? [];
 
       // The API is the authority on the history window: a 403 here means the
       // requested day is behind the plan's paywall. Detected from the real
@@ -321,6 +340,44 @@ export default async function RecipientDetailPage({
                   />
                 </div>
               )}
+
+              {!historyGated &&
+                shifts.length > 0 &&
+                filteredEntries.length + filteredIncidents.length + shifts.length > 0 && (
+                  <section
+                    aria-label={tTimeline("shiftsSectionLabel")}
+                    data-testid="shift-cards-section"
+                    className="mb-6 space-y-3"
+                  >
+                    {/* RPT-004: one card per caregiver who checked in that
+                        day. The PRD asks for INLINE placement at the
+                        check-in timestamp; we render them as a chronological
+                        block just above the entries because TimelineList is
+                        a client component and ShiftCard is a server component,
+                        so a true inline merge would force one of them to
+                        change tier. Sorted by check-in, which preserves the
+                        chronological reading order that "inline" was really
+                        about. */}
+                    {[...shifts]
+                      .sort((a, b) => a.checked_in_at.localeCompare(b.checked_in_at))
+                      // A caregiver-chip filter narrows shifts too so the
+                      // page reads consistently: "show me only this person"
+                      // means their entries AND their shift.
+                      .filter(
+                        (s) =>
+                          !activeContributorId ||
+                          s.caregiver_id === activeContributorId,
+                      )
+                      .map((shift) => (
+                        <ShiftCard
+                          key={shift.id}
+                          locale={locale}
+                          timezone={workspaceTimezone}
+                          shift={shift}
+                        />
+                      ))}
+                  </section>
+                )}
 
               {historyGated ? (
                 // The server refused this day. Show WHY, not a blank page:

@@ -379,7 +379,24 @@
   },
   "shifts": {
     "startShift": "Mulai Shift",
-    "endShift": "Akhiri Shift"
+    "endShift": "Akhiri Shift",
+    "shiftsSectionLabel": "Shift pada hari ini",
+    "stillOnShift": "Masih bertugas",
+    "activeBadge": "Aktif",
+    "duration": "{hours}j {minutes}m",
+    "shiftLabel": "{checkIn} — {checkOut}",
+    "handoffLabel": "Catatan serah terima",
+    "unknownCaregiver": "Pengasuh tak dikenal",
+    "backLabel": "Kembali",
+    "historyTitle": "Riwayat shift",
+    "historyBody": "Check-in dan check-out seluruh tim pengasuh.",
+    "historyEmpty": "Belum ada shift yang cocok dengan filter ini.",
+    "loadError": "Terjadi kesalahan saat memuat riwayat shift.",
+    "filterCaregiver": "Pengasuh",
+    "filterCaregiverAll": "Semua pengasuh",
+    "filterFrom": "Dari",
+    "filterTo": "Sampai",
+    "filterClear": "Hapus filter"
   },
   "summarysheet": {
     "title": "Ringkasan Akhir Hari",
@@ -617,6 +634,7 @@
     "contributorFilterLabel": "Filter linimasa berdasarkan kontributor",
     "contributorAll": "Semua",
     "contributorUnknown": "Tidak diketahui",
-    "emptyForContributor": "Kontributor ini tidak mencatat apa pun pada tanggal ini."
+    "emptyForContributor": "Kontributor ini tidak mencatat apa pun pada tanggal ini.",
+    "shiftsSectionLabel": "Shift pada hari ini"
   }
 }

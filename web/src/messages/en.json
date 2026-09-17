@@ -379,7 +379,24 @@
   },
   "shifts": {
     "startShift": "Start Shift",
-    "endShift": "End Shift"
+    "endShift": "End Shift",
+    "shiftsSectionLabel": "Shifts on this day",
+    "stillOnShift": "Still on shift",
+    "activeBadge": "Active",
+    "duration": "{hours}h {minutes}m",
+    "shiftLabel": "{checkIn} — {checkOut}",
+    "handoffLabel": "Handoff note",
+    "unknownCaregiver": "Unknown caregiver",
+    "backLabel": "Back",
+    "historyTitle": "Shift history",
+    "historyBody": "Check-ins and check-outs across your care team.",
+    "historyEmpty": "No shifts match these filters yet.",
+    "loadError": "Something went wrong loading shift history.",
+    "filterCaregiver": "Caregiver",
+    "filterCaregiverAll": "All caregivers",
+    "filterFrom": "From",
+    "filterTo": "To",
+    "filterClear": "Clear filters"
   },
   "summarysheet": {
     "title": "Day-End Summary",
@@ -617,6 +634,7 @@
     "contributorFilterLabel": "Filter timeline by contributor",
     "contributorAll": "All",
     "contributorUnknown": "Unknown",
-    "emptyForContributor": "This contributor did not log anything on this day."
+    "emptyForContributor": "This contributor did not log anything on this day.",
+    "shiftsSectionLabel": "Shifts on this day"
   }
 }

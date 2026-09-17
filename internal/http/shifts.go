@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/sicecep/carelog/internal/domain"
 	"github.com/sicecep/carelog/internal/http/middleware"
 	"github.com/sicecep/carelog/internal/service"
 	store "github.com/sicecep/carelog/internal/store/generated"
@@ -112,15 +114,73 @@ func (h *ShiftHandlers) handleGetActiveShift(w http.ResponseWriter, r *http.Requ
 	return nil
 }
 
+// handleListShifts handles GET /api/v1/shifts (SFT-004).
+//
+// Owner-only: a shift history across ALL caregivers is a management view.
+// A caregiver seeing every colleague's hours is a privacy leak, not a
+// feature — so this is gated at the handler rather than relying on the
+// UI hiding the page.
+//
+// Filters (all optional, combinable):
+//
+//	?caregiver_id=<uuid>   one caregiver only
+//	?from=YYYY-MM-DD       shifts checked in on/after this day
+//	?to=YYYY-MM-DD         shifts checked in on/before this day (inclusive)
+//	?date=YYYY-MM-DD       shorthand for from=to=<day>
 func (h *ShiftHandlers) handleListShifts(w http.ResponseWriter, r *http.Request) error {
 	workspaceID := middleware.GetWorkspaceID(r.Context())
 	if workspaceID == uuid.Nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
 
-	rows, err := h.Queries.ListShiftsForWorkspace(r.Context(), store.ListShiftsForWorkspaceParams{
-		WorkspaceID: workspaceID,
-	})
+	if domain.Role(middleware.GetWorkspaceRole(r.Context())) != domain.RoleOwner {
+		return service.ErrNotOwner{}
+	}
+
+	params := store.ListShiftsForWorkspaceParams{WorkspaceID: workspaceID}
+
+	if raw := r.URL.Query().Get("caregiver_id"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "caregiver_id", Message: "invalid UUID"}}}
+		}
+		params.CaregiverID = pgtype.UUID{Bytes: id, Valid: true}
+	}
+
+	// The workspace timezone decides which instants belong to a calendar
+	// day. Filtering on UTC boundaries would drop a Jakarta evening shift
+	// from its own day (same class as the RPT-003 history-window bug).
+	loc := time.UTC
+	if ws, err := h.Queries.GetWorkspace(r.Context(), workspaceID); err == nil {
+		if l, lerr := time.LoadLocation(ws.Timezone); lerr == nil {
+			loc = l
+		}
+	}
+
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+	if day := r.URL.Query().Get("date"); day != "" {
+		from, to = day, day
+	}
+
+	if from != "" {
+		t, err := time.ParseInLocation("2006-01-02", from, loc)
+		if err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "from", Message: "invalid date format, use YYYY-MM-DD"}}}
+		}
+		params.From = pgtype.Timestamptz{Time: t, Valid: true}
+	}
+	if to != "" {
+		t, err := time.ParseInLocation("2006-01-02", to, loc)
+		if err != nil {
+			return service.ErrValidation{Errors: []service.RecipientError{{Field: "to", Message: "invalid date format, use YYYY-MM-DD"}}}
+		}
+		// Inclusive end: without this, ?to=2026-09-17 would exclude every
+		// shift that day except one starting exactly at midnight.
+		params.To = pgtype.Timestamptz{Time: t.AddDate(0, 0, 1).Add(-time.Nanosecond), Valid: true}
+	}
+
+	rows, err := h.Queries.ListShiftsForWorkspace(r.Context(), params)
 	if err != nil {
 		return err
 	}

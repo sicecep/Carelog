@@ -734,7 +734,6 @@ export const workspaceApi = {
       ...extraHeaders,
       "X-Workspace-ID": workspaceId,
     }),
-
   // PATCH /api/v1/workspace - owner only. Omitted fields are left unchanged.
   update: (
     workspaceId: string,
@@ -794,4 +793,39 @@ export const pinResetApi = {
       {},
       { "X-Workspace-ID": workspaceId },
     ),
+};
+
+// SFT-004 / RPT-004: shift history. A shift is workspace-scoped (a caregiver
+// checks in to a workspace, not to one recipient), so the same rows feed both
+// the owner's history page and the per-day cards on a recipient timeline.
+export interface ShiftRow {
+  id: string;
+  caregiver_id: string;
+  caregiver_name: string;
+  checked_in_at: string;
+  // Absent while the caregiver is still on shift.
+  checked_out_at?: string;
+  handoff_note?: string;
+}
+
+export const shiftApi = {
+  // GET /api/v1/shifts - owner only; 403s for caregivers and viewers.
+  // All filters are optional and combinable; `date` is shorthand for
+  // from=to=<day>. Dates are interpreted in the workspace timezone.
+  list: (
+    workspaceId: string,
+    filters?: { caregiverId?: string; date?: string; from?: string; to?: string },
+    extraHeaders?: Record<string, string>
+  ) => {
+    const qs = new URLSearchParams();
+    if (filters?.caregiverId) qs.set("caregiver_id", filters.caregiverId);
+    if (filters?.date) qs.set("date", filters.date);
+    if (filters?.from) qs.set("from", filters.from);
+    if (filters?.to) qs.set("to", filters.to);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return api.get<ShiftRow[]>(`/api/v1/shifts${suffix}`, {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    });
+  },
 };
