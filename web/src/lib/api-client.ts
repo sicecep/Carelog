@@ -857,3 +857,29 @@ export const shiftApi = {
       { "X-Workspace-ID": workspaceId },
     ),
 };
+
+// NOT-001 (6): a caregiver's own reminder settings. Scoped to the caller —
+// there is no way to read or change someone else's prefs, by design.
+export interface ReminderPrefs {
+  disabled: boolean;
+  // YYYY-MM-DD, or null when no snooze is active.
+  snoozed_until: string | null;
+}
+
+export const reminderApi = {
+  // GET /api/v1/me/reminder-prefs
+  get: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<ReminderPrefs>("/api/v1/me/reminder-prefs", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // PUT /api/v1/me/reminder-prefs
+  // snoozeDays: 0 clears a snooze, N>0 snoozes N days from today inclusive.
+  update: (workspaceId: string, disabled: boolean, snoozeDays: number) =>
+    api.put<ReminderPrefs>(
+      "/api/v1/me/reminder-prefs",
+      { disabled, snooze_days: snoozeDays },
+      { "X-Workspace-ID": workspaceId },
+    ),
+};

@@ -43,10 +43,11 @@ func ParseRedisURL(raw string) (asynq.RedisClientOpt, error) {
 // is enough — and it keeps the sweep from ever running while a digest send is
 // in flight.
 type Runner struct {
-	opt     asynq.RedisClientOpt
-	handler *DigestHandler
-	overdue *OverdueSweepHandler
-	logger  *slog.Logger
+	opt      asynq.RedisClientOpt
+	handler  *DigestHandler
+	overdue  *OverdueSweepHandler
+	reminder *ReminderHandler
+	logger   *slog.Logger
 
 	client *asynq.Client
 	srv    *asynq.Server
@@ -55,9 +56,10 @@ type Runner struct {
 
 // NewRunner wires a Runner. Start it after the logger, store, and mailer
 // are ready; Stop it during graceful shutdown. A nil overdue handler disables
-// the TSK-003 sweep without affecting the digest.
-func NewRunner(opt asynq.RedisClientOpt, h *DigestHandler, overdue *OverdueSweepHandler, logger *slog.Logger) *Runner {
-	return &Runner{opt: opt, handler: h, overdue: overdue, logger: logger, done: make(chan struct{})}
+// the TSK-003 sweep without affecting the digest. A nil reminder handler
+// disables the NOT-001 caregiver nudge without affecting anything else.
+func NewRunner(opt asynq.RedisClientOpt, h *DigestHandler, overdue *OverdueSweepHandler, reminder *ReminderHandler, logger *slog.Logger) *Runner {
+	return &Runner{opt: opt, handler: h, overdue: overdue, reminder: reminder, logger: logger, done: make(chan struct{})}
 }
 
 // Start launches the processor and the fire-loop in background goroutines.
@@ -74,6 +76,9 @@ func (r *Runner) Start() error {
 	mux.Handle(TaskDailyDigest, r.handler)
 	if r.overdue != nil {
 		mux.Handle(TaskOverdueSweep, r.overdue)
+	}
+	if r.reminder != nil {
+		mux.Handle(TaskCaregiverReminder, r.reminder)
 	}
 
 	srvDone := make(chan error, 1)
@@ -173,6 +178,23 @@ func (r *Runner) loop(srvDone <-chan error) {
 			}
 		} else {
 			r.logger.Info("digest enqueued", "date", date, "task_id", "digest:"+date)
+		}
+
+		// NOT-001: same tick fires the caregiver reminder. Digest and
+		// reminder are complementary and one asynq queue serves both at
+		// concurrency 1, so the send order is deterministic (digest, then
+		// reminders) and neither can compete with the other.
+		if r.reminder != nil {
+			rtask, ropts := NewCaregiverReminderTask(date)
+			if _, err := r.client.Enqueue(rtask, ropts...); err != nil {
+				if err == asynq.ErrTaskIDConflict {
+					r.logger.Info("caregiver reminder already queued for today", "date", date)
+				} else {
+					r.logger.Error("caregiver reminder enqueue failed", "date", date, "error", err)
+				}
+			} else {
+				r.logger.Info("caregiver reminder enqueued", "date", date, "task_id", "reminder:"+date)
+			}
 		}
 	}
 }

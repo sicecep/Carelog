@@ -220,6 +220,9 @@ func NewRouter(deps Deps) http.Handler {
 			}
 			RegisterShiftRoutes(r, shiftHandlers)
 
+			reminderHandlers := &ReminderHandlers{Queries: deps.Queries}
+			RegisterReminderRoutes(r, reminderHandlers)
+
 			noteHandlers := &NoteHandlers{
 				Queries: deps.Queries,
 				Pool:    deps.Pool,

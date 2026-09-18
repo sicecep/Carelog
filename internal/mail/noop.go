@@ -55,3 +55,17 @@ func (m *NoopMailer) SendIncidentAlert(ctx context.Context, toEmail string, data
 	)
 	return nil
 }
+
+// SendCaregiverReminder logs the NOT-001 reminder instead of sending it.
+// The log line carries the deep link so an E2E can assert the reminder
+// fired for the right caregiver without a real mailbox.
+func (m *NoopMailer) SendCaregiverReminder(ctx context.Context, toEmail string, data ReminderEmailData) error {
+	m.logger.Info("caregiver reminder email (noop)",
+		"to", toEmail,
+		"workspace", data.WorkspaceName,
+		"caregiver", data.CaregiverName,
+		"locale", data.Locale,
+		"link", data.LogURL,
+	)
+	return nil
+}

@@ -25,6 +25,11 @@ type Mailer interface {
 	// one — an owner who gets the same alarm for a scraped knee and a fall
 	// stops reading all of them.
 	SendIncidentAlert(ctx context.Context, toEmail string, data IncidentAlertData) error
+
+	// SendCaregiverReminder sends the NOT-001 daily 5 PM nudge to a
+	// caregiver who has not logged any care today. Skipped upstream when
+	// prefs disable it or the caregiver already logged.
+	SendCaregiverReminder(ctx context.Context, toEmail string, data ReminderEmailData) error
 }
 
 // IncidentAlertData holds everything needed to render one incident alert.

@@ -48,6 +48,15 @@ type CaregiverAssignment struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CaregiverReminderPref struct {
+	WorkspaceID  uuid.UUID          `json:"workspace_id"`
+	UserID       uuid.UUID          `json:"user_id"`
+	Disabled     bool               `json:"disabled"`
+	SnoozedUntil pgtype.Date        `json:"snoozed_until"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DailyReport struct {
 	ID              uuid.UUID          `json:"id"`
 	WorkspaceID     uuid.UUID          `json:"workspace_id"`
