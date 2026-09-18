@@ -352,3 +352,15 @@ CREATE INDEX idx_pin_reset_pending ON pin_reset_requests(workspace_id, created_a
 
 CREATE UNIQUE INDEX idx_pin_reset_one_pending ON pin_reset_requests(user_id)
     WHERE status = 'pending';
+
+-- caregiver_reminder_prefs (NOT-001)
+-- Absent row = defaults (enabled, not snoozed), so reminders are opt-OUT.
+CREATE TABLE caregiver_reminder_prefs (
+    workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    disabled        BOOLEAN NOT NULL DEFAULT FALSE,
+    snoozed_until   DATE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (workspace_id, user_id)
+);

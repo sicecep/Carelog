@@ -92,6 +92,17 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		// Tasks (OWN-006 / TSK-001 / TSK-002)
 		"GET /api/v1/tasks",
 		"PATCH /api/v1/tasks/{taskID}",
+
+		// SFT-001/002/004: shift lifecycle + owner history.
+		"POST /api/v1/shifts/check-in",
+		"POST /api/v1/shifts/check-out",
+		"GET /api/v1/shifts/active",
+		"GET /api/v1/shifts",
+
+		// NOT-001 (6): a caregiver manages their own reminder settings.
+		// Every automated nag must ship with its own off switch.
+		"GET /api/v1/me/reminder-prefs",
+		"PUT /api/v1/me/reminder-prefs",
 		"POST /api/v1/recipients/{recipientID}/tasks",
 		"GET /api/v1/recipients/{recipientID}/tasks",
 		"PUT /api/v1/recipients/{recipientID}/tasks/{taskID}",

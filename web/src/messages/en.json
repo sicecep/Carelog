@@ -654,5 +654,16 @@
     "contributorUnknown": "Unknown",
     "emptyForContributor": "This contributor did not log anything on this day.",
     "shiftsSectionLabel": "Shifts on this day"
+  },
+  "reminderSettings": {
+    "title": "Daily reminder",
+    "body": "If nothing has been logged by 5 PM, we email you a reminder.",
+    "enabledLabel": "Reminder email",
+    "stateOn": "On — you will be reminded at 5 PM on days with no entries.",
+    "stateOff": "Off — you will not receive reminder emails.",
+    "snoozeTomorrow": "Snooze for today",
+    "snoozedUntil": "Snoozed until {date}",
+    "unsnooze": "Resume reminders",
+    "saveError": "Could not save that. Please try again."
   }
 }

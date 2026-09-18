@@ -654,5 +654,16 @@
     "contributorUnknown": "Tidak diketahui",
     "emptyForContributor": "Kontributor ini tidak mencatat apa pun pada tanggal ini.",
     "shiftsSectionLabel": "Shift pada hari ini"
+  },
+  "reminderSettings": {
+    "title": "Pengingat harian",
+    "body": "Jika belum ada catatan sampai pukul 17.00, kami kirim email pengingat.",
+    "enabledLabel": "Email pengingat",
+    "stateOn": "Aktif — Anda diingatkan pukul 17.00 pada hari tanpa catatan.",
+    "stateOff": "Nonaktif — Anda tidak menerima email pengingat.",
+    "snoozeTomorrow": "Tunda untuk hari ini",
+    "snoozedUntil": "Ditunda sampai {date}",
+    "unsnooze": "Lanjutkan pengingat",
+    "saveError": "Gagal menyimpan. Silakan coba lagi."
   }
 }

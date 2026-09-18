@@ -141,6 +141,9 @@ type Querier interface {
 	// Deliberately unfiltered: rotation has to see revoked and already-rotated rows
 	// to tell theft (RFC §8.3 reuse detection) from a token that simply never existed.
 	GetRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)
+	// Fetch the current pref row, or an implicit default (returns 0 rows
+	// when absent — callers treat NULL as defaults).
+	GetReminderPrefs(ctx context.Context, arg GetReminderPrefsParams) (CaregiverReminderPref, error)
 	GetReportEntry(ctx context.Context, arg GetReportEntryParams) (ReportEntry, error)
 	// Fetches all entries for a recipient on a specific date, grouped by category
 	// for a clean, WhatsApp-friendly text summary.
@@ -230,6 +233,27 @@ type Querier interface {
 	ListPendingInvitations(ctx context.Context, workspaceID uuid.UUID) ([]Invitation, error)
 	// Backs the owner's approval UI.
 	ListPendingPINResets(ctx context.Context, workspaceID uuid.UUID) ([]ListPendingPINResetsRow, error)
+	// NOT-001: caregiver 5 PM reminder queries.
+	//
+	// Every caregiver in every workspace who is eligible to receive a
+	// reminder RIGHT NOW, for the given target date. The SELECT does all the
+	// filtering the fire loop would otherwise repeat per-user:
+	//
+	//   - active workspace_members with role='caregiver'
+	//   - user is active and has a verified email (the reminder is email-only;
+	//     a phone-only caregiver cannot be reminded until we ship WA/SMS)
+	//   - prefs do not disable and do not snooze past today
+	//   - the caregiver has NOT logged any entry in this workspace today
+	//     (recipient_id -> care_recipients ties the entry to the workspace;
+	//     workspace_id on daily_reports keeps this fast without the join)
+	//   - the caregiver has been active in the last 14 days — via their most
+	//     recent shift OR entry OR incident. A stale caregiver stops getting
+	//     nagged (AC 5). "Active" here is anything they DID in the workspace,
+	//     not just logging: opening a shift counts.
+	//
+	// $1 is the workspace-local target date (YYYY-MM-DD); we do date math in
+	// Jakarta wall-clock upstream and pass the result in.
+	ListReminderCandidates(ctx context.Context, dollar_1 pgtype.Date) ([]ListReminderCandidatesRow, error)
 	ListReportEntries(ctx context.Context, reportID uuid.UUID) ([]ReportEntry, error)
 	// RPT-001: Gets ALL entries from ALL contributors' reports for a recipient on a specific date.
 	// Joins through daily_reports to get contributor attribution (contributor_id, contributor_role, contributor name).
@@ -364,6 +388,10 @@ type Querier interface {
 	UpsertCaregiverAssignment(ctx context.Context, arg UpsertCaregiverAssignmentParams) (CaregiverAssignment, error)
 	// Daily note: one slot per recipient per calendar date (WRK-003.1).
 	UpsertDailyNote(ctx context.Context, arg UpsertDailyNoteParams) (ParentNote, error)
+	// Snooze or disable a caregiver's reminders. NULL snoozed_until clears an
+	// existing snooze. Snooze is INDEPENDENT of disabled: a disabled caregiver
+	// who snoozes still stays disabled after the snooze expires.
+	UpsertReminderPrefs(ctx context.Context, arg UpsertReminderPrefsParams) (CaregiverReminderPref, error)
 	// Standing note: one persistent slot per recipient (WRK-003.1).
 	UpsertStandingNote(ctx context.Context, arg UpsertStandingNoteParams) (ParentNote, error)
 	// Magic-link sign-up and sign-in are the same request (RFC §8.1, AUTH-001/002):

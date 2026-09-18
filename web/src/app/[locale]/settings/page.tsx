@@ -4,11 +4,14 @@ import { getTranslations } from "next-intl/server";
 import {
   APIError,
   authApi,
+  reminderApi,
   workspaceApi,
   type MeResponse,
+  type ReminderPrefs,
   type Workspace,
 } from "@/lib/api-client";
 import { WorkspaceSettingsForm } from "@/components/ui/WorkspaceSettingsForm";
+import { ReminderSettings } from "@/components/ui/ReminderSettings";
 import { AppHeader } from "@/components/ui/AppHeader";
 
 interface SettingsPageProps {
@@ -44,6 +47,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   }
 
   const active = me?.workspaces.find((w) => w.active) ?? me?.workspaces[0] ?? null;
+  let reminderPrefs: ReminderPrefs | null = null;
 
   if (active) {
     try {
@@ -55,6 +59,22 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       } else {
         console.error("settings: /workspace failed", err);
         loadFailed = true;
+      }
+    }
+
+    // NOT-001 (6): reminder prefs are meaningful only for caregivers —
+    // owners receive the digest, never the reminder. Skip the fetch for
+    // owners so the API is not asked for a value the UI will never render.
+    if (active.role === "caregiver") {
+      try {
+        const res = await reminderApi.get(active.id, forwarded);
+        reminderPrefs = res.data;
+      } catch (err) {
+        // Non-fatal: absent prefs = defaults (enabled, no snooze). The
+        // API returns the same, so a fetch failure here just means the
+        // caregiver sees the default state until the next reload.
+        console.error("settings: /me/reminder-prefs failed", err);
+        reminderPrefs = { disabled: false, snoozed_until: null };
       }
     }
   }
@@ -75,7 +95,12 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             {t("errorGeneric")}
           </p>
         ) : (
-          <WorkspaceSettingsForm workspace={workspace} locale={locale} />
+          <>
+            <WorkspaceSettingsForm workspace={workspace} locale={locale} />
+            {reminderPrefs && active && (
+              <ReminderSettings workspaceId={active.id} initial={reminderPrefs} />
+            )}
+          </>
         )}
       </main>
     </div>

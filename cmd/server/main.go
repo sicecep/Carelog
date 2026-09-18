@@ -123,6 +123,11 @@ func main() {
 	}, &jobs.OverdueSweepHandler{
 		Queries: queries,
 		Logger:  logger,
+	}, &jobs.ReminderHandler{
+		Queries:    queries,
+		Mailer:     mailer,
+		WebBaseURL: cfg.WebBaseURL,
+		Logger:     logger,
 	}, logger)
 	if err := digestRunner.Start(); err != nil {
 		logger.Error("digest runner start failed", "error", err)
