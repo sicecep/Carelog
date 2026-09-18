@@ -828,4 +828,32 @@ export const shiftApi = {
       "X-Workspace-ID": workspaceId,
     });
   },
+
+  // GET /api/v1/shifts/active - the caller's currently open shift, if any.
+  // 404s when the caller has no active shift; callers should treat that as
+  // "not on shift" rather than a hard error. Owner-safe: the server scopes
+  // by the authenticated user, so an owner just gets 404.
+  getActive: (workspaceId: string, extraHeaders?: Record<string, string>) =>
+    api.get<ShiftRow>("/api/v1/shifts/active", {
+      ...extraHeaders,
+      "X-Workspace-ID": workspaceId,
+    }),
+
+  // POST /api/v1/shifts/check-in — starts a shift for the given caregiver.
+  // Service enforces one open shift per caregiver.
+  checkIn: (workspaceId: string, caregiverId: string) =>
+    api.post<ShiftRow>(
+      "/api/v1/shifts/check-in",
+      { caregiver_id: caregiverId },
+      { "X-Workspace-ID": workspaceId },
+    ),
+
+  // POST /api/v1/shifts/check-out — closes the caller's active shift with
+  // an optional handoff note (SFT-002 #4).
+  checkOut: (workspaceId: string, caregiverId: string, handoffNote?: string) =>
+    api.post<ShiftRow>(
+      "/api/v1/shifts/check-out",
+      { caregiver_id: caregiverId, handoff_note: handoffNote },
+      { "X-Workspace-ID": workspaceId },
+    ),
 };

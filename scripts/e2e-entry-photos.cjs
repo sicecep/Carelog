@@ -91,6 +91,14 @@ async function main() {
     // ── 1. Photo picker on the subcategory step ───────────────────────────
     await cg.page.goto(`${WEB}/id/recipients/${rec}`, { waitUntil: "networkidle" });
     await cg.page.locator("button", { hasText: "Catat kegiatan" }).click();
+    // SFT-001 #4: an off-shift caregiver now sees a soft-block nudge before
+    // the logging sheet opens. Dismiss it with "log without checking in"
+    // so this test stays focused on the photo flow.
+    const nudge = cg.page.locator("[data-testid='shift-nudge']");
+    if (await nudge.isVisible().catch(() => false)) {
+      await cg.page.locator("[data-testid='shift-nudge-skip']").click();
+      await nudge.waitFor({ state: "hidden", timeout: 5000 });
+    }
     await cg.page.locator("button", { hasText: "Makanan" }).click();
     const addLabel = cg.page.locator("label[for='logging-photo-input-sub']");
     check("1a. add-photo control visible", await addLabel.isVisible().catch(() => false));

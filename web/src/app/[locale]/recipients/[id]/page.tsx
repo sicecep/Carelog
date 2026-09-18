@@ -82,6 +82,7 @@ export default async function RecipientDetailPage({
   let members: Member[] = [];
   let tasks: Task[] = [];
   let shifts: ShiftRow[] = [];
+  let callerActiveShift: ShiftRow | undefined;
   let workspaceTimezone = "Asia/Jakarta";
   let currentUserId = "";
   let redirectToLogin = false;
@@ -156,7 +157,10 @@ export default async function RecipientDetailPage({
         taskApi.listForRecipient(workspace.id, id, forwarded),
         isOwner
           ? shiftApi.list(workspace.id, { date: viewDate }, forwarded)
-          : Promise.resolve({ data: [] as ShiftRow[] }),
+          : // Caregivers don't get the RPT-004 shift cards on the timeline
+            // (that is an owner report). Their own active shift is fetched
+            // separately below to drive the SFT-001 #4 soft-block.
+            Promise.resolve({ data: [] as ShiftRow[] }),
       ]);
       if (entriesRes.status === "fulfilled") entries = entriesRes.value.data ?? [];
       if (incidentsRes.status === "fulfilled") incidents = incidentsRes.value.data ?? [];
@@ -164,6 +168,17 @@ export default async function RecipientDetailPage({
       if (membersRes.status === "fulfilled") members = membersRes.value.data ?? [];
       if (tasksRes.status === "fulfilled") tasks = tasksRes.value.data ?? [];
       if (shiftsRes.status === "fulfilled") shifts = shiftsRes.value.data ?? [];
+
+      // SFT-001 #4: a caregiver's own open shift decides whether the
+      // logging soft-block applies. Separate from the RPT-004 card data
+      // above, which is an owner-only report. A 404 is the normal
+      // "not on shift" answer, so it is swallowed.
+      if (!isOwner) {
+        const mine = await shiftApi
+          .getActive(workspace.id, forwarded)
+          .catch(() => null);
+        callerActiveShift = mine?.data ?? undefined;
+      }
 
       // The API is the authority on the history window: a 403 here means the
       // requested day is behind the plan's paywall. Detected from the real
@@ -419,7 +434,19 @@ export default async function RecipientDetailPage({
             </section>
 
             {workspaceId && (
-              <DetailActions recipientId={recipient.id} workspaceId={workspaceId} recipient={recipient} />
+              <DetailActions
+                recipientId={recipient.id}
+                workspaceId={workspaceId}
+                recipient={recipient}
+                // SFT-001 #4: only caregivers get the soft-block. `shifts`
+                // holds the caller's own active shift for that role, so an
+                // empty array means "off shift".
+                shiftPrompt={
+                  !isOwner && currentUserId
+                    ? { caregiverId: currentUserId, offShift: !callerActiveShift }
+                    : undefined
+                }
+              />
             )}
           </>
         ) : null}

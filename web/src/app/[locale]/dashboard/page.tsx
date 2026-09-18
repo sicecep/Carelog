@@ -5,10 +5,12 @@ import {
   APIError,
   authApi,
   recipientApi,
+  shiftApi,
   taskApi,
   notificationApi,
   type MeResponse,
   type Recipient,
+  type ShiftRow,
   type Task,
   type Notification,
 } from "@/lib/api-client";
@@ -16,6 +18,7 @@ import { AppHeader } from "@/components/ui/AppHeader";
 import { RecipientsSection } from "./recipients-section";
 import { HomeTasks } from "@/components/ui/HomeTasks";
 import { NotificationBell } from "@/components/ui/NotificationBell";
+import { ShiftActions } from "@/components/ui/ShiftActions";
 
 interface DashboardPageProps {
   params: Promise<{ locale: string }>;
@@ -37,6 +40,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   let myTasks: Task[] = [];
   let notifications: Notification[] = [];
   let unreadCount = 0;
+  let activeShift: ShiftRow | undefined;
   let redirectToLogin = false;
   let loadFailed = false;
 
@@ -61,7 +65,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   if (workspace) {
     try {
-      const [activeRes, archivedRes, tasksRes, notifRes] = await Promise.all([
+      const [activeRes, archivedRes, tasksRes, notifRes, shiftRes] = await Promise.all([
         recipientApi.list(workspace.id, forwarded),
         recipientApi.listArchived(workspace.id, forwarded),
         // TSK-002 home-screen section and NOT-002 bell. Non-fatal: the
@@ -69,6 +73,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         // notification failure must not blank it.
         taskApi.listMine(workspace.id, forwarded).catch(() => null),
         notificationApi.list(workspace.id, forwarded).catch(() => null),
+        // SFT-001: the caller's open shift, if any. 404 is the normal
+        // "not on shift" answer, so it is swallowed rather than treated
+        // as a failure. Only fetched for caregivers — an owner never
+        // checks in and would always 404.
+        workspace.role === "caregiver"
+          ? shiftApi.getActive(workspace.id, forwarded).catch(() => null)
+          : Promise.resolve(null),
       ]);
       // Dedupe by id: the two endpoints are independent queries, so a row that
       // flips is_active between the two round-trips can land in both results.
@@ -82,6 +93,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       myTasks = tasksRes?.data ?? [];
       notifications = notifRes?.data?.notifications ?? [];
       unreadCount = notifRes?.data?.unread_count ?? 0;
+      activeShift = shiftRes?.data ?? undefined;
     } catch (err) {
       if (err instanceof APIError && err.status === 401) {
         redirectToLogin = true;
@@ -131,6 +143,21 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 />
               )}
             </div>
+
+            {/* SFT-001 / SFT-002: caregivers only. The PRD is explicit that
+                owners log entries without a shift and are never prompted to
+                check in, so this renders for the caregiver role alone.
+                Placed above tasks: starting the shift precedes doing the
+                work it covers. */}
+            {workspace && workspace.role === "caregiver" && me?.user.id && (
+              <div className="mb-6">
+                <ShiftActions
+                  workspaceId={workspace.id}
+                  caregiverId={me.user.id}
+                  active={activeShift}
+                />
+              </div>
+            )}
 
             {/* TSK-002: tasks on the home screen, sorted by due time. Placed
                 ABOVE the recipient list — an assigned task is the thing a
