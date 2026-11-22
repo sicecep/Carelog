@@ -38,7 +38,7 @@ export function LoginForm({ variant = "login" }: { variant?: "login" | "register
     return (
       <p
         role="status"
-        className="rounded-md border border-green-200 bg-green-50 px-4 py-4 text-base text-green-900"
+        className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-soft)] px-4 py-4 text-base text-[var(--color-success-ink)]"
       >
         {isRegister
           ? tReg("sent", { email: sentTo })
@@ -52,14 +52,14 @@ export function LoginForm({ variant = "login" }: { variant?: "login" | "register
       {status === "error" && (
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
+          className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-3 text-base text-[var(--color-error-ink)]"
         >
           {isRegister ? tReg("error") : t("magicLinkError")}
         </p>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-base font-medium text-gray-700">
+        <label htmlFor="email" className="block text-base font-medium text-[var(--color-text)]">
           {t("email")}
         </label>
         {/* input-base carries the 56px height and the >=16px font that stops

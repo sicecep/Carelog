@@ -169,7 +169,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="logging-sheet-title"

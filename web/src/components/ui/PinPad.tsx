@@ -109,8 +109,8 @@ export function PinPad({
             key={i}
             className={`h-4 w-4 rounded-full border-2 transition-colors ${
               i < pin.length
-                ? "border-blue-600 bg-blue-600"
-                : "border-gray-300 bg-transparent"
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)]"
+                : "border-[var(--color-border-control)] bg-transparent"
             }`}
           />
         ))}
@@ -119,7 +119,7 @@ export function PinPad({
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-center text-base text-red-700"
+          className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-3 text-center text-base text-[var(--color-error-ink)]"
         >
           {error}
         </p>
@@ -137,7 +137,7 @@ export function PinPad({
             onClick={() => press(k)}
             disabled={disabled}
             aria-label={k}
-            className="touch-target flex items-center justify-center rounded-xl border border-gray-300 bg-white text-2xl font-semibold text-gray-900 active:bg-gray-100 disabled:opacity-50"
+            className="touch-target flex items-center justify-center rounded-xl border border-[var(--color-border-control)] bg-[var(--color-surface)] text-2xl font-semibold text-[var(--color-text)] active:bg-[var(--color-surface-hover)] disabled:opacity-50"
           >
             {k}
           </button>
@@ -152,7 +152,7 @@ export function PinPad({
           onClick={() => press("0")}
           disabled={disabled}
           aria-label="0"
-          className="touch-target flex items-center justify-center rounded-xl border border-gray-300 bg-white text-2xl font-semibold text-gray-900 active:bg-gray-100 disabled:opacity-50"
+          className="touch-target flex items-center justify-center rounded-xl border border-[var(--color-border-control)] bg-[var(--color-surface)] text-2xl font-semibold text-[var(--color-text)] active:bg-[var(--color-surface-hover)] disabled:opacity-50"
         >
           0
         </button>
@@ -162,7 +162,7 @@ export function PinPad({
           onClick={backspace}
           disabled={disabled || pin.length === 0}
           aria-label={t("backspace")}
-          className="touch-target flex items-center justify-center rounded-xl border border-gray-300 bg-white text-xl text-gray-900 active:bg-gray-100 disabled:opacity-30"
+          className="touch-target flex items-center justify-center rounded-xl border border-[var(--color-border-control)] bg-[var(--color-surface)] text-xl text-[var(--color-text)] active:bg-[var(--color-surface-hover)] disabled:opacity-30"
         >
           &larr;
         </button>
@@ -173,7 +173,7 @@ export function PinPad({
           type="button"
           onClick={() => submit(pin)}
           disabled={disabled || pin.length !== PIN_LENGTH}
-          className="btn-base w-full bg-blue-600 text-white disabled:opacity-50"
+          className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)] disabled:opacity-50"
         >
           {t("confirm")}
         </button>

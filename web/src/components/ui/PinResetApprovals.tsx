@@ -76,7 +76,7 @@ export function PinResetApprovals({
   // rendering an empty box the owner has to interpret.
   if (items.length === 0 && !granted && !error) {
     return (
-      <p data-testid="pin-resets-empty" className="text-base text-gray-600">
+      <p data-testid="pin-resets-empty" className="text-base text-[var(--color-text-muted)]">
         {t("empty")}
       </p>
     );
@@ -87,7 +87,7 @@ export function PinResetApprovals({
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
+          className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-3 text-base text-[var(--color-error-ink)]"
         >
           {error}
         </p>
@@ -97,14 +97,14 @@ export function PinResetApprovals({
         <div
           role="status"
           data-testid="pin-reset-token"
-          className="rounded-md border border-green-200 bg-green-50 px-4 py-4"
+          className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-soft)] px-4 py-4"
         >
-          <p className="text-base font-medium text-green-900">{t("approvedTitle")}</p>
-          <p className="mt-1 text-sm text-green-800">{t("approvedBody")}</p>
-          <p className="mt-3 select-all break-all rounded bg-white px-3 py-2 font-mono text-sm text-gray-900">
+          <p className="text-base font-medium text-[var(--color-success-ink)]">{t("approvedTitle")}</p>
+          <p className="mt-1 text-sm text-[var(--color-success-ink)]">{t("approvedBody")}</p>
+          <p className="mt-3 select-all break-all rounded bg-[var(--color-surface)] px-3 py-2 font-mono text-sm text-[var(--color-text)]">
             {granted.token}
           </p>
-          <p className="mt-2 text-sm text-green-800">{t("approvedExpiry")}</p>
+          <p className="mt-2 text-sm text-[var(--color-success-ink)]">{t("approvedExpiry")}</p>
         </div>
       )}
 
@@ -112,14 +112,14 @@ export function PinResetApprovals({
         <div
           key={item.id}
           data-testid="pin-reset-request"
-          className="rounded-lg border border-gray-200 bg-white p-4"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
         >
-          <p className="text-base font-medium text-gray-900">{item.name}</p>
-          <p className="text-sm text-gray-600">{item.phone}</p>
+          <p className="text-base font-medium text-[var(--color-text)]">{item.name}</p>
+          <p className="text-sm text-[var(--color-text-muted)]">{item.phone}</p>
           {item.device_label && (
             // The device string is what makes this decision reviewable: an
             // unexpected device is the owner's cue to deny.
-            <p className="mt-1 break-words text-sm text-gray-500">
+            <p className="mt-1 break-words text-sm text-[var(--color-text-muted)]">
               {t("device", { device: item.device_label })}
             </p>
           )}
@@ -129,7 +129,7 @@ export function PinResetApprovals({
               type="button"
               onClick={() => approve(item.id)}
               disabled={busyId === item.id}
-              className="btn-base flex-1 bg-blue-600 text-white disabled:opacity-50"
+              className="btn-base flex-1 bg-[var(--color-accent)] text-[var(--color-text-inverse)] disabled:opacity-50"
             >
               {t("approve")}
             </button>
@@ -137,7 +137,7 @@ export function PinResetApprovals({
               type="button"
               onClick={() => deny(item.id)}
               disabled={busyId === item.id}
-              className="btn-base flex-1 border border-gray-300 bg-white text-gray-900 disabled:opacity-50"
+              className="btn-base flex-1 border border-[var(--color-border-control)] bg-[var(--color-surface)] text-[var(--color-text)] disabled:opacity-50"
             >
               {t("deny")}
             </button>

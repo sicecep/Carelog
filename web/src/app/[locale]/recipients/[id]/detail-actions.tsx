@@ -120,7 +120,7 @@ export function DetailActions({
           aria-modal="true"
           aria-labelledby="shift-nudge-title"
           data-testid="shift-nudge"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] p-4 sm:items-center"
         >
           <div className="w-full max-w-md rounded-xl bg-[var(--color-surface)] p-5 shadow-xl">
             <h2

@@ -23,7 +23,7 @@ export function LoginMethodTabs() {
       <div
         role="tablist"
         aria-label={t("signInMethod")}
-        className="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1"
+        className="grid grid-cols-2 gap-2 rounded-lg bg-[var(--color-surface-hover)] p-1"
       >
         <button
           type="button"
@@ -31,7 +31,7 @@ export function LoginMethodTabs() {
           aria-selected={method === "pin"}
           onClick={() => setMethod("pin")}
           className={`touch-target rounded-md text-base font-medium transition-colors ${
-            method === "pin" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+            method === "pin" ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm" : "text-[var(--color-text-muted)]"
           }`}
         >
           {t("methodPin")}
@@ -42,7 +42,7 @@ export function LoginMethodTabs() {
           aria-selected={method === "email"}
           onClick={() => setMethod("email")}
           className={`touch-target rounded-md text-base font-medium transition-colors ${
-            method === "email" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+            method === "email" ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm" : "text-[var(--color-text-muted)]"
           }`}
         >
           {t("methodEmail")}

@@ -241,7 +241,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
                   // Enabled only on an exact match, so the button itself
                   // reflects the same rule the API enforces.
                   disabled={deleting || confirmName.trim() !== workspace.name.trim()}
-                  className="btn-base touch-target bg-[var(--color-error-ink)] px-4 text-white disabled:opacity-50"
+                  className="btn-base touch-target bg-[var(--color-error-ink)] px-4 text-[var(--color-text-inverse)] disabled:opacity-50"
                 >
                   {deleting ? t("deleting") : t("deleteConfirmButton")}
                 </button>

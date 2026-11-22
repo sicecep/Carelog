@@ -86,14 +86,14 @@ export function ShiftActions({
         aria-label={t("statusLabel")}
         data-testid="shift-actions"
         data-shift-status="active"
-        className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4"
+        className="rounded-lg border-2 border-[var(--color-success)] bg-[var(--color-success-soft)] p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-medium uppercase tracking-wide text-emerald-800">
+            <p className="text-sm font-medium uppercase tracking-wide text-[var(--color-success-ink)]">
               {t("onShiftLabel")}
             </p>
-            <p className="mt-1 text-base text-emerald-900">
+            <p className="mt-1 text-base text-[var(--color-success-ink)]">
               {t("onShiftSince", { time: formatClock(active.checked_in_at) })}
             </p>
           </div>
@@ -103,7 +103,7 @@ export function ShiftActions({
               data-testid="end-shift-button"
               onClick={() => setHandoffOpen(true)}
               disabled={loading}
-              className="touch-target inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 text-base font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
+              className="touch-target inline-flex items-center gap-2 rounded-lg bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:bg-[var(--color-error-ink)] disabled:opacity-60"
             >
               {t("endShift")}
             </button>
@@ -149,7 +149,7 @@ export function ShiftActions({
                 data-testid="handoff-confirm"
                 onClick={() => checkOut(handoffNote)}
                 disabled={loading}
-                className="touch-target inline-flex items-center rounded-lg bg-red-600 px-4 text-base font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                className="touch-target inline-flex items-center rounded-lg bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-error-ink)] disabled:opacity-60"
               >
                 {loading ? t("checkingOut") : t("confirmEndShift")}
               </button>
@@ -161,7 +161,7 @@ export function ShiftActions({
           <p
             role="alert"
             data-testid="shift-error"
-            className="mt-3 text-sm font-medium text-red-700"
+            className="mt-3 text-sm font-medium text-[var(--color-error-ink)]"
           >
             {error}
           </p>
@@ -192,7 +192,7 @@ export function ShiftActions({
           data-testid="start-shift-button"
           onClick={checkIn}
           disabled={loading}
-          className="touch-target inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 text-base font-semibold text-white shadow-sm hover:brightness-110 disabled:opacity-60"
+          className="touch-target inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:brightness-110 disabled:opacity-60"
         >
           {loading ? t("checkingIn") : t("startShift")}
         </button>
@@ -201,7 +201,7 @@ export function ShiftActions({
         <p
           role="alert"
           data-testid="shift-error"
-          className="mt-3 text-sm font-medium text-red-700"
+          className="mt-3 text-sm font-medium text-[var(--color-error-ink)]"
         >
           {error}
         </p>
