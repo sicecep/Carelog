@@ -140,7 +140,7 @@ export function ShiftActions({
                   setHandoffNote("");
                 }}
                 disabled={loading}
-                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-strong)] px-4 text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
+                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
               >
                 {t("cancel")}
               </button>

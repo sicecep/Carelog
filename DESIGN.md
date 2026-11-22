@@ -529,7 +529,7 @@ revamped, not all at once.
 | ~~Severity colours~~ | **Done.** `IncidentSheet.tsx`, the recipient incident list and the alert email use `--color-sev-*`; Low is green | — |
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
 | Dark-mode accent | Neon `#4ADE80`; only a handful of tokens overridden | Full dark token set (§2.5) |
-| Input / chip outlines | `--color-border` / `--color-border-strong` (1.5:1 on cream) | `--color-border-control` (3.8:1) |
+| ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
 | Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Vaul, migrated one sheet per PR |

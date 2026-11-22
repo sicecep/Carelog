@@ -242,13 +242,13 @@ export default function OnboardingPage() {
                     {MODULES.map((module) => (
                       <label
                         key={module}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)] touch-target"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)] touch-target"
                       >
                         <input
                           type="checkbox"
                           checked={enabledModules.includes(module)}
                           onChange={() => handleModuleToggle(module)}
-                          className="w-5 h-5 shrink-0 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-ring)]"
+                          className="w-5 h-5 shrink-0 rounded border-[var(--color-border-control)] text-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-ring)]"
                         />
                         <span className="text-base text-[var(--color-text)]">{t(`modules.${module}`)}</span>
                       </label>

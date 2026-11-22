@@ -113,7 +113,7 @@ function ChipLink({
         "touch-target inline-flex shrink-0 items-center whitespace-nowrap rounded-full border-2 px-4 text-sm font-medium transition-all",
         active
           ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-text)]"
-          : "border-[var(--color-border-strong)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]",
+          : "border-[var(--color-border-control)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]",
       )}
     >
       {label}

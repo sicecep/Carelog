@@ -230,7 +230,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                       type="button"
                       disabled={submitting !== null}
                       onClick={() => handleBackfillSelect(opt)}
-                      className="touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
+                      className="touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
                     >
                       {t(`backfillBlocks.${opt.key}`)}
                     </button>
@@ -249,7 +249,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                   type="button"
                   disabled={submitting !== null}
                   onClick={() => handleBackfillSelect(opt)}
-                  className="touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold tabular-nums text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
+                  className="touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold tabular-nums text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
                 >
                   {opt.label}
                 </button>
@@ -315,7 +315,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                   "flex-1 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
                   backfillMode
                     ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
-                    : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                    : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
                 )}
               >
                 {t("backfillToggle")}
@@ -377,7 +377,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                 onClick={() => setBackfillMode(!backfillMode)}
                 className={cn(
                   "flex-1 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
-                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
                 )}
               >
                 {t("backfillToggle")}
@@ -413,7 +413,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                 onClick={() => setBackfillMode(!backfillMode)}
                 className={cn(
                   "rounded-full border-2 px-3 py-1 text-xs font-medium transition-all touch-target",
-                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border)] text-[var(--color-text-muted)]"
+                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
                 )}
               >
                 {t("backfillToggle")}
@@ -428,7 +428,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
                   disabled={submitting !== null}
                   onClick={() => handleSubSelect(sub as LogSubcategory)}
                   className={cn(
-                    "touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50",
+                    "touch-target flex w-full items-center justify-center rounded-lg border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50",
                     submitting === sub && "opacity-60"
                   )}
                 >

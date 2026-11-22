@@ -88,7 +88,7 @@ export function ReminderSettings({
           onClick={() => save(!prefs.disabled, 0)}
           className={`touch-target relative inline-flex w-16 shrink-0 items-center rounded-full px-1 transition-colors disabled:opacity-60 ${
             prefs.disabled
-              ? "bg-[var(--color-border-strong)]"
+              ? "bg-[var(--color-border-control)]"
               : "bg-[var(--color-accent)]"
           }`}
         >
@@ -113,7 +113,7 @@ export function ReminderSettings({
                 data-testid="reminder-unsnooze"
                 disabled={saving}
                 onClick={() => save(false, 0)}
-                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-strong)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
+                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
               >
                 {t("unsnooze")}
               </button>
@@ -124,7 +124,7 @@ export function ReminderSettings({
               data-testid="reminder-snooze"
               disabled={saving}
               onClick={() => save(false, 1)}
-              className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-strong)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
+              className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
             >
               {t("snoozeTomorrow")}
             </button>
