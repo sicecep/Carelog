@@ -25,6 +25,21 @@
   --color-success: #27AE60;
   --color-success-soft: #E8F8F0;
 
+  /* Incident severity (INC-003, DESIGN.md §2.3): low=green, medium=amber,
+     high=red, emergency=solid deep red. Each level also carries a text label
+     and an icon — colour is never the only signal. */
+  --color-sev-low: #2F8A4E;
+  --color-sev-low-soft: #E8F5EC;
+  --color-sev-low-ink: #1E5A34;
+  --color-sev-medium: #B7791F;
+  --color-sev-medium-soft: #FEF3DC;
+  --color-sev-medium-ink: #7A4E0B;
+  --color-sev-high: #C0392B;
+  --color-sev-high-soft: #FBE3E0;
+  --color-sev-high-ink: #7B241C;
+  --color-sev-emergency: #9B1C1C;
+  --color-sev-emergency-hover: #7F1616;
+
   /* Semantic aliases for Tailwind utilities */
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text);
@@ -289,6 +304,24 @@
   @keyframes skeleton {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+  }
+
+  /* Emergency severity ring (DESIGN.md §2.3). Only the outer ring pulses —
+     the badge itself stays solid so its label is always readable. An outline
+     (not an ::after box) so the 2px gap is measured from the border edge:
+     a positioned pseudo-element sits inside the border box and overlapped
+     the 2px border on the incident tiles, hiding the ring. Outlines follow
+     border-radius in current browsers. Under prefers-reduced-motion the
+     global rule collapses the animation to one 0.01ms iteration, which ends
+     on the 100% keyframe: a solid, static ring. */
+  .sev-emergency-ring {
+    outline: 2px solid var(--color-sev-emergency);
+    outline-offset: 2px;
+    animation: sev-ring 1.6s ease-in-out infinite;
+  }
+  @keyframes sev-ring {
+    0%, 100% { outline-color: var(--color-sev-emergency); }
+    50% { outline-color: color-mix(in srgb, var(--color-sev-emergency) 35%, transparent); }
   }
 
   /* Toast / success feedback */
