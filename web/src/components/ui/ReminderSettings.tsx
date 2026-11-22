@@ -113,7 +113,7 @@ export function ReminderSettings({
                 data-testid="reminder-unsnooze"
                 disabled={saving}
                 onClick={() => save(false, 0)}
-                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
+                className="touch-target inline-flex items-center rounded-md border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
               >
                 {t("unsnooze")}
               </button>
@@ -124,7 +124,7 @@ export function ReminderSettings({
               data-testid="reminder-snooze"
               disabled={saving}
               onClick={() => save(false, 1)}
-              className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
+              className="touch-target inline-flex items-center rounded-md border-2 border-[var(--color-border-control)] px-4 text-sm font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-60"
             >
               {t("snoozeTomorrow")}
             </button>

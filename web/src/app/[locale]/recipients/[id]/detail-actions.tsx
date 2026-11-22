@@ -149,7 +149,7 @@ export function DetailActions({
                   setShiftNudge(false);
                   setLoggingOpen(true);
                 }}
-                className="touch-target inline-flex w-full items-center justify-center rounded-lg border-2 border-[var(--color-border-control)] text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
+                className="touch-target inline-flex w-full items-center justify-center rounded-md border-2 border-[var(--color-border-control)] text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
               >
                 {tShifts("nudgeSkip")}
               </button>

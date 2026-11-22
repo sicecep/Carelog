@@ -176,7 +176,7 @@ function AckButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-[var(--color-border-control)] px-4 py-2 text-sm font-semibold text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+        className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md border border-[var(--color-border-control)] px-4 py-2 text-sm font-semibold text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
       >
         <CheckCircle size={20} weight="regular" aria-hidden="true" />
         <span>{t("acknowledge")}</span>
@@ -297,7 +297,7 @@ export function IncidentList({
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[var(--color-whatsapp)] px-4 py-2 text-sm font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
+                  className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-md bg-[var(--color-whatsapp)] px-4 py-2 text-sm font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
                 >
                   <WhatsappLogo size={20} weight="fill" aria-hidden="true" />
                   <span>{tSheet("shareWhatsApp")}</span>

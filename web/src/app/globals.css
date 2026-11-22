@@ -102,6 +102,17 @@
      invisible to keyboard and switch-access users (WCAG 2.4.7 / 1.4.11).
      Accent is 4.7–5.0:1 on light bg/surface and 7.5:1 on the dark surface. */
   --shadow-focus: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-ring);
+
+  /* Corner radii (DESIGN.md §5). These REPLACE Tailwind's defaults, so the
+     `rounded-*` utilities follow the spec. Usage: sm = badges and small
+     chips; md = buttons, inputs, selects, compact chips; lg = cards, list
+     rows, sections, dialogs; xl = sheet tops and large tiles; full = pills
+     and avatars. 2xl is raised so the scale stays ascending past xl. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
 }
 
 /* Dark mode (DESIGN.md §2.5). Follows the phone's setting; a `.light` class
@@ -211,7 +222,7 @@
     font-size: 16px;
     padding: 0 1rem;
     border: 1.5px solid var(--color-border-control);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     background-color: var(--color-surface);
     color: var(--color-text);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -238,7 +249,7 @@
     padding: 0 1.5rem;
     font-size: 16px;
     font-weight: 500;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     border: none;
     cursor: pointer;
     transition: background-color 0.15s ease;
@@ -304,7 +315,7 @@
     min-height: 120px;
     padding: 1rem 0.75rem;
     border: 2px solid var(--color-border-control);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-xl);
     background-color: var(--color-surface);
     cursor: pointer;
     transition: all 0.15s ease;
@@ -348,6 +359,7 @@
   .chip-sm {
     min-height: 56px;
     padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
   }
 
   /* Card */
@@ -358,7 +370,7 @@
   .card {
     background-color: var(--color-surface);
     border: 1.5px solid var(--color-border-strong);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
     padding: 1.25rem;
     box-shadow: 0 1px 2px rgba(31, 42, 36, 0.06);
   }
@@ -407,7 +419,7 @@
     background-color: var(--color-success-soft);
     border: 1px solid var(--color-success);
     color: var(--color-success-ink);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     padding: 1rem 1.25rem;
   }
 }

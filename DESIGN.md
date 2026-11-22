@@ -213,6 +213,8 @@ badges are built.
 | `--radius-xl` | 20px | Bottom-sheet top corners, large tiles (care-type chips) |
 | `--radius-full` | 9999px | Pills, avatars, filter chips |
 
+The tokens replace Tailwind's default `--radius-*` values, so `rounded-md` / `rounded-lg` / `rounded-xl` are the spec values. Pick by role, not by look: controls use `rounded-md`, containers use `rounded-lg`. A control nested in a container should always be less rounded than its container.
+
 Shadows are tinted forest (`rgb(31 42 36 / …)`), never pure black, so they sit warmly on cream:
 
 ```css
@@ -560,9 +562,9 @@ revamped, not all at once.
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
 | Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Vaul, migrated one sheet per PR |
-| Radii | 8 / 12px in utilities | 10 / 14 / 20px (§5) |
+| ~~Radii~~ | **Done.** `--radius-sm/md/lg/xl` (6/10/14/20px, `2xl` 24px) replace Tailwind's defaults so `rounded-*` follows §5; 30 controls moved `rounded-lg` → `rounded-md`; shared styles use the tokens | — |
 | Icons | `phosphor-react` | Same set. The package has been succeeded by `@phosphor-icons/react`; a swap needs approval like any dependency change |
-| Spec font | Old DESIGN.md said Inter | **Geist**, as already shipped |
+| ~~Spec font~~ | **Done.** Spec says **Geist**, as already shipped | — |
 
 ---
 
