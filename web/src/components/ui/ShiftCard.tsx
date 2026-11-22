@@ -78,7 +78,7 @@ export async function ShiftCard({
         </div>
         {active && (
           <span
-            className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800"
+            className="rounded-full bg-[var(--color-success-soft)] px-3 py-1 text-xs font-semibold text-[var(--color-success-ink)]"
             data-testid="shift-active-badge"
           >
             {t("activeBadge")}

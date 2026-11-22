@@ -34,21 +34,21 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
   if (signedIn) redirect(`/${locale}/dashboard`);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="w-full max-w-md space-y-8 rounded-lg border bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-surface-hover)] px-4 py-8">
+      <div className="w-full max-w-md space-y-8 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 shadow-sm">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">CareLog</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-gray-700">{t("title")}</h2>
-          <p className="mt-2 text-base text-gray-600">{t("intro")}</p>
+          <h1 className="text-3xl font-bold text-[var(--color-text)]">CareLog</h1>
+          <h2 className="mt-6 text-2xl font-semibold text-[var(--color-text)]">{t("title")}</h2>
+          <p className="mt-2 text-base text-[var(--color-text-muted)]">{t("intro")}</p>
         </div>
 
         <LoginForm variant="register" />
 
-        <p className="text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-[var(--color-text-muted)]">
           {t("haveAccount")}{" "}
           <Link
             href={`/${locale}/login`}
-            className="font-medium text-blue-600 hover:text-blue-700"
+            className="font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
           >
             {t("signIn")}
           </Link>

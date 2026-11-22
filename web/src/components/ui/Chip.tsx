@@ -42,7 +42,7 @@ export const CareTypeChip = forwardRef<HTMLButtonElement, CareTypeChipProps>(
       >
         <div className={cn(
           "w-12 h-12 rounded-full flex items-center justify-center mb-1 transition-colors",
-          selected ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+          selected ? "bg-[var(--color-accent)] text-[var(--color-text-inverse)]" : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
         )}>
           <Icon size={28} weight={selected ? "fill" : "regular"} />
         </div>
@@ -55,7 +55,7 @@ export const CareTypeChip = forwardRef<HTMLButtonElement, CareTypeChipProps>(
         {selected && (
           <div className="absolute top-2 right-2">
             <div className="w-5 h-5 bg-[var(--color-accent)] rounded-full flex items-center justify-center shadow-sm">
-              <CheckCircle size={14} weight="fill" className="text-white" />
+              <CheckCircle size={14} weight="fill" className="text-[var(--color-text-inverse)]" />
             </div>
           </div>
         )}

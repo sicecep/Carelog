@@ -35,11 +35,11 @@ export default async function LandingPage({ params }: LandingPageProps) {
   if (signedIn) redirect(`/${locale}/dashboard`);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="w-full max-w-md space-y-8 rounded-lg border bg-white p-8 text-center shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-surface-hover)] px-4 py-8">
+      <div className="w-full max-w-md space-y-8 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center shadow-sm">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">{common("appName")}</h1>
-          <p className="mt-3 text-base text-gray-600">{t("tagline")}</p>
+          <h1 className="text-4xl font-bold text-[var(--color-text)]">{common("appName")}</h1>
+          <p className="mt-3 text-base text-[var(--color-text-muted)]">{t("tagline")}</p>
         </div>
 
         <div className="space-y-3">
@@ -47,13 +47,13 @@ export default async function LandingPage({ params }: LandingPageProps) {
               Both 56px targets — this page is the mobile front door. */}
           <Link
             href={`/${locale}/register`}
-            className="flex h-14 w-full items-center justify-center rounded-md bg-blue-600 px-4 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="flex h-14 w-full items-center justify-center rounded-md bg-[var(--color-accent)] px-4 text-base font-medium text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2"
           >
             {t("registerButton")}
           </Link>
           <Link
             href={`/${locale}/login`}
-            className="flex h-14 w-full items-center justify-center rounded-md border border-gray-300 bg-white px-4 text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="flex h-14 w-full items-center justify-center rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-4 text-base font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2"
           >
             {t("loginButton")}
           </Link>

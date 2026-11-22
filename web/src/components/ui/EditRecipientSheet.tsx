@@ -41,7 +41,7 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] sm:items-center"
       role="dialog"
       aria-modal="true"
       onClick={onClose}

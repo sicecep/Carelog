@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
-/* Dark mode is OFF until the full dark token set ships (DESIGN.md §2.5).
-   Tailwind's `dark:` variant follows prefers-color-scheme by default; bind
-   it to a `.dark` class instead, which nothing sets yet. The full dark-mode
-   change will set that class (system preference or a settings toggle). */
-@custom-variant dark (&:where(.dark, .dark *));
+/* Theming rule: colour comes ONLY from the tokens below. Dark mode works by
+   redefining those tokens (see the prefers-color-scheme block after
+   @theme), so components never need Tailwind `dark:` utilities or raw
+   palette classes (`gray-900`, `blue-600`, `bg-white`) — those would not
+   switch, or would switch on a different condition than the tokens. */
 
 @theme {
   /* Color Palette — Light Mode (default) */
@@ -56,6 +56,17 @@
   --color-sev-high-ink: #7B241C;
   --color-sev-emergency: #9B1C1C;
   --color-sev-emergency-hover: #7F1616;
+  /* The pulsing ring sits on the page, not on the red fill, so it needs its
+     own token: deep red is 8.2:1 on a light surface but 1.9:1 on a dark one. */
+  --color-sev-emergency-ring: #9B1C1C;
+
+  /* Info status (handoff banner, daily instructions, "Ringkasan" badge). */
+  --color-info: #2563A8;
+  --color-info-soft: #E6EFF8;
+  --color-info-ink: #1F4E80;
+
+  /* Scrim behind sheets and dialogs. */
+  --color-overlay: rgb(15 26 20 / 0.45);
 
   /* Semantic aliases for Tailwind utilities */
   --color-background: var(--color-bg);
@@ -77,30 +88,63 @@
      transparent, and `border-[var(--color-border)]` dividers fell back to
      currentColor (dark text colour) in light mode. */
   --color-ring: var(--color-accent-soft);
-
-  /* Dark palette — defined but NOT applied (see the note at the top). */
-  --color-bg-dark: #1A1F1C;
-  --color-surface-dark: #222825;
-  --color-border-dark: #3A3F3C;
-  --color-border-control-dark: #6B756F;
-  --color-text-dark: #E8EDEA;
-  --color-text-muted-dark: #9AA8A1;
-  --color-accent-dark: #4ADE80;
-  --color-accent-soft-dark: #1B3A2A;
-  --color-accent-ink-dark: #A8F5C8;
 }
 
-/* The automatic `@media (prefers-color-scheme: dark)` override that lived
-   here is removed. It switched only the alias tokens (--color-background,
-   --color-primary, …), which no component reads — components use
-   --color-surface / --color-text / --color-accent directly. A phone in dark
-   mode therefore got a dark page with dark text: page titles at 1.13:1,
-   muted text at 2.26:1, white cards on a dark page. Everyone gets the
-   working light theme until every token has a verified dark value. */
+/* Dark mode (DESIGN.md §2.5). Follows the phone's setting; a `.light` class
+   on <html> opts out (hook for a future settings toggle). This redefines
+   the REAL tokens that components read — the old version only switched the
+   aliases above, which nothing reads, and produced dark text on a dark page.
+   The aliases need no override: they resolve through these tokens.
+   Every pairing is WCAG AA-checked (ratios in DESIGN.md §15). */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+
+    --color-bg: #161B18;
+    --color-surface: #1F2522;
+    --color-surface-hover: #2A312D;
+    --color-border: #343C37;
+    --color-border-strong: #4A544E;
+    --color-border-control: #6B756F;     /* 3.3:1 on surface */
+    --color-text: #E8EDEA;               /* 13.2:1 on surface */
+    --color-text-muted: #A3B0A9;         /* 6.9:1 on surface */
+    --color-text-inverse: #0F1A14;       /* text on the light dark-mode accent */
+    --color-accent: #6CC59A;             /* replaces neon #4ADE80 */
+    --color-accent-hover: #85D3AC;
+    --color-accent-soft: #1B3A2A;
+    --color-accent-ink: #A8E8C8;
+
+    --color-error: #F07B6E;
+    --color-error-soft: #3A1F1C;
+    --color-error-ink: #F5B5AD;
+    --color-warning: #E0B341;
+    --color-warning-soft: #352A12;
+    --color-warning-ink: #F0CF7A;
+    --color-success: #4CC27F;
+    --color-success-soft: #173324;
+    --color-success-ink: #8FDDB0;
+    --color-info: #6FA8E8;
+    --color-info-soft: #1A2A3D;
+    --color-info-ink: #A9CBF2;
+
+    --color-sev-low: #5BBF7E;
+    --color-sev-low-soft: #18301F;
+    --color-sev-low-ink: #9ADBB0;
+    --color-sev-medium: #E0A24A;
+    --color-sev-medium-soft: #3A2A12;
+    --color-sev-medium-ink: #F2C98A;
+    --color-sev-high: #F07B6E;
+    --color-sev-high-soft: #3D1E1B;
+    --color-sev-high-ink: #F5B5AD;
+    /* Emergency fill stays deep red with white text in both themes. */
+    --color-sev-emergency-ring: #F07B6E; /* 5.8:1 on surface */
+
+    --color-overlay: rgb(0 0 0 / 0.6);
+  }
+}
 
 @layer base {
   :root {
-    /* Keep native controls (selects, date inputs, scrollbars) light too. */
     color-scheme: light;
   }
 
@@ -335,13 +379,13 @@
      global rule collapses the animation to one 0.01ms iteration, which ends
      on the 100% keyframe: a solid, static ring. */
   .sev-emergency-ring {
-    outline: 2px solid var(--color-sev-emergency);
+    outline: 2px solid var(--color-sev-emergency-ring);
     outline-offset: 2px;
     animation: sev-ring 1.6s ease-in-out infinite;
   }
   @keyframes sev-ring {
-    0%, 100% { outline-color: var(--color-sev-emergency); }
-    50% { outline-color: color-mix(in srgb, var(--color-sev-emergency) 35%, transparent); }
+    0%, 100% { outline-color: var(--color-sev-emergency-ring); }
+    50% { outline-color: color-mix(in srgb, var(--color-sev-emergency-ring) 35%, transparent); }
   }
 
   /* Toast / success feedback */

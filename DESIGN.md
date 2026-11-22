@@ -114,9 +114,13 @@ the entry card. Entries from other contributors shown to a caregiver (RPT-005) u
 
 ### 2.5 Dark mode
 
-Dark mode follows the system setting (`prefers-color-scheme`), and the user can override it
-(`.light` / `.dark` on `<html>`, set from settings later). Every core and status token has a
-dark value. The old neon `#4ADE80` accent is retired: it read as "gaming" rather than "care".
+Dark mode follows the phone's setting (`prefers-color-scheme`). A `.light` class on `<html>`
+opts out; it's the hook for a future settings toggle. It works by **redefining the same tokens**
+in one `@media (prefers-color-scheme: dark)` block in `globals.css`, so components never need
+Tailwind `dark:` utilities or raw palette classes (`gray-900`, `bg-white`). Those don't switch
+with the tokens, so they aren't used. The only deliberate exceptions are white text on the
+emergency red, the WhatsApp/Google brand colours, and the white switch thumb. The old neon
+`#4ADE80` accent is retired: it read as "gaming" rather than "care".
 
 | Token | Dark |
 |---|---|
@@ -133,12 +137,28 @@ dark value. The old neon `#4ADE80` accent is retired: it read as "gaming" rather
 | `--color-accent-hover` | `#85D3AC` |
 | `--color-accent-soft` | `#1B3A2A` |
 | `--color-accent-ink` | `#A8E8C8` |
-| `--color-error` | `#F07B6E` |
+| `--color-overlay` | `rgb(0 0 0 / 0.6)` |
 
-The status, severity, and contributor **soft** colours darken to roughly 18% lightness in dark
-mode, and their **ink** colours lighten to roughly 80%. Derive them when implementing, then
-re-run the contrast check in §15. The emergency badge stays `#9B1C1C` with white text in both
-themes.
+Status, severity and contributor colours in dark mode. The soft colours are dark, the inks are
+light, and the fills are lifted so they read on the dark surface:
+
+| Token group | Fill | Soft | Ink |
+|---|---|---|---|
+| error | `#F07B6E` | `#3A1F1C` | `#F5B5AD` |
+| warning | `#E0B341` | `#352A12` | `#F0CF7A` |
+| success | `#4CC27F` | `#173324` | `#8FDDB0` |
+| info | `#6FA8E8` | `#1A2A3D` | `#A9CBF2` |
+| sev-low | `#5BBF7E` | `#18301F` | `#9ADBB0` |
+| sev-medium | `#E0A24A` | `#3A2A12` | `#F2C98A` |
+| sev-high | `#F07B6E` | `#3D1E1B` | `#F5B5AD` |
+| contrib owner / c1 / c2 / c3 / c4 / c5 | — | `#2E2140` / `#1B2A3D` / `#14302D` / `#3A2419` / `#2C2F17` / `#2A3036` | `#D2B8EA` / `#A9C6EC` / `#8FD6CE` / `#EDB89B` / `#D3D99A` / `#C3CCD5` |
+
+The emergency badge stays `#9B1C1C` with white text in both themes. Its pulsing ring has its
+own token, `--color-sev-emergency-ring`: deep red in light mode, and `#F07B6E` in dark mode,
+because deep red is only 1.9:1 on the dark surface. Buttons filled with the error colour use
+`--color-text-inverse`, so they read white-on-red in light mode and dark-on-salmon in dark mode.
+The contributor tokens aren't in `globals.css` yet; add the dark values above when the timeline
+badges are built.
 
 ---
 
@@ -528,7 +548,9 @@ revamped, not all at once.
 |---|---|---|
 | ~~Severity colours~~ | **Done.** `IncidentSheet.tsx`, the recipient incident list and the alert email use `--color-sev-*`; Low is green | — |
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
-| Dark mode | **Temporarily disabled** (hotfix): the old automatic switch only changed alias tokens no component reads, so dark-mode phones got dark text on a dark page (1.13:1). Light theme for everyone; `dark:` is bound to a `.dark` class nothing sets yet | Full dark token set (§2.5), then re-enable |
+| ~~Dark mode~~ | **Done.** Full dark token set (§2.5) follows the phone setting; ~155 raw palette classes and all `dark:` utilities replaced with tokens across 21 files; off-brand blue primary buttons on auth/PIN screens now use the accent | — |
+| Focus ring | `--color-ring` is `accent-soft`: ~1.2:1 on surface in both themes, too faint | `--shadow-focus` from §5 (bg gap + accent ring) |
+| WhatsApp share buttons | White on `#25D366` is 2.0:1 (fails AA) | Brand decision: dark text `#111B21` on `#25D366` (8.8:1), or white on the dark brand green `#075E54` (7.7:1) |
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
@@ -556,3 +578,6 @@ whenever you change a token.
 | warning-ink / warning-soft | 6.4 | | **dark** text-muted / surface | 6.9 |
 | success-ink / success-soft | 5.9 | | **dark** accent / surface | 7.5 |
 | info-ink / info-soft | 7.4 | | **dark** on-accent / accent | 8.6 |
+| **dark** border-control / surface (UI) | 3.3 | | **dark** on-error / error (danger btn) | 6.6 |
+| **dark** error/warning/success/info ink / soft | 8.6 – 9.3 | | **dark** sev ink / soft | 8.6 – 8.9 |
+| **dark** emergency ring / surface (UI) | 5.8 | | **dark** contributor inks / softs | 8.2 – 9.3 |

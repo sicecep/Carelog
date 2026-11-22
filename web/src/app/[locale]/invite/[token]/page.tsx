@@ -105,7 +105,7 @@ export default function InviteClaimPage() {
   if (step === "loading") {
     return (
       <div className="mx-auto mt-20 max-w-md px-4 text-center">
-        <p className="text-base text-gray-600">{t("loading")}</p>
+        <p className="text-base text-[var(--color-text-muted)]">{t("loading")}</p>
       </div>
     );
   }
@@ -113,9 +113,9 @@ export default function InviteClaimPage() {
   if (step === "invalid") {
     return (
       <div className="mx-auto mt-20 max-w-md px-4">
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-4">
-          <h1 className="text-lg font-semibold text-red-900">{t("invalidTitle")}</h1>
-          <p className="mt-2 text-base text-red-800">{t("invalidBody")}</p>
+        <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-4">
+          <h1 className="text-lg font-semibold text-[var(--color-error-ink)]">{t("invalidTitle")}</h1>
+          <p className="mt-2 text-base text-[var(--color-error-ink)]">{t("invalidBody")}</p>
         </div>
       </div>
     );
@@ -123,25 +123,25 @@ export default function InviteClaimPage() {
 
   return (
     <div className="mx-auto mt-12 max-w-md px-4 pb-16">
-      <h1 className="text-center text-xl font-bold text-gray-900">
+      <h1 className="text-center text-xl font-bold text-[var(--color-text)]">
         {workspaceName ? t("titleNamed", { workspace: workspaceName }) : t("title")}
       </h1>
 
       {step === "phone" && (
         <form onSubmit={submitPhone} className="mt-8 space-y-6">
-          <p className="text-base text-gray-600">{t("phoneIntro")}</p>
+          <p className="text-base text-[var(--color-text-muted)]">{t("phoneIntro")}</p>
 
           {error && (
             <p
               role="alert"
-              className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
+              className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-3 text-base text-[var(--color-error-ink)]"
             >
               {error}
             </p>
           )}
 
           <div>
-            <label htmlFor="phone" className="block text-base font-medium text-gray-700">
+            <label htmlFor="phone" className="block text-base font-medium text-[var(--color-text)]">
               {tPin("phoneLabel")}
             </label>
             <input
@@ -156,10 +156,10 @@ export default function InviteClaimPage() {
               placeholder={tPin("phonePlaceholder")}
               className="input-base mt-2 w-full"
             />
-            <p className="mt-2 text-sm text-gray-500">{tPin("phoneHint")}</p>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)]">{tPin("phoneHint")}</p>
           </div>
 
-          <button type="submit" className="btn-base w-full bg-blue-600 text-white">
+          <button type="submit" className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)]">
             {tPin("continue")}
           </button>
         </form>
@@ -168,8 +168,8 @@ export default function InviteClaimPage() {
       {step === "pin" && (
         <div className="mt-8 space-y-6">
           <div className="text-center">
-            <h2 className="text-lg font-semibold text-gray-900">{tPin("choosePin")}</h2>
-            <p className="mt-1 text-base text-gray-600">{tPin("choosePinHint")}</p>
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">{tPin("choosePin")}</h2>
+            <p className="mt-1 text-base text-[var(--color-text-muted)]">{tPin("choosePinHint")}</p>
           </div>
           <PinPad onComplete={choosePin} disabled={busy} error={error} />
         </div>
@@ -178,8 +178,8 @@ export default function InviteClaimPage() {
       {step === "confirm" && (
         <div className="mt-8 space-y-6">
           <div className="text-center">
-            <h2 className="text-lg font-semibold text-gray-900">{tPin("confirmPin")}</h2>
-            <p className="mt-1 text-base text-gray-600">{tPin("confirmPinHint")}</p>
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">{tPin("confirmPin")}</h2>
+            <p className="mt-1 text-base text-[var(--color-text-muted)]">{tPin("confirmPinHint")}</p>
           </div>
           <PinPad onComplete={confirmPin} disabled={busy} error={error} />
         </div>

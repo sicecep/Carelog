@@ -12,12 +12,12 @@ export default async function LoginPage({ params }: LoginPageProps) {
   const common = await getTranslations({ locale, namespace: "common" });
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
-      <div className="w-full max-w-md space-y-8 rounded-lg border bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-surface-hover)] px-4 py-8">
+      <div className="w-full max-w-md space-y-8 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 shadow-sm">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">{common("appName")}</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-gray-700">{t("login")}</h2>
-          <p className="mt-2 text-base text-gray-600">{t("loginIntro")}</p>
+          <h1 className="text-3xl font-bold text-[var(--color-text)]">{common("appName")}</h1>
+          <h2 className="mt-6 text-2xl font-semibold text-[var(--color-text)]">{t("login")}</h2>
+          <p className="mt-2 text-base text-[var(--color-text-muted)]">{t("loginIntro")}</p>
         </div>
 
         <LoginMethodTabs />
@@ -26,11 +26,11 @@ export default async function LoginPage({ params }: LoginPageProps) {
             someone arriving straight at /login (bookmark, old link, the
             pending page's back-link) must still be able to reach /register
             without knowing the URL. */}
-        <p className="text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-[var(--color-text-muted)]">
           {t("noAccount")}{" "}
           <Link
             href={`/${locale}/register`}
-            className="font-medium text-blue-600 hover:text-blue-700"
+            className="font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
           >
             {t("createAccount")}
           </Link>
@@ -38,10 +38,10 @@ export default async function LoginPage({ params }: LoginPageProps) {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
-            <div className="w-full border-t border-gray-300" />
+            <div className="w-full border-t border-[var(--color-border)]" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-2 text-gray-500">{t("or")}</span>
+            <span className="bg-[var(--color-surface)] px-2 text-[var(--color-text-muted)]">{t("or")}</span>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export default async function LoginPage({ params }: LoginPageProps) {
             </svg>
             {t("signInWithGoogle")}
           </button>
-          <p id="google-coming-soon" className="mt-2 text-center text-sm text-gray-500">
+          <p id="google-coming-soon" className="mt-2 text-center text-sm text-[var(--color-text-muted)]">
             {t("comingSoon")}
           </p>
         </div>

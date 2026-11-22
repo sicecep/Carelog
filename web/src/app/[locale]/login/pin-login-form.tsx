@@ -80,7 +80,7 @@ export function PinLoginForm() {
       <div className="space-y-6 text-center">
         <p
           role="status"
-          className="rounded-md border border-green-200 bg-green-50 px-4 py-4 text-base text-green-900"
+          className="rounded-md border border-[var(--color-success)] bg-[var(--color-success-soft)] px-4 py-4 text-base text-[var(--color-success-ink)]"
         >
           {t("resetRequested")}
         </p>
@@ -90,7 +90,7 @@ export function PinLoginForm() {
             setStep("phone");
             setError(null);
           }}
-          className="btn-base w-full border border-gray-300 bg-white text-gray-900"
+          className="btn-base w-full border border-[var(--color-border-control)] bg-[var(--color-surface)] text-[var(--color-text)]"
         >
           {t("back")}
         </button>
@@ -102,8 +102,8 @@ export function PinLoginForm() {
     return (
       <div className="space-y-8">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900">{t("enterPin")}</h2>
-          <p className="mt-1 text-base text-gray-600">{phone}</p>
+          <h2 className="text-xl font-semibold text-[var(--color-text)]">{t("enterPin")}</h2>
+          <p className="mt-1 text-base text-[var(--color-text-muted)]">{phone}</p>
         </div>
 
         <PinPad onComplete={submitPin} disabled={busy} error={error} />
@@ -113,7 +113,7 @@ export function PinLoginForm() {
             type="button"
             onClick={requestReset}
             disabled={busy}
-            className="touch-target w-full text-base text-blue-700 underline"
+            className="touch-target w-full text-base text-[var(--color-accent-hover)] underline"
           >
             {t("forgotPin")}
           </button>
@@ -124,7 +124,7 @@ export function PinLoginForm() {
               setError(null);
             }}
             disabled={busy}
-            className="touch-target w-full text-base text-gray-600"
+            className="touch-target w-full text-base text-[var(--color-text-muted)]"
           >
             {t("changeNumber")}
           </button>
@@ -138,14 +138,14 @@ export function PinLoginForm() {
       {error && (
         <p
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-base text-red-700"
+          className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-3 text-base text-[var(--color-error-ink)]"
         >
           {error}
         </p>
       )}
 
       <div>
-        <label htmlFor="phone" className="block text-base font-medium text-gray-700">
+        <label htmlFor="phone" className="block text-base font-medium text-[var(--color-text)]">
           {t("phoneLabel")}
         </label>
         {/* inputMode=tel gives the dialer keypad without the strict
@@ -163,10 +163,10 @@ export function PinLoginForm() {
           placeholder={t("phonePlaceholder")}
           className="input-base mt-2 w-full"
         />
-        <p className="mt-2 text-sm text-gray-500">{t("phoneHint")}</p>
+        <p className="mt-2 text-sm text-[var(--color-text-muted)]">{t("phoneHint")}</p>
       </div>
 
-      <button type="submit" className="btn-base w-full bg-blue-600 text-white">
+      <button type="submit" className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)]">
         {t("continue")}
       </button>
     </form>
