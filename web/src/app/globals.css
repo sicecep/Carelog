@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Dark mode is OFF until the full dark token set ships (DESIGN.md §2.5).
+   Tailwind's `dark:` variant follows prefers-color-scheme by default; bind
+   it to a `.dark` class instead, which nothing sets yet. The full dark-mode
+   change will set that class (system preference or a settings toggle). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Color Palette — Light Mode (default) */
   --color-bg: #FAF7F2;
@@ -72,7 +78,7 @@
      currentColor (dark text colour) in light mode. */
   --color-ring: var(--color-accent-soft);
 
-  /* Dark Mode (opt-in via class) */
+  /* Dark palette — defined but NOT applied (see the note at the top). */
   --color-bg-dark: #1A1F1C;
   --color-surface-dark: #222825;
   --color-border-dark: #3A3F3C;
@@ -84,26 +90,20 @@
   --color-accent-ink-dark: #A8F5C8;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --color-background: var(--color-bg-dark);
-    --color-foreground: var(--color-text-dark);
-    --color-primary: var(--color-accent-dark);
-    --color-primary-foreground: var(--color-bg-dark);
-    --color-secondary: var(--color-surface-dark);
-    --color-secondary-foreground: var(--color-text-dark);
-    --color-muted: var(--color-border-dark);
-    --color-muted-foreground: var(--color-text-muted-dark);
-    --color-accent-foreground: var(--color-accent-ink-dark);
-    --color-destructive: var(--color-error);
-    --color-destructive-foreground: var(--color-text-inverse);
-    --color-border: var(--color-border-dark);
-    --color-border-control: var(--color-border-control-dark);
-    --color-ring: var(--color-accent-soft-dark);
-  }
-}
+/* The automatic `@media (prefers-color-scheme: dark)` override that lived
+   here is removed. It switched only the alias tokens (--color-background,
+   --color-primary, …), which no component reads — components use
+   --color-surface / --color-text / --color-accent directly. A phone in dark
+   mode therefore got a dark page with dark text: page titles at 1.13:1,
+   muted text at 2.26:1, white cards on a dark page. Everyone gets the
+   working light theme until every token has a verified dark value. */
 
 @layer base {
+  :root {
+    /* Keep native controls (selects, date inputs, scrollbars) light too. */
+    color-scheme: light;
+  }
+
   html {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
