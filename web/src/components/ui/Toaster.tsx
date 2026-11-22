@@ -23,8 +23,12 @@ export function Toaster() {
       position="bottom-center"
       duration={4000}
       containerAriaLabel={t("toastRegion")}
-      // Mobile: clear the 56px bottom nav (+ border) and the home indicator.
-      mobileOffset={{ bottom: "calc(72px + env(safe-area-inset-bottom))", left: "16px", right: "16px" }}
+      // Mobile: clear the tallest fixed bottom bar plus a gap, and the home
+      // indicator. That's the recipient page's action bar (Catat kegiatan /
+      // Catat insiden): 12px padding + 56px button + 12px padding + 1px
+      // border = 81px. 72px (sized for the 57px bottom nav) left the toast's
+      // bottom edge 9px under that bar — measured in the running app.
+      mobileOffset={{ bottom: "calc(96px + env(safe-area-inset-bottom))", left: "16px", right: "16px" }}
       icons={{ success: <CheckCircle size={20} weight="fill" aria-hidden="true" /> }}
       toastOptions={{
         unstyled: true,
