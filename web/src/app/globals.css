@@ -20,10 +20,15 @@
   --color-error: #C0392B;
   --color-error-soft: #FADBD8;
   --color-error-ink: #7B241C;
+  /* Status fills (warning, success) are for icons, borders and solid
+     badges only — as text they fail WCAG AA (2.4:1 and 2.9:1 on white).
+     Text always uses the matching -ink token (DESIGN.md §2.2). */
   --color-warning: #D4A017;
   --color-warning-soft: #FEF5E7;
+  --color-warning-ink: #7A5200;   /* 6.4:1 on warning-soft */
   --color-success: #27AE60;
   --color-success-soft: #E8F8F0;
+  --color-success-ink: #1E6B41;   /* 5.9:1 on success-soft */
 
   /* Incident severity (INC-003, DESIGN.md §2.3): low=green, medium=amber,
      high=red, emergency=solid deep red. Each level also carries a text label
@@ -328,7 +333,7 @@
   .toast-success {
     background-color: var(--color-success-soft);
     border: 1px solid var(--color-success);
-    color: var(--color-success);
+    color: var(--color-success-ink);
     border-radius: 0.5rem;
     padding: 1rem 1.25rem;
   }

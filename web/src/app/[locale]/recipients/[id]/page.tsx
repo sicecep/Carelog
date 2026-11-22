@@ -400,12 +400,12 @@ export default async function RecipientDetailPage({
                 <div
                   role="status"
                   data-testid="timeline-gated"
-                  className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center"
+                  className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-4 py-6 text-center"
                 >
-                  <p className="text-base font-medium text-amber-900">
+                  <p className="text-base font-medium text-[var(--color-warning-ink)]">
                     {tTimeline("gatedTitle")}
                   </p>
-                  <p className="mt-1 text-sm text-amber-800">
+                  <p className="mt-1 text-sm text-[var(--color-warning-ink)]">
                     {tTimeline("gatedBody")}
                   </p>
                 </div>

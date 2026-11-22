@@ -530,7 +530,7 @@ revamped, not all at once.
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
 | Dark-mode accent | Neon `#4ADE80`; only a handful of tokens overridden | Full dark token set (§2.5) |
 | Input / chip outlines | `--color-border` / `--color-border-strong` (1.5:1 on cream) | `--color-border-control` (3.8:1) |
-| Warning / success text | Uses the fill colour (2.4:1 / 2.9:1) | `-ink` tokens |
+| ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
 | Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Vaul, migrated one sheet per PR |
 | Radii | 8 / 12px in utilities | 10 / 14 / 20px (§5) |
