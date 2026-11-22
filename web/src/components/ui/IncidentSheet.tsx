@@ -438,7 +438,7 @@ export function IncidentSheet({
 
         {step === "success" && (
           <div className="space-y-4 py-2">
-            <div className="toast-success flex items-center gap-2 py-4" role="status">
+            <div className="success-panel flex items-center gap-2 py-4" role="status">
               <span className="text-lg font-medium">{t("submitted")}</span>
             </div>
 

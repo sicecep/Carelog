@@ -334,16 +334,18 @@ note in `globals.css`.
 - **Incidents** are pinned above the timeline in their own section (RPT-001 ⑥) and use the
   severity styling from §2.3.
 
-### 8.5 Bottom sheets (logging, incident, summary): **Vaul**
+### 8.5 Bottom sheets (logging, incident, summary): **Radix Dialog**
 
 - The pattern for every caregiver flow: category sheets, the incident form, the quick summary.
-- Top radius `--radius-xl`, `--shadow-lg`, drag handle 36×4px in `border-strong`, max height 92dvh
-  with the content scrolling inside.
+- Build one shared bottom-sheet component on `@radix-ui/react-dialog` (the shadcn/Radix layer,
+  §8.6). **Not Vaul:** its README says it is unmaintained (last release Dec 2024, checked
+  2026-11-22). Radix gives focus trapping, scroll lock, Escape-to-close and focus return, but no
+  drag-to-dismiss.
+- Top radius `--radius-xl`, `--shadow-lg`, max height 92dvh with the content scrolling inside.
+  No drag handle, since sheets aren't draggable.
 - The primary action is pinned at the bottom of the sheet, above the safe area.
-- **Incident sheet:** opens in one tap, and dismissal by drag or tapping the overlay is
-  **disabled while the form has input**. Closing then asks "Buang laporan?".
-- Before migrating a hand-built sheet, verify Vaul's maintenance status and React 19 support
-  (skill rule).
+- **Incident sheet:** opens in one tap, and dismissal by tapping the overlay is **disabled while
+  the form has input**. Closing then asks "Buang laporan?".
 
 ### 8.6 Dialogs, popovers, menus, selects: **shadcn/ui on Radix**
 
@@ -358,9 +360,16 @@ note in `globals.css`.
 ### 8.7 Toasts: **Sonner**
 
 - Short, non-blocking confirmations only: "Tersimpan", "Link undangan disalin", "Shift dimulai".
-- Position: bottom-centre on mobile, 16px above the bottom nav. Bottom-right on desktop.
+- Implemented in `components/ui/Toaster.tsx` (`sonner` 2.0.8, `unstyled`, styled with tokens),
+  mounted once in the locale layout. Call `toast.success(t("…"))`.
+- Position: bottom-centre at every size (Sonner has one position for all screen sizes). On
+  mobile it sits 72px up, clearing the bottom nav and safe area.
 - 4s auto-dismiss (not 3s, so slower readers can finish). Success uses `success-soft` plus
   `success-ink`.
+- A sheet that saves closes immediately and confirms with a toast. It doesn't show a success
+  panel inside itself.
+- The incident sheet keeps its in-sheet `.success-panel`, because its confirmation also holds
+  the WhatsApp share step.
 - **Never** use a toast for incidents, errors that need action, or access revocation. Those use
   a **banner** (§8.8) or a full page state.
 
@@ -444,7 +453,7 @@ component only.
 | Need | Library | Caregiver | Owner | Marketing |
 |---|---|---|---|---|
 | Dialog, popover, menu, select, tabs | shadcn/ui + Radix | ✓ | ✓ | ✓ |
-| Bottom sheets | Vaul | ✓ | ✓ (mobile) | — |
+| Bottom sheets | Radix Dialog (not Vaul: unmaintained) | ✓ | ✓ (mobile) | — |
 | Toasts | Sonner | ✓ | ✓ | — |
 | Command palette | cmdk | ✗ | ✓ desktop | — |
 | Animated numbers | NumberFlow | ✓ sparingly | ✓ | ✓ |
@@ -560,8 +569,8 @@ revamped, not all at once.
 | ~~WhatsApp share buttons~~ | **Done.** `--color-whatsapp` / `-hover` / `-ink`: dark text `#111B21` on brand green `#25D366` (8.8:1, 7.1:1 on hover), same in both themes; replaces `hover:opacity-90`, which faded the text | — |
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
-| `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
-| Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Vaul, migrated one sheet per PR |
+| ~~`.toast-success` utility~~ | **Done.** Sonner `Toaster` (tokens, bottom-centre, 4s); Logging and Summary sheets close and toast; incident confirmation renamed `.success-panel` and stays in-sheet | — |
+| Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Shared Radix Dialog bottom sheet (§8.5), migrated one sheet per PR. Vaul dropped: unmaintained |
 | ~~Radii~~ | **Done.** `--radius-sm/md/lg/xl` (6/10/14/20px, `2xl` 24px) replace Tailwind's defaults so `rounded-*` follows §5; 30 controls moved `rounded-lg` → `rounded-md`; shared styles use the tokens | — |
 | Icons | `phosphor-react` | Same set. The package has been succeeded by `@phosphor-icons/react`; a swap needs approval like any dependency change |
 | ~~Spec font~~ | **Done.** Spec says **Geist**, as already shipped | — |
