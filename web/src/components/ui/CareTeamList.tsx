@@ -183,7 +183,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           onChange={(e) =>
                             handleRoleChange(m.user_id, e.target.value as Member["role"])
                           }
-                          className="touch-target rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
+                          className="touch-target rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>

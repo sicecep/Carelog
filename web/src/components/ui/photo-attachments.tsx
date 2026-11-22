@@ -151,7 +151,7 @@ export function PhotoRow({
           htmlFor={inputId}
           aria-disabled={disabled || full}
           className={cn(
-            "touch-target inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-all",
+            "touch-target inline-flex cursor-pointer items-center gap-2 rounded-md border-2 px-4 py-2 text-sm font-medium transition-all",
             disabled || full
               ? "cursor-not-allowed border-[var(--color-border)] text-[var(--color-text-muted)] opacity-50"
               : "border-[var(--color-border-control)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]",

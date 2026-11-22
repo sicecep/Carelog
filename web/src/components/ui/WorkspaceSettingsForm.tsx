@@ -111,7 +111,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               maxLength={80}
               placeholder={t("namePlaceholder")}
               onChange={(e) => setName(e.target.value)}
-              className="touch-target w-full rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             />
           </div>
 
@@ -127,7 +127,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               value={wsLocale}
               disabled={!canEdit || saving}
               onChange={(e) => setWsLocale(e.target.value as Workspace["locale"])}
-              className="touch-target w-full rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             >
               <option value="id">{t("localeID")}</option>
               <option value="en">{t("localeEN")}</option>
@@ -146,7 +146,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
               value={timezone}
               disabled={!canEdit || saving}
               onChange={(e) => setTimezone(e.target.value)}
-              className="touch-target w-full rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
+              className="touch-target w-full rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)] disabled:opacity-60"
             >
               {/* Keep the stored value selectable even if it predates this
                   list, so saving the form can't silently change it. */}
@@ -232,7 +232,7 @@ export function WorkspaceSettingsForm({ workspace, locale }: WorkspaceSettingsFo
                 disabled={deleting}
                 placeholder={t("deleteConfirmPlaceholder")}
                 onChange={(e) => setConfirmName(e.target.value)}
-                className="touch-target w-full rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
+                className="touch-target w-full rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
               />
               <div className="flex flex-wrap gap-2">
                 <button

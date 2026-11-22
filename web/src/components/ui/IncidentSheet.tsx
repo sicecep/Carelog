@@ -268,7 +268,7 @@ export function IncidentSheet({
                   type="button"
                   onClick={() => handleSeveritySelect(id)}
                   className={cn(
-                    "touch-target flex min-h-[64px] items-center gap-3 rounded-lg border-2 p-4 text-left transition-[transform,background-color] duration-100 active:scale-[0.97]",
+                    "touch-target flex min-h-[64px] items-center gap-3 rounded-md border-2 p-4 text-left transition-[transform,background-color] duration-100 active:scale-[0.97]",
                     cls
                   )}
                 >
@@ -459,7 +459,7 @@ export function IncidentSheet({
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-whatsapp)] text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
+                  className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-whatsapp)] text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
                 >
                   <WhatsappLogo size={24} weight="fill" aria-hidden="true" />
                   <span>{t("shareWhatsApp")}</span>

@@ -103,7 +103,7 @@ export function ShiftActions({
               data-testid="end-shift-button"
               onClick={() => setHandoffOpen(true)}
               disabled={loading}
-              className="touch-target inline-flex items-center gap-2 rounded-lg bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:bg-[var(--color-error-ink)] disabled:opacity-60"
+              className="touch-target inline-flex items-center gap-2 rounded-md bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:bg-[var(--color-error-ink)] disabled:opacity-60"
             >
               {t("endShift")}
             </button>
@@ -140,7 +140,7 @@ export function ShiftActions({
                   setHandoffNote("");
                 }}
                 disabled={loading}
-                className="touch-target inline-flex items-center rounded-lg border-2 border-[var(--color-border-control)] px-4 text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
+                className="touch-target inline-flex items-center rounded-md border-2 border-[var(--color-border-control)] px-4 text-base font-medium text-[var(--color-text)] hover:border-[var(--color-accent)]"
               >
                 {t("cancel")}
               </button>
@@ -149,7 +149,7 @@ export function ShiftActions({
                 data-testid="handoff-confirm"
                 onClick={() => checkOut(handoffNote)}
                 disabled={loading}
-                className="touch-target inline-flex items-center rounded-lg bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-error-ink)] disabled:opacity-60"
+                className="touch-target inline-flex items-center rounded-md bg-[var(--color-error)] px-4 text-base font-semibold text-[var(--color-text-inverse)] hover:bg-[var(--color-error-ink)] disabled:opacity-60"
               >
                 {loading ? t("checkingOut") : t("confirmEndShift")}
               </button>
@@ -192,7 +192,7 @@ export function ShiftActions({
           data-testid="start-shift-button"
           onClick={checkIn}
           disabled={loading}
-          className="touch-target inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:brightness-110 disabled:opacity-60"
+          className="touch-target inline-flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-6 text-base font-semibold text-[var(--color-text-inverse)] shadow-sm hover:brightness-110 disabled:opacity-60"
         >
           {loading ? t("checkingIn") : t("startShift")}
         </button>

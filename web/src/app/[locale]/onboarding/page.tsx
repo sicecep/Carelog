@@ -242,7 +242,7 @@ export default function OnboardingPage() {
                     {MODULES.map((module) => (
                       <label
                         key={module}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)] touch-target"
+                        className="flex items-center gap-3 p-3 rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)] touch-target"
                       >
                         <input
                           type="checkbox"
