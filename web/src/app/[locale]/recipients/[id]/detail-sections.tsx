@@ -47,14 +47,22 @@ const careTypeIcons = {
   patient: Heart,
 };
 
-// INC-003 severity weighting (user decision): low=amber, medium=red,
-// high/emergency=deep red. Pulsing/share treatment comes with the dedicated
-// incident work — here we only tint the timeline chips.
+// INC-003 severity colours from the --color-sev-* tokens (DESIGN.md §2.3):
+// low=green, medium=amber, high=red, emergency=solid deep red with a pulsing
+// outer ring. Replaces the earlier low=amber/medium=red mapping (user decision
+// 2026-11-22, aligning with the PRD). Badge text always carries the label.
 const severityStyles: Record<Incident["severity"], string> = {
-  low: "bg-amber-100 text-amber-900",
-  medium: "bg-red-100 text-red-900",
-  high: "bg-red-200 text-red-950",
-  emergency: "bg-red-200 text-red-950",
+  low: "bg-sev-low-soft text-sev-low-ink",
+  medium: "bg-sev-medium-soft text-sev-medium-ink",
+  high: "bg-sev-high-soft text-sev-high-ink",
+  emergency: "sev-emergency-ring bg-sev-emergency text-white",
+};
+
+const severityIconStyles: Record<Incident["severity"], string> = {
+  low: "text-sev-low",
+  medium: "text-sev-medium",
+  high: "text-sev-high",
+  emergency: "text-sev-emergency",
 };
 
 function isCareType(value: string): value is CareType {
@@ -237,9 +245,7 @@ export function IncidentList({
               size={24}
               weight="fill"
               aria-hidden="true"
-              className={
-                incident.severity === "low" ? "text-amber-500" : "text-red-600"
-              }
+              className={severityIconStyles[incident.severity]}
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

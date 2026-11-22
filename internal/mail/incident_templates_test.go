@@ -94,6 +94,8 @@ func TestSeverityBannerColours(t *testing.T) {
 	require.NotEqual(t, emBg, hiBg)
 	require.NotEqual(t, hiBg, medBg)
 	require.NotEqual(t, medBg, lowBg)
+	// Low is the calm tier: green, per INC-003 (DESIGN.md §2.3).
+	require.Equal(t, "#E8F5EC", lowBg)
 	// Unknown severity falls back to the urgent palette (fail loud).
 	unkBg, _ := severityBanner("bogus", true)
 	require.Equal(t, hiBg, unkBg)

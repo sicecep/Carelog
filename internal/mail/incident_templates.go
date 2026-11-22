@@ -63,22 +63,25 @@ func incidentCopyFor(locale string) (incidentCopy, string) {
 }
 
 // severityBanner returns the background and text colour for the severity
-// banner. Mirrors the in-app severity palette (amber → red → deep red) so an
-// owner sees the same visual language in email and app.
+// banner. Mirrors the in-app --color-sev-* tokens (DESIGN.md §2.3: green →
+// amber → red → deep red) so an owner sees the same visual language in email
+// and app. Email clients cannot read CSS variables, hence the literal hex.
+// The two urgent tiers use solid fills with white text so they stand out in
+// an inbox; every pairing clears WCAG AA (≥ 5.4:1).
 func severityBanner(severity string, urgent bool) (bg, fg string) {
 	switch severity {
 	case "emergency":
-		return "#7B241C", "#ffffff" // deep red, matches --color-error-ink
+		return "#9B1C1C", "#ffffff" // --color-sev-emergency
 	case "high":
-		return "#C0392B", "#ffffff" // --color-error
+		return "#C0392B", "#ffffff" // --color-sev-high
 	case "medium":
-		return "#FADBD8", "#7B241C" // --color-error-soft
+		return "#FEF3DC", "#7A4E0B" // --color-sev-medium-soft / -ink
 	default:
 		if urgent {
 			// Unknown severity: IsUrgent() fails loud, so does the banner.
 			return "#C0392B", "#ffffff"
 		}
-		return "#FEF3C7", "#78350F" // amber, the "low" tier
+		return "#E8F5EC", "#1E5A34" // --color-sev-low-soft / -ink
 	}
 }
 

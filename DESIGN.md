@@ -471,7 +471,7 @@ this revamp needs. Existing tokens not listed here stay as they are.
   --color-sev-low: #2F8A4E;       --color-sev-low-soft: #E8F5EC;       --color-sev-low-ink: #1E5A34;
   --color-sev-medium: #B7791F;    --color-sev-medium-soft: #FEF3DC;    --color-sev-medium-ink: #7A4E0B;
   --color-sev-high: #C0392B;      --color-sev-high-soft: #FBE3E0;      --color-sev-high-ink: #7B241C;
-  --color-sev-emergency: #9B1C1C;
+  --color-sev-emergency: #9B1C1C; --color-sev-emergency-hover: #7F1616;
 
   /* contributor palette */
   --color-contrib-owner-soft: #EEE6F5; --color-contrib-owner-ink: #5B2E82;
@@ -526,8 +526,8 @@ revamped, not all at once.
 
 | Where | Today | Target |
 |---|---|---|
-| Severity colours (`IncidentSheet.tsx`) | Tailwind `amber/orange/red-*` classes; **Low is amber** | `--color-sev-*` tokens; Low is **green** per INC-003 |
-| Emergency badge | `animate-pulse` on the whole element | Solid fill + pulsing outer ring only (§2.3) |
+| ~~Severity colours~~ | **Done.** `IncidentSheet.tsx`, the recipient incident list and the alert email use `--color-sev-*`; Low is green | — |
+| ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
 | Dark-mode accent | Neon `#4ADE80`; only a handful of tokens overridden | Full dark token set (§2.5) |
 | Input / chip outlines | `--color-border` / `--color-border-strong` (1.5:1 on cream) | `--color-border-control` (3.8:1) |
 | Warning / success text | Uses the fill colour (2.4:1 / 2.9:1) | `-ink` tokens |

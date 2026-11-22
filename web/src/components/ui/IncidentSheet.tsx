@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   X,
+  Info,
   Warning,
   WarningCircle,
   WarningOctagon,
@@ -68,6 +69,9 @@ async function notifyUrgent(title: string, body: string) {
 // colour with an icon and a text label so the meaning is never carried by
 // colour alone — critical for the "Bu Sari" accessibility bar and for the
 // small colour-blind subset of Indonesian users.
+// Colours come from the --color-sev-* tokens (DESIGN.md §2.3): low=green,
+// medium=amber, high=red, emergency=solid deep red with a pulsing outer ring.
+// Only the ring pulses; the tile itself stays still so the label is readable.
 const SEVERITY_TILES: {
   id: IncidentSeverity;
   icon: typeof Warning;
@@ -77,31 +81,31 @@ const SEVERITY_TILES: {
 }[] = [
   {
     id: "low",
-    icon: Warning,
+    icon: Info,
     labelKey: "severity.low.label",
     descKey: "severity.low.desc",
-    cls: "border-amber-500 bg-amber-50 text-amber-900 hover:bg-amber-100",
+    cls: "border-sev-low bg-sev-low-soft text-sev-low-ink",
   },
   {
     id: "medium",
-    icon: WarningCircle,
+    icon: Warning,
     labelKey: "severity.medium.label",
     descKey: "severity.medium.desc",
-    cls: "border-orange-600 bg-orange-50 text-orange-900 hover:bg-orange-100",
+    cls: "border-sev-medium bg-sev-medium-soft text-sev-medium-ink",
   },
   {
     id: "high",
-    icon: WarningOctagon,
+    icon: WarningCircle,
     labelKey: "severity.high.label",
     descKey: "severity.high.desc",
-    cls: "border-red-600 bg-red-50 text-red-900 hover:bg-red-100",
+    cls: "border-sev-high bg-sev-high-soft text-sev-high-ink",
   },
   {
     id: "emergency",
     icon: WarningOctagon,
     labelKey: "severity.emergency.label",
     descKey: "severity.emergency.desc",
-    cls: "border-red-800 bg-red-100 text-red-950 hover:bg-red-200 animate-pulse",
+    cls: "sev-emergency-ring border-sev-emergency bg-sev-emergency text-white hover:bg-sev-emergency-hover",
   },
 ];
 
@@ -264,7 +268,7 @@ export function IncidentSheet({
                   type="button"
                   onClick={() => handleSeveritySelect(id)}
                   className={cn(
-                    "touch-target flex min-h-[64px] items-center gap-3 rounded-lg border-2 p-4 text-left transition-all",
+                    "touch-target flex min-h-[64px] items-center gap-3 rounded-lg border-2 p-4 text-left transition-[transform,background-color] duration-100 active:scale-[0.97]",
                     cls
                   )}
                 >
