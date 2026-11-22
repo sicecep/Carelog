@@ -337,10 +337,15 @@ note in `globals.css`.
 ### 8.5 Bottom sheets (logging, incident, summary): **Radix Dialog**
 
 - The pattern for every caregiver flow: category sheets, the incident form, the quick summary.
-- Build one shared bottom-sheet component on `@radix-ui/react-dialog` (the shadcn/Radix layer,
-  §8.6). **Not Vaul:** its README says it is unmaintained (last release Dec 2024, checked
-  2026-11-22). Radix gives focus trapping, scroll lock, Escape-to-close and focus return, but no
+- Use the shared `components/ui/BottomSheet.tsx`, built on `@radix-ui/react-dialog` (the
+  shadcn/Radix layer, §8.6). **Not Vaul:** its README says it is unmaintained (last release Dec
+  2024, checked 2026-11-22). It gives focus trapping, scroll lock, Escape-to-close, the page
+  hidden from screen readers, and focus returned to the opening button. There's no
   drag-to-dismiss.
+- Focus return is handled inside `BottomSheet`: Radix only restores focus to its own
+  `Dialog.Trigger`, so a sheet built directly on `Dialog.Root` drops focus to `<body>`.
+- `preventDismiss` blocks Escape and tap-outside while the sheet holds unsaved input. The
+  logging sheet sets it when a note is typed or photos are picked.
 - Top radius `--radius-xl`, `--shadow-lg`, max height 92dvh with the content scrolling inside.
   No drag handle, since sheets aren't draggable.
 - The primary action is pinned at the bottom of the sheet, above the safe area.
@@ -570,7 +575,7 @@ revamped, not all at once.
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | ~~`.toast-success` utility~~ | **Done.** Sonner `Toaster` (tokens, bottom-centre, 4s); Logging and Summary sheets close and toast; incident confirmation renamed `.success-panel` and stays in-sheet | — |
-| Sheets | Hand-built (`LoggingSheet`, `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) | Shared Radix Dialog bottom sheet (§8.5), migrated one sheet per PR. Vaul dropped: unmaintained |
+| Sheets | `LoggingSheet` is **done** on the shared `BottomSheet` (Radix Dialog). `IncidentSheet`, `SummarySheet`, `EditRecipientSheet` are still hand-built | Move each onto `BottomSheet`, one per PR. The incident sheet uses `preventDismiss` |
 | ~~Radii~~ | **Done.** `--radius-sm/md/lg/xl` (6/10/14/20px, `2xl` 24px) replace Tailwind's defaults so `rounded-*` follows §5; 30 controls moved `rounded-lg` → `rounded-md`; shared styles use the tokens | — |
 | Icons | `phosphor-react` | Same set. The package has been succeeded by `@phosphor-icons/react`; a swap needs approval like any dependency change |
 | ~~Spec font~~ | **Done.** Spec says **Geist**, as already shipped | — |

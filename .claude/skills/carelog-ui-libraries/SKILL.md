@@ -17,9 +17,9 @@ For a generic "which library for task X" lookup outside this list, the vendored
 1. **Ask before adding a dependency** (repo rule, `CLAUDE.md`). Name the package, the version,
    the screen that needs it, and what it replaces. One library per PR.
 2. **Check `web/package.json` first.** If something already covers the task, use it. Today the
-   UI deps are `clsx`, `phosphor-react` and `sonner`. Every sheet (`LoggingSheet`,
-   `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) is hand-built, so migrating one is a
-   deliberate, separate change, never a side effect.
+   UI deps are `clsx`, `phosphor-react`, `sonner` and `@radix-ui/react-dialog`. `LoggingSheet`
+   uses the shared `BottomSheet`; `IncidentSheet`, `SummarySheet` and `EditRecipientSheet` are
+   still hand-built, so migrating one is a deliberate, separate change, never a side effect.
 3. **This is Next.js 16, not the version you remember.** Read `web/AGENTS.md` and the guide in
    `web/node_modules/next/dist/docs/` before writing component code. Check that the library
    supports React 19.
@@ -74,13 +74,18 @@ For a generic "which library for task X" lookup outside this list, the vendored
 
 - **Don't add Vaul.** Its README says "This repo is unmaintained" (checked 2026-11-22: last
   release 1.1.2 in Dec 2024, 163 open issues).
-- For the logging, incident and summary sheets (LOG-002 "bottom sheet with chips", INC-001),
-  build one shared bottom-sheet component on `@radix-ui/react-dialog`, the same primitive layer
-  as the rest of shadcn/ui. It gives focus trapping, scroll locking, Escape-to-close and focus
-  return that the hand-built sheets do manually. It does **not** give drag-to-dismiss; add that
-  only if a ticket asks for it.
-- The incident sheet must open in one tap and never be dismissed by an accidental tap outside.
-  Block dismissal while the form has input.
+- **Use `components/ui/BottomSheet.tsx`** (built on `@radix-ui/react-dialog`, installed). Props:
+  `open`, `onClose`, `title`, `closeLabel` (translated), and `preventDismiss`. It gives focus
+  trapping, scroll lock, Escape-to-close, the page hidden from screen readers, and focus
+  returned to the opener. There's no drag-to-dismiss; add that only if a ticket asks for it.
+- Don't wrap `Dialog.Root` directly for a new sheet. Radix only restores focus to a
+  `Dialog.Trigger`, and our sheets are opened by plain buttons, so focus would fall to `<body>`
+  on close. `BottomSheet` handles that.
+- Pass `preventDismiss` while the sheet holds unsaved input (typed text, picked photos).
+  Escape and a tap outside are then ignored, and only the close button closes it. The incident
+  sheet must use this, and must open in one tap.
+- Migrated so far: `LoggingSheet`. Still to move, one per PR: `IncidentSheet`, `SummarySheet`,
+  `EditRecipientSheet`.
 
 ### Command menu: **cmdk**
 

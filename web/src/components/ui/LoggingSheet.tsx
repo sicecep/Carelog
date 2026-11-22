@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { X, Clock } from "phosphor-react";
+import { Clock } from "phosphor-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { type LogCategory, VITAL_SPECS } from "@/lib/constants.generated";
@@ -14,6 +14,7 @@ import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories"
 import { recipientApi, APIError } from "@/lib/api-client";
 import { CategoryGrid } from "./CategoryGrid";
 import { PhotoRow, PHOTO_MAX, usePhotoAttachments } from "./photo-attachments";
+import { BottomSheet } from "./BottomSheet";
 import { buildBackfillOptions, type BackfillOption } from "@/lib/backfill";
 
 interface LoggingSheetProps {
@@ -163,295 +164,277 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     );
   }, [category, pendingSub, noteText, vitalSpec, vitalValues, submitEntry]);
 
-  if (!open) return null;
-
   const subcategories = category ? LOG_SUBCATEGORIES[category] ?? [] : [];
+  // A typed note or picked photos must not vanish on a stray tap outside or
+  // an Escape press; the close button still closes deliberately.
+  const hasUnsavedInput = noteText.trim() !== "" || photos.length > 0;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="logging-sheet-title"
-      onClick={handleClose}
+    <BottomSheet
+      open={open}
+      onClose={handleClose}
+      title={step === "category" ? t("title") : tCategories(category!)}
+      closeLabel={t("close")}
+      preventDismiss={hasUnsavedInput}
     >
-      <div
-        className="w-full max-w-lg rounded-t-xl bg-[var(--color-surface)] p-5 shadow-lg sm:rounded-xl sm:p-6 max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 id="logging-sheet-title" className="text-xl font-medium text-[var(--color-text)]">
-            {step === "category" ? t("title") : tCategories(category!)}
-          </h2>
+      {step === "category" ? (
+        <CategoryGrid onSelect={handleCategorySelect} />
+      ) : step === "backfill" ? (
+        <div>
           <button
             type="button"
-            aria-label={t("close")}
-            onClick={handleClose}
-            className="btn-base btn-ghost btn-icon touch-target"
+            onClick={() =>
+              setStep(
+                pendingSub && VITAL_SPECS[pendingSub]
+                  ? "vital"
+                  : category === "note" || subcategories.length > 0
+                    ? "subcategory"
+                    : "category"
+              )
+            }
+            className="mb-4 text-base font-semibold text-[var(--color-accent)] touch-target"
           >
-            <X size={20} weight="bold" aria-hidden="true" />
+            {t("back")}
           </button>
-        </div>
 
-        {step === "category" ? (
-          <CategoryGrid onSelect={handleCategorySelect} />
-        ) : step === "backfill" ? (
-          <div>
-            <button
-              type="button"
-              onClick={() =>
-                setStep(
-                  pendingSub && VITAL_SPECS[pendingSub]
-                    ? "vital"
-                    : category === "note" || subcategories.length > 0
-                      ? "subcategory"
-                      : "category"
-                )
-              }
-              className="mb-4 text-base font-semibold text-[var(--color-accent)] touch-target"
-            >
-              {t("back")}
-            </button>
-
-            {backfillOptions.blocks.length > 0 && (
-              <div className="mb-4">
-                <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
-                  {t("backfillBlocksLabel")}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {backfillOptions.blocks.map((opt) => (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      disabled={submitting !== null}
-                      onClick={() => handleBackfillSelect(opt)}
-                      className="touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
-                    >
-                      {t(`backfillBlocks.${opt.key}`)}
-                    </button>
-                  ))}
-                </div>
+          {backfillOptions.blocks.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
+                {t("backfillBlocksLabel")}
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {backfillOptions.blocks.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    disabled={submitting !== null}
+                    onClick={() => handleBackfillSelect(opt)}
+                    className="touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
+                  >
+                    {t(`backfillBlocks.${opt.key}`)}
+                  </button>
+                ))}
               </div>
-            )}
-
-            <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
-              {t("backfillSlotsLabel")}
-            </p>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-              {backfillOptions.slots.map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  disabled={submitting !== null}
-                  onClick={() => handleBackfillSelect(opt)}
-                  className="touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold tabular-nums text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
-                >
-                  {opt.label}
-                </button>
-              ))}
             </div>
+          )}
+
+          <p className="mb-2 text-sm font-semibold text-[var(--color-text)]">
+            {t("backfillSlotsLabel")}
+          </p>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {backfillOptions.slots.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                disabled={submitting !== null}
+                onClick={() => handleBackfillSelect(opt)}
+                className="touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold tabular-nums text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50"
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-        ) : step === "vital" && vitalSpec && category ? (
-          <div>
+        </div>
+      ) : step === "vital" && vitalSpec && category ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setStep("subcategory")}
+            className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+          >
+            {t("back")}
+          </button>
+
+          <div className="space-y-4">
+            {vitalSpec.fields.map((field) => {
+              const raw = vitalValues[field] ?? "";
+              const parsed = raw.trim() === "" ? NaN : Number(raw);
+              // A spec always carries ranges for exactly its own fields;
+              // the fallbacks only satisfy the Partial<Record> type.
+              const min = vitalSpec.min[field] ?? Number.NEGATIVE_INFINITY;
+              const max = vitalSpec.max[field] ?? Number.POSITIVE_INFINITY;
+              const outOfRange = Number.isFinite(parsed) && (parsed < min || parsed > max);
+              return (
+                <div key={field}>
+                  <label
+                    htmlFor={`vital-${field}`}
+                    className="mb-1 block text-sm font-semibold text-[var(--color-text)]"
+                  >
+                    {tVitalFields(field)} ({vitalSpec.unit})
+                  </label>
+                  <input
+                    id={`vital-${field}`}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    autoFocus={field === vitalSpec.fields[0]}
+                    value={raw}
+                    onChange={(e) => setVitalValues((prev) => ({ ...prev, [field]: e.target.value }))}
+                    aria-invalid={outOfRange}
+                    className={cn(
+                      "input-base touch-target w-full py-3 text-base tabular-nums",
+                      outOfRange && "border-[var(--color-error-ink)]"
+                    )}
+                  />
+                  {outOfRange && (
+                    <p className="mt-1 text-xs text-[var(--color-error-ink)]" role="alert">
+                      {t("vitalRangeError", { min, max, unit: vitalSpec.unit })}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-4">
             <button
               type="button"
-              onClick={() => setStep("subcategory")}
-              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+              onClick={() => setBackfillMode(!backfillMode)}
+              className={cn(
+                "flex-1 rounded-md border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
+                backfillMode
+                  ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
+                  : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
+              )}
             >
-              {t("back")}
+              {t("backfillToggle")}
             </button>
-
-            <div className="space-y-4">
-              {vitalSpec.fields.map((field) => {
-                const raw = vitalValues[field] ?? "";
-                const parsed = raw.trim() === "" ? NaN : Number(raw);
-                // A spec always carries ranges for exactly its own fields;
-                // the fallbacks only satisfy the Partial<Record> type.
-                const min = vitalSpec.min[field] ?? Number.NEGATIVE_INFINITY;
-                const max = vitalSpec.max[field] ?? Number.POSITIVE_INFINITY;
-                const outOfRange = Number.isFinite(parsed) && (parsed < min || parsed > max);
-                return (
-                  <div key={field}>
-                    <label
-                      htmlFor={`vital-${field}`}
-                      className="mb-1 block text-sm font-semibold text-[var(--color-text)]"
-                    >
-                      {tVitalFields(field)} ({vitalSpec.unit})
-                    </label>
-                    <input
-                      id={`vital-${field}`}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      autoFocus={field === vitalSpec.fields[0]}
-                      value={raw}
-                      onChange={(e) => setVitalValues((prev) => ({ ...prev, [field]: e.target.value }))}
-                      aria-invalid={outOfRange}
-                      className={cn(
-                        "input-base touch-target w-full py-3 text-base tabular-nums",
-                        outOfRange && "border-[var(--color-error-ink)]"
-                      )}
-                    />
-                    {outOfRange && (
-                      <p className="mt-1 text-xs text-[var(--color-error-ink)]" role="alert">
-                        {t("vitalRangeError", { min, max, unit: vitalSpec.unit })}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setBackfillMode(!backfillMode)}
-                className={cn(
-                  "flex-1 rounded-md border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
-                  backfillMode
-                    ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
-                    : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
-                )}
-              >
-                {t("backfillToggle")}
-              </button>
-              <button
-                type="button"
-                disabled={submitting !== null || parseVitalValues(vitalSpec, vitalValues) === undefined}
-                onClick={() => {
-                  const vitals = parseVitalValues(vitalSpec, vitalValues);
-                  if (vitals === undefined) return;
-                  if (backfillMode) {
-                    setStep("backfill");
-                  } else {
-                    void submitEntry(category, pendingSub, undefined, undefined, vitals);
-                  }
-                }}
-                className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
-              >
-                {submitting !== null ? t("noteSaving") : t("vitalSave")}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={submitting !== null || parseVitalValues(vitalSpec, vitalValues) === undefined}
+              onClick={() => {
+                const vitals = parseVitalValues(vitalSpec, vitalValues);
+                if (vitals === undefined) return;
+                if (backfillMode) {
+                  setStep("backfill");
+                } else {
+                  void submitEntry(category, pendingSub, undefined, undefined, vitals);
+                }
+              }}
+              className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
+            >
+              {submitting !== null ? t("noteSaving") : t("vitalSave")}
+            </button>
           </div>
-        ) : category === "note" ? (
-          <div>
+        </div>
+      ) : category === "note" ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setStep("category")}
+            className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+          >
+            {t("back")}
+          </button>
+
+          <textarea
+            autoFocus
+            rows={4}
+            maxLength={NOTE_MAX}
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder={t("notePlaceholder")}
+            className="input-base w-full resize-y py-3 text-base"
+          />
+          <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
+            {noteText.length}/{NOTE_MAX}
+          </p>
+
+          <PhotoRow
+            photos={photos}
+            disabled={submitting !== null}
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+            label={t("addPhoto")}
+            limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+            inputId="logging-photo-input-note"
+          />
+
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => setBackfillMode(!backfillMode)}
+              className={cn(
+                "flex-1 rounded-md border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
+                backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
+              )}
+            >
+              {t("backfillToggle")}
+            </button>
+            <button
+              type="button"
+              disabled={submitting !== null || noteText.trim().length === 0}
+              onClick={() => {
+                if (backfillMode) {
+                  setStep("backfill");
+                } else {
+                  void submitEntry("note", undefined, noteText.trim());
+                }
+              }}
+              className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
+            >
+              {submitting !== null ? t("noteSaving") : t("noteSave")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setStep("category")}
-              className="mb-4 text-sm font-medium text-[var(--color-accent)] touch-target"
+              className="text-sm font-medium text-[var(--color-accent)] touch-target"
             >
               {t("back")}
             </button>
+            <button
+              type="button"
+              onClick={() => setBackfillMode(!backfillMode)}
+              className={cn(
+                "rounded-full border-2 px-3 py-1 text-xs font-medium transition-all touch-target",
+                backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
+              )}
+            >
+              {t("backfillToggle")}
+            </button>
+          </div>
 
-            <textarea
-              autoFocus
-              rows={4}
-              maxLength={NOTE_MAX}
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder={t("notePlaceholder")}
-              className="input-base w-full resize-y py-3 text-base"
-            />
-            <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
-              {noteText.length}/{NOTE_MAX}
-            </p>
-
-            <PhotoRow
-              photos={photos}
-              disabled={submitting !== null}
-              onAdd={addPhotos}
-              onRemove={removePhoto}
-              label={t("addPhoto")}
-              limitLabel={t("photoLimit", { max: PHOTO_MAX })}
-              inputId="logging-photo-input-note"
-            />
-
-            <div className="mt-3 flex items-center justify-between gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {subcategories.map((sub) => (
               <button
+                key={sub}
                 type="button"
-                onClick={() => setBackfillMode(!backfillMode)}
+                disabled={submitting !== null}
+                onClick={() => handleSubSelect(sub as LogSubcategory)}
                 className={cn(
-                  "flex-1 rounded-md border-2 px-4 py-3 text-sm font-medium transition-all touch-target",
-                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
+                  "touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50",
+                  submitting === sub && "opacity-60"
                 )}
               >
-                {t("backfillToggle")}
+                {tSubcategories(`${category}.${sub}` as const)}
               </button>
-              <button
-                type="button"
-                disabled={submitting !== null || noteText.trim().length === 0}
-                onClick={() => {
-                  if (backfillMode) {
-                    setStep("backfill");
-                  } else {
-                    void submitEntry("note", undefined, noteText.trim());
-                  }
-                }}
-                className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
-              >
-                {submitting !== null ? t("noteSaving") : t("noteSave")}
-              </button>
-            </div>
+            ))}
           </div>
-        ) : (
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setStep("category")}
-                className="text-sm font-medium text-[var(--color-accent)] touch-target"
-              >
-                {t("back")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setBackfillMode(!backfillMode)}
-                className={cn(
-                  "rounded-full border-2 px-3 py-1 text-xs font-medium transition-all touch-target",
-                  backfillMode ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]" : "border-[var(--color-border-control)] text-[var(--color-text-muted)]"
-                )}
-              >
-                {t("backfillToggle")}
-              </button>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {subcategories.map((sub) => (
-                <button
-                  key={sub}
-                  type="button"
-                  disabled={submitting !== null}
-                  onClick={() => handleSubSelect(sub as LogSubcategory)}
-                  className={cn(
-                    "touch-target flex w-full items-center justify-center rounded-md border-[1.5px] border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 py-3 text-base font-semibold text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-50",
-                    submitting === sub && "opacity-60"
-                  )}
-                >
-                  {tSubcategories(`${category}.${sub}` as const)}
-                </button>
-              ))}
-            </div>
+          <PhotoRow
+            photos={photos}
+            disabled={submitting !== null}
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+            label={t("addPhoto")}
+            limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+            inputId="logging-photo-input-sub"
+          />
+        </div>
+      )}
 
-            <PhotoRow
-              photos={photos}
-              disabled={submitting !== null}
-              onAdd={addPhotos}
-              onRemove={removePhoto}
-              label={t("addPhoto")}
-              limitLabel={t("photoLimit", { max: PHOTO_MAX })}
-              inputId="logging-photo-input-sub"
-            />
-          </div>
-        )}
+      {error && <p role="alert" className="mt-4 text-sm text-[var(--color-error-ink)]">{error}</p>}
 
-        {error && <p role="alert" className="mt-4 text-sm text-[var(--color-error-ink)]">{error}</p>}
-
-        <p className="mt-4 flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
-          <Clock size={14} aria-hidden="true" />
-          {backfillMode ? t("backfillHint") : t("autoTimestampHint")}
-        </p>
-      </div>
-    </div>
+      <p className="mt-4 flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+        <Clock size={14} aria-hidden="true" />
+        {backfillMode ? t("backfillHint") : t("autoTimestampHint")}
+      </p>
+    </BottomSheet>
   );
 }
 
