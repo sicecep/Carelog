@@ -115,7 +115,7 @@ export function ShiftHistoryFilters({
           data-testid="filter-clear"
           onClick={clear}
           disabled={!anyActive}
-          className="touch-target inline-flex w-full items-center justify-center rounded-lg border-2 border-[var(--color-border-strong)] px-3 text-sm font-medium text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--color-border-strong)] disabled:hover:bg-transparent"
+          className="touch-target inline-flex w-full items-center justify-center rounded-lg border-2 border-[var(--color-border-control)] px-3 text-sm font-medium text-[var(--color-text)] transition-all hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--color-border-strong)] disabled:hover:bg-transparent"
         >
           {t("filterClear")}
         </button>

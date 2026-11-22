@@ -76,7 +76,7 @@ export function DateNav({
         <Link
           href={hrefFor(prev)}
           data-testid="date-prev"
-          className="touch-target inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-strong)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+          className="touch-target inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
         >
           <CaretLeft size={18} weight="bold" aria-hidden="true" />
           <span>{t("prevDay")}</span>
@@ -104,7 +104,7 @@ export function DateNav({
           <Link
             href={hrefFor(today)}
             data-testid="date-today"
-            className="touch-target inline-flex items-center rounded-lg border border-[var(--color-border-strong)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+            className="touch-target inline-flex items-center rounded-lg border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
           >
             {t("today")}
           </Link>
@@ -124,7 +124,7 @@ export function DateNav({
         <Link
           href={hrefFor(next)}
           data-testid="date-next"
-          className="touch-target inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-strong)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+          className="touch-target inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
         >
           <span>{t("nextDay")}</span>
           <CaretRight size={18} weight="bold" aria-hidden="true" />
