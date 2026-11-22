@@ -65,6 +65,13 @@
   --color-info-soft: #E6EFF8;
   --color-info-ink: #1F4E80;
 
+  /* WhatsApp share buttons (urgent-incident share, caregiver invite). Brand
+     green stays recognisable; text is dark because white on #25D366 is only
+     2.0:1 (fails AA). Same values in both themes — no dark override. */
+  --color-whatsapp: #25D366;
+  --color-whatsapp-hover: #1EBE5A;
+  --color-whatsapp-ink: #111B21;   /* 8.8:1 on whatsapp, 7.1:1 on hover */
+
   /* Scrim behind sheets and dialogs. */
   --color-overlay: rgb(15 26 20 / 0.45);
 

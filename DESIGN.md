@@ -72,6 +72,7 @@ and 2.9:1), so text always uses the `-ink` token.
 | warning | `#D4A017` | `#FEF5E7` | `#7A5200` **(new)** | Pending, offline, grace period, "not checked in" soft-block |
 | success | `#27AE60` | `#E8F8F0` | `#1E6B41` **(new)** | Saved, submitted, shift completed |
 | info | `#2563A8` **(new)** | `#E6EFF8` | `#1F4E80` | Parent instructions (daily), handoff banner, tips |
+| whatsapp (brand) | `#25D366` (hover `#1EBE5A`) | — | `#111B21` | WhatsApp share buttons only. Dark text: white on this green is 2.0:1. Same in both themes |
 
 ### 2.3 Incident severity (INC-003)
 
@@ -554,7 +555,7 @@ revamped, not all at once.
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
 | ~~Dark mode~~ | **Done.** Full dark token set (§2.5) follows the phone setting; ~155 raw palette classes and all `dark:` utilities replaced with tokens across 21 files; off-brand blue primary buttons on auth/PIN screens now use the accent | — |
 | ~~Focus ring~~ | **Done.** `--shadow-focus` (bg gap + 2px accent ring, 4.7–5.0:1 light / 7.5:1 dark), unlayered so `shadow-*` can't hide it; 3 per-component `focus:ring` overrides removed; focus no longer lightens borders | — |
-| WhatsApp share buttons | White on `#25D366` is 2.0:1 (fails AA) | Brand decision: dark text `#111B21` on `#25D366` (8.8:1), or white on the dark brand green `#075E54` (7.7:1) |
+| ~~WhatsApp share buttons~~ | **Done.** `--color-whatsapp` / `-hover` / `-ink`: dark text `#111B21` on brand green `#25D366` (8.8:1, 7.1:1 on hover), same in both themes; replaces `hover:opacity-90`, which faded the text | — |
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
