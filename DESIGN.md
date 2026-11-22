@@ -528,7 +528,7 @@ revamped, not all at once.
 |---|---|---|
 | ~~Severity colours~~ | **Done.** `IncidentSheet.tsx`, the recipient incident list and the alert email use `--color-sev-*`; Low is green | — |
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
-| Dark-mode accent | Neon `#4ADE80`; only a handful of tokens overridden | Full dark token set (§2.5) |
+| Dark mode | **Temporarily disabled** (hotfix): the old automatic switch only changed alias tokens no component reads, so dark-mode phones got dark text on a dark page (1.13:1). Light theme for everyone; `dark:` is bound to a `.dark` class nothing sets yet | Full dark token set (§2.5), then re-enable |
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | `.toast-success` utility | Hand-rolled | Sonner, styled per §8.7 |
