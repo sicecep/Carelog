@@ -47,13 +47,13 @@ export default async function LandingPage({ params }: LandingPageProps) {
               Both 56px targets — this page is the mobile front door. */}
           <Link
             href={`/${locale}/register`}
-            className="flex h-14 w-full items-center justify-center rounded-md bg-[var(--color-accent)] px-4 text-base font-medium text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2"
+            className="flex h-14 w-full items-center justify-center rounded-md bg-[var(--color-accent)] px-4 text-base font-medium text-[var(--color-text-inverse)] hover:bg-[var(--color-accent-hover)]"
           >
             {t("registerButton")}
           </Link>
           <Link
             href={`/${locale}/login`}
-            className="flex h-14 w-full items-center justify-center rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-4 text-base font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:ring-offset-2"
+            className="flex h-14 w-full items-center justify-center rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-4 text-base font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
           >
             {t("loginButton")}
           </Link>
