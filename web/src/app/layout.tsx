@@ -1,33 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "CareLog",
   description: "Care logging for families and caregivers",
 };
 
+// <html> and <body> are rendered by app/[locale]/layout.tsx so the document
+// language follows the route locale (DESIGN.md §11: lang="id" / lang="en").
+// This pass-through layout only exists because app/page.tsx and
+// app/not-found.tsx live outside [locale]; not-found renders its own <html>.
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
-    </html>
-  );
+  return children;
 }
