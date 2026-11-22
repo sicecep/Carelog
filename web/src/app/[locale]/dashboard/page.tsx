@@ -59,11 +59,17 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     }
   }
 
+  // An owner on an admin-issued temporary password can't use the app until
+  // they set their own: the API answers password_change_required everywhere
+  // else, so send them straight to the change screen instead of showing a
+  // load error (login revamp §4.5).
+  const mustChangePassword = me?.auth?.password_change_required ?? false;
+
   // A user always has at least one workspace once onboarding has run; `active`
   // marks the one to scope this session to.
   const workspace = me?.workspaces.find((w) => w.active) ?? me?.workspaces[0] ?? null;
 
-  if (workspace) {
+  if (workspace && !mustChangePassword) {
     try {
       const [activeRes, archivedRes, tasksRes, notifRes, shiftRes] = await Promise.all([
         recipientApi.list(workspace.id, forwarded),
@@ -107,6 +113,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // redirect() works by throwing NEXT_REDIRECT, so it has to run outside the
   // try/catch blocks above or they would swallow it.
   if (redirectToLogin) redirect(`/${locale}/login`);
+  if (mustChangePassword) redirect(`/${locale}/change-password`);
 
   const displayName = me?.user.full_name?.trim() || me?.user.email.split("@")[0] || "";
 

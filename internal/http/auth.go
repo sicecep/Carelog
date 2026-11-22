@@ -37,6 +37,7 @@ type AuthHandlers struct {
 	RefreshSvc   *auth.RefreshTokenService
 	Signer       *auth.Signer
 	PINSvc       *service.PINAuthDeps // AUTH-005: device binding + argon2id PIN auth
+	PasswordSvc  *service.PasswordAuthDeps // owner email/phone + password (login revamp)
 	Mailer       mail.Mailer
 	WebBaseURL   string
 	APIBaseURL   string
@@ -80,6 +81,28 @@ func RegisterAuthRoutes(r chi.Router, h *AuthHandlers, limiter middleware.Limite
 			Post("/magic-link", HandlerFunc(h.handleMagicLink).Wrap())
 
 		r.Get("/verify", HandlerFunc(h.handleVerify).Wrap())
+
+		// Owner email/phone + password (login revamp D1). Register creates
+		// accounts, so it is limited per IP like the invite claim. Login is
+		// a guessing surface: the per-IP limit sits ABOVE the per-account
+		// lockout (service.PasswordMaxAttempts = 5) so the account lockout
+		// stays reachable — the same reasoning as pinLoginIPMax.
+		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+			Name:    "auth_register",
+			Max:     5,
+			Window:  time.Hour,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/register", HandlerFunc(h.handleRegister).Wrap())
+		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+			Name:    "auth_password_login",
+			Max:     passwordLoginIPMax,
+			Window:  15 * time.Minute,
+			KeyFunc: middleware.KeyByIP,
+		})).Post("/password/login", HandlerFunc(h.handlePasswordLogin).Wrap())
+		// Change is on a live session; the old-password check inside it also
+		// counts toward the account lockout.
+		r.With(middleware.AuthMiddleware(h.Signer.Verifier())).
+			Post("/password/change", HandlerFunc(h.handlePasswordChange).Wrap())
 
 		// Refresh is a token-guessing surface; generous enough for real
 		// clients (which refresh on a 15m access TTL) and tight enough to
@@ -158,6 +181,10 @@ type MagicLinkResponse struct {
 // handleMagicLink handles POST /auth/magic-link.
 // RFC §8.1, §8.2: Creates or finds user, generates magic link, sends email.
 func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) error {
+	if !h.magicLinkAvailable() {
+		return service.ErrNotFoundTyped{Resource: "sign-in method"}
+	}
+
 	var req MagicLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
@@ -241,6 +268,10 @@ type VerifyResponse struct {
 // handleVerify handles GET /auth/verify.
 // RFC §8.3: Consumes magic link, issues access + refresh tokens as HttpOnly cookies.
 func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) error {
+	if !h.magicLinkAvailable() {
+		return service.ErrNotFoundTyped{Resource: "sign-in method"}
+	}
+
 	token := r.URL.Query().Get("token")
 	if token == "" {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "token", Message: "token is required"}}}
@@ -264,30 +295,7 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	// Super-admin allow-list reconciliation. Runs on every login so the DB
-	// tracks whatever SUPER_ADMIN_EMAILS currently says. Config is optional
-	// for tests that construct a bare AuthHandlers; production always sets it.
-	//
-	// Guarded on a present email: a phone-only account must never be matched
-	// against the allow-list, and an empty string must never compare equal to
-	// a misconfigured empty entry.
-	if h.Config != nil && user.Email.Valid && user.Email.String != "" &&
-		h.Config.IsSuperAdminEmail(user.Email.String) {
-		if promoted, perr := h.Queries.PromoteSuperAdminByEmail(r.Context(), user.Email.String); perr == nil {
-			user = promoted
-		} else if !errors.Is(perr, pgx.ErrNoRows) {
-			// The reconciliation is best-effort — a failure here must not
-			// block a legitimate login, but should be visible in logs.
-			slog.Error("promote super-admin failed", "user_id", userID, "error", perr)
-		}
-	}
-	// Demote anyone whose privilege has been revoked in config. Runs each
-	// login so a stale super-admin loses access on their next request.
-	if h.Config != nil {
-		if err := h.Queries.DemoteSuperAdminsNotIn(r.Context(), h.Config.SuperAdminEmails); err != nil {
-			slog.Error("demote super-admins failed", "error", err)
-		}
-	}
+	user = h.reconcileSuperAdmin(r.Context(), user)
 
 	// Approval gate. A user with no workspace memberships is either
 	//   (a) an invited caregiver who just clicked their magic link but has not
@@ -396,6 +404,42 @@ func (h *AuthHandlers) handleVerify(w http.ResponseWriter, r *http.Request) erro
 	}
 	http.Redirect(w, r, h.WebBaseURL+"/"+localeOrDefault(user.Locale)+dest, http.StatusSeeOther)
 	return nil
+}
+
+// reconcileSuperAdmin applies the SUPER_ADMIN_EMAILS allow-list to user and
+// returns the (possibly promoted) row. It runs on every login — magic link
+// and password alike — so the DB tracks whatever the config currently says.
+// Config is optional for tests that construct a bare AuthHandlers;
+// production always sets it.
+//
+// Guarded on a present email: a phone-only account must never be matched
+// against the allow-list, and an empty string must never compare equal to a
+// misconfigured empty entry. Best-effort: a failure is logged, never blocks
+// a legitimate login.
+func (h *AuthHandlers) reconcileSuperAdmin(ctx context.Context, user store.User) store.User {
+	if h.Config == nil {
+		return user
+	}
+	if user.Email.Valid && user.Email.String != "" && h.Config.IsSuperAdminEmail(user.Email.String) {
+		if promoted, perr := h.Queries.PromoteSuperAdminByEmail(ctx, user.Email.String); perr == nil {
+			user = promoted
+		} else if !errors.Is(perr, pgx.ErrNoRows) {
+			slog.Error("promote super-admin failed", "user_id", user.ID, "error", perr)
+		}
+	}
+	// Demote anyone whose privilege has been revoked in config, so a stale
+	// super-admin loses access on their next request.
+	if err := h.Queries.DemoteSuperAdminsNotIn(ctx, h.Config.SuperAdminEmails); err != nil {
+		slog.Error("demote super-admins failed", "error", err)
+	}
+	return user
+}
+
+// magicLinkAvailable reports whether the magic-link endpoints serve requests
+// (AUTH_MAGIC_LINK_ENABLED, or the dev-only E2E fast path). A bare
+// AuthHandlers in tests has no Config and keeps the old behaviour.
+func (h *AuthHandlers) magicLinkAvailable() bool {
+	return h.Config == nil || h.Config.MagicLinkAvailable()
 }
 
 // localeOrDefault guards the locale segment of a redirect URL: the app only has
@@ -560,6 +604,15 @@ type MeResponse struct {
 		Role   string `json:"role"`
 		Active bool   `json:"active"`
 	} `json:"workspaces"`
+	Auth MeAuthState `json:"auth"`
+}
+
+// MeAuthState describes how the user signs in, so the web app can route an
+// owner on a temporary password to the change screen and label the settings
+// action "set" vs "change" (login revamp §4.3, §4.5).
+type MeAuthState struct {
+	HasPassword            bool `json:"has_password"`
+	PasswordChangeRequired bool `json:"password_change_required"`
 }
 
 // handleMe handles GET /auth/me.
@@ -574,6 +627,13 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) error {
 	user, err := h.Queries.GetUser(r.Context(), userID)
 	if err != nil {
 		return err
+	}
+
+	var authState MeAuthState
+	if rec, perr := h.Queries.GetUserPassword(r.Context(), userID); perr == nil {
+		authState = MeAuthState{HasPassword: true, PasswordChangeRequired: rec.MustChange}
+	} else if !errors.Is(perr, pgx.ErrNoRows) {
+		return perr
 	}
 
 	// Get user's workspace memberships
@@ -625,6 +685,7 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) error {
 			OnboardingDone: user.OnboardingCompleted,
 		},
 		Workspaces: workspaces,
+		Auth:       authState,
 	}))
 
 	return nil

@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -105,17 +106,27 @@ func (h *AuthHandlers) handlePINLogin(w http.ResponseWriter, r *http.Request) er
 // auth cookies — the same shape as magic-link verify, minus the email
 // verification step (phones are verified at enrolment time).
 func (h *AuthHandlers) issuePINSession(w http.ResponseWriter, r *http.Request, userID uuid.UUID) error {
+	if err := h.startSession(w, r, userID); err != nil {
+		return err
+	}
+	OK(w, ptr(map[string]string{"status": "ok"}))
+	return nil
+}
+
+// startSession creates a refresh-token family and an access token for
+// userID and sets both auth cookies. It writes no response body, so each
+// login flow can answer in its own shape.
+func (h *AuthHandlers) startSession(w http.ResponseWriter, r *http.Request, userID uuid.UUID) error {
 	familyID := uuid.New()
 	rawRefresh, _, err := h.RefreshSvc.IssueRefreshToken(r.Context(), userID, familyID, r.UserAgent(), getClientIP(r))
 	if err != nil {
-		return err
+		return fmt.Errorf("issue refresh token: %w", err)
 	}
 	accessToken, err := h.Signer.Sign(r.Context(), userID, familyID)
 	if err != nil {
-		return err
+		return fmt.Errorf("sign access token: %w", err)
 	}
 	setAuthCookies(w, r, accessToken, rawRefresh, h.CookieDomain, h.Signer.AccessTokenTTL(), h.Signer.RefreshTokenTTL())
-	OK(w, ptr(map[string]string{"status": "ok"}))
 	return nil
 }
 

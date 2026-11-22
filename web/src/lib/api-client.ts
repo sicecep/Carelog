@@ -106,16 +106,45 @@ export interface AuthWorkspace {
 export interface MeResponse {
   user: AuthUser;
   workspaces: AuthWorkspace[];
+  // How the account signs in (login revamp). password_change_required is
+  // true while an owner holds an admin-issued temporary password.
+  auth: { has_password: boolean; password_change_required: boolean };
+}
+
+// POST /api/v1/auth/password/login result. "pending"/"rejected" set no
+// session; "ok" sets the cookies and says where to go next.
+export interface PasswordLoginResult {
+  status: "ok" | "pending" | "rejected";
+  next?: string;
+  password_change_required: boolean;
 }
 
 // Auth endpoints.
-// CareLog is passwordless (AUTH-001): auth is magic-link only, no passwords anywhere.
+// Owners sign in with email or phone + password; caregivers with phone + PIN
+// (login revamp, docs/superpowers/specs/2026-11-22-login-revamp-design.md).
+// The email magic link is off unless AUTH_MAGIC_LINK_ENABLED is set.
 export const authApi = {
-  // POST /api/v1/auth/magic-link - Request a magic link to be sent to the email.
-  requestMagicLink: async (email: string): Promise<{ sent: boolean }> => {
-    await api.post<{ message: string }>("/api/v1/auth/magic-link", { email });
-    return { sent: true };
-  },
+  // POST /api/v1/auth/register - Owner self-registration. The response is
+  // the same whether or not the email/phone was already taken.
+  register: (body: {
+    full_name: string;
+    email?: string;
+    phone?: string;
+    password: string;
+    locale: string;
+  }) => api.post<{ status: "pending_approval" }>("/api/v1/auth/register", body),
+
+  // POST /api/v1/auth/password/login - identifier is an email or a phone.
+  passwordLogin: (identifier: string, password: string) =>
+    api.post<PasswordLoginResult>("/api/v1/auth/password/login", { identifier, password }),
+
+  // POST /api/v1/auth/password/change - current_password is required when
+  // the account already has one. Keeps this session, signs out the others.
+  changePassword: (newPassword: string, currentPassword?: string) =>
+    api.post<{ status: string }>("/api/v1/auth/password/change", {
+      current_password: currentPassword || undefined,
+      new_password: newPassword,
+    }),
 
   // ─── AUTH-005: caregiver phone + device-bound PIN ────────────────────────
   //
@@ -679,6 +708,8 @@ export const memberApi = {
 export interface AdminUser {
   id: string;
   email: string;
+  // Owners may register with a phone instead of (or as well as) an email.
+  phone?: string;
   full_name?: string;
   avatar_url?: string;
   locale: string;
@@ -710,6 +741,11 @@ export const adminApi = {
   // POST /api/v1/admin/users/{id}/reject - reason is optional.
   reject: (userId: string, reason?: string) =>
     api.post<{ status: string }>(`/api/v1/admin/users/${userId}/reject`, { reason }),
+
+  // POST /api/v1/admin/users/{id}/password-reset - returns a temporary
+  // password, shown once. The owner must change it on next login.
+  resetPassword: (userId: string) =>
+    api.post<{ temporary_password: string }>(`/api/v1/admin/users/${userId}/password-reset`, {}),
 };
 
 // Workspace settings. Singular /workspace: the target is established by the

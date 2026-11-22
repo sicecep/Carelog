@@ -34,6 +34,14 @@ type Config struct {
 	// E2E-only: validate() refuses to boot with it in production.
 	AuthDevExposeLink bool
 
+	// AuthMagicLinkEnabled (AUTH_MAGIC_LINK_ENABLED) keeps the email
+	// magic-link sign-in available. Off by default since the login revamp:
+	// owners sign in with email or phone + password, and there is no email
+	// budget for one email per login. The dev/E2E fast path
+	// (AUTH_DEV_EXPOSE_LINK) keeps magic links working without this flag,
+	// because it sends no email at all.
+	AuthMagicLinkEnabled bool
+
 	// JWT (Ed25519 seed, base64-encoded, 32 bytes)
 	JWTEd25519Seed string
 
@@ -98,6 +106,7 @@ func Load() (*Config, error) {
 		RedisURL:             getenv("REDIS_URL", "redis://localhost:6379"),
 		AppEnv:               getenv("APP_ENV", "development"),
 		AuthDevExposeLink:    parseBool(getenv("AUTH_DEV_EXPOSE_LINK", "false")),
+		AuthMagicLinkEnabled: parseBool(getenv("AUTH_MAGIC_LINK_ENABLED", "false")),
 		JWTEd25519Seed:       os.Getenv("JWT_ED25519_SEED"),
 		AccessTokenTTL:       parseDuration(getenv("ACCESS_TOKEN_TTL", "15m")),
 		RefreshTokenTTL:      parseDuration(getenv("REFRESH_TOKEN_TTL", "720h")), // 30 days
@@ -287,4 +296,10 @@ func parseDuration(s string) time.Duration {
 		return 0
 	}
 	return d
+}
+
+// MagicLinkAvailable reports whether the email magic-link endpoints serve
+// requests: explicitly enabled, or the dev-only E2E fast path is on.
+func (c *Config) MagicLinkAvailable() bool {
+	return c.AuthMagicLinkEnabled || c.AuthDevExposeLink
 }

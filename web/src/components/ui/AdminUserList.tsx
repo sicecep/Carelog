@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
+import { Copy, Check } from "phosphor-react";
 import { cn } from "@/lib/utils";
 import { AdminUser, adminApi, APIError } from "@/lib/api-client";
 
@@ -21,6 +22,10 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
   const [error, setError] = useState<string | null>(null);
   // Only the row mid-request shows a pending state.
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Login revamp D2: the temporary password from an admin reset. Shown
+  // once, kept only in memory, and cleared when dismissed.
+  const [tempPassword, setTempPassword] = useState<{ name: string; value: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(
     async (status: Tab) => {
@@ -75,6 +80,36 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
     }
   };
 
+  const displayName = (u: AdminUser) => u.full_name?.trim() || u.email || u.phone || u.id;
+
+  const handleResetPassword = async (u: AdminUser) => {
+    if (!window.confirm(t("confirmReset", { name: displayName(u) }))) return;
+    setBusyId(u.id);
+    setError(null);
+    try {
+      const res = await adminApi.resetPassword(u.id);
+      if (res.data?.temporary_password) {
+        setCopied(false);
+        setTempPassword({ name: displayName(u), value: res.data.temporary_password });
+      }
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : t("errorGeneric"));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const copyTempPassword = async () => {
+    if (!tempPassword) return;
+    try {
+      await navigator.clipboard.writeText(tempPassword.value);
+      setCopied(true);
+    } catch {
+      // Clipboard can be blocked (non-HTTPS, permissions); the value is on
+      // screen to copy by hand.
+    }
+  };
+
   // Deterministic formatting: toLocaleString resolves against the runtime's
   // locale/timezone, which differs between the Node server (UTC) and the
   // browser, tripping React's hydration check. Same reasoning as
@@ -115,6 +150,32 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
         </p>
       )}
 
+      {tempPassword && (
+        <div
+          role="status"
+          className="mb-4 space-y-3 rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-4 text-[var(--color-warning-ink)]"
+        >
+          <p className="font-semibold">{t("tempPasswordTitle", { name: tempPassword.name })}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <code className="select-all rounded-md bg-[var(--color-surface)] px-3 py-2 font-mono text-lg tracking-wider text-[var(--color-text)]">
+              {tempPassword.value}
+            </code>
+            <button type="button" onClick={copyTempPassword} className="btn-base btn-secondary touch-target px-4">
+              {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+              {copied ? t("copied") : t("copy")}
+            </button>
+          </div>
+          <p className="text-sm">{t("tempPasswordHelp")}</p>
+          <button
+            type="button"
+            onClick={() => setTempPassword(null)}
+            className="btn-base btn-primary touch-target px-4"
+          >
+            {t("done")}
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-center text-[var(--color-text-muted)]">{t("loading")}</p>
       ) : users.length === 0 ? (
@@ -132,14 +193,16 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-[var(--color-text)]">
-                    {u.full_name?.trim() || u.email}
+                    {displayName(u)}
                     {u.is_super_admin && (
                       <span className="ml-2 rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-xs font-normal text-[var(--color-accent-ink)]">
                         {t("superAdminBadge")}
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-sm text-[var(--color-text-muted)]">{u.email}</p>
+                  <p className="truncate text-sm text-[var(--color-text-muted)]">
+                    {[u.email, u.phone].filter(Boolean).join(" · ")}
+                  </p>
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {t("signedUp")} {formatDate(u.created_at)}
                   </p>
@@ -159,6 +222,16 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                       className="btn-base btn-primary touch-target px-4 disabled:opacity-50"
                     >
                       {busy ? t("approving") : t("approve")}
+                    </button>
+                  )}
+                  {u.approval_status === "approved" && !u.is_super_admin && (
+                    <button
+                      type="button"
+                      onClick={() => handleResetPassword(u)}
+                      disabled={busy}
+                      className="btn-base btn-secondary touch-target px-4 disabled:opacity-50"
+                    >
+                      {busy ? t("resetting") : t("resetPassword")}
                     </button>
                   )}
                   {u.approval_status !== "rejected" && (

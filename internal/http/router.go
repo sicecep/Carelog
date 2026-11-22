@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sicecep/carelog/internal/auth"
@@ -103,6 +104,17 @@ func NewRouter(deps Deps) http.Handler {
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/version", HandlerFunc(deps.handleVersion).Wrap())
 
+		// Owner email/phone + password (login revamp). Shared by the auth
+		// routes and the super-admin reset; Tx makes signup atomic.
+		passwordSvc := &service.PasswordAuthDeps{
+			Queries: deps.Queries,
+			Tx: func(ctx context.Context, fn func(q store.Querier) error) error {
+				return pgx.BeginFunc(ctx, deps.Pool, func(tx pgx.Tx) error {
+					return fn(store.New(tx))
+				})
+			},
+		}
+
 		// Auth routes (public + protected)
 		authHandlers := &AuthHandlers{
 			Queries:       deps.Queries,
@@ -111,6 +123,7 @@ func NewRouter(deps Deps) http.Handler {
 			RefreshSvc:    deps.RefreshSvc,
 			Signer:        deps.Signer,
 			PINSvc:        &service.PINAuthDeps{Queries: deps.Queries},
+			PasswordSvc:   passwordSvc,
 			Mailer:        deps.Mailer,
 			WebBaseURL:    deps.WebBaseURL,
 			APIBaseURL:    deps.APIBaseURL,
@@ -145,9 +158,11 @@ func NewRouter(deps Deps) http.Handler {
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
 			middleware.RequireSuperAdmin(deps.Queries),
+			middleware.RequirePasswordCurrent(deps.Queries),
 		).Group(func(r chi.Router) {
 			adminHandlers := &AdminHandlers{
-				Queries: deps.Queries,
+				Queries:     deps.Queries,
+				PasswordSvc: passwordSvc,
 			}
 			RegisterAdminRoutes(r, adminHandlers)
 		})
@@ -161,6 +176,9 @@ func NewRouter(deps Deps) http.Handler {
 		api.With(
 			middleware.AuthMiddleware(deps.Signer.Verifier()),
 			middleware.RequireApproved(deps.Queries),
+			// An owner on an admin-issued temporary password must set their
+			// own before using the app (login revamp D2).
+			middleware.RequirePasswordCurrent(deps.Queries),
 			middleware.WorkspaceMiddleware(deps.Queries),
 			middleware.RequireWriter,
 		).Group(func(r chi.Router) {
