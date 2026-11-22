@@ -12,7 +12,8 @@
     "search": "Cari",
     "filter": "Filter",
     "clear": "Bersihkan",
-    "back": "Kembali"
+    "back": "Kembali",
+    "toastRegion": "Notifikasi"
   },
   "nav": {
     "dashboard": "Dashboard",

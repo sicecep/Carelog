@@ -12,7 +12,8 @@
     "search": "Search",
     "filter": "Filter",
     "clear": "Clear",
-    "back": "Back"
+    "back": "Back",
+    "toastRegion": "Notifications"
   },
   "nav": {
     "dashboard": "Dashboard",

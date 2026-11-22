@@ -6,7 +6,8 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { X, CheckCircle, Clock } from "phosphor-react";
+import { X, Clock } from "phosphor-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { type LogCategory, VITAL_SPECS } from "@/lib/constants.generated";
 import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories";
@@ -42,7 +43,6 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
   const [step, setStep] = useState<Step>("category");
   const [category, setCategory] = useState<LogCategory | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [occurredAt, setOccurredAt] = useState<Date | undefined>(undefined);
@@ -63,7 +63,6 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setStep("category");
     setCategory(null);
     setSubmitting(null);
-    setSuccess(false);
     setError(null);
     setNoteText("");
     setOccurredAt(undefined);
@@ -100,11 +99,12 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           photo_urls: photoUrls,
           occurred_at: (time ?? occurredAt ?? new Date()).toISOString(),
         });
-        setSuccess(true);
+        // DESIGN.md §8.7: close straight away and confirm with a toast, so
+        // the caregiver is back on the timeline instead of waiting on a
+        // success panel inside the sheet.
+        toast.success(t("logged"));
         onLogged?.();
-        setTimeout(() => {
-          handleClose();
-        }, 1200);
+        handleClose();
       } catch (err) {
         setError(err instanceof APIError ? err.message : t("errorGeneric"));
       } finally {
@@ -193,12 +193,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
           </button>
         </div>
 
-        {success ? (
-          <div className="toast-success flex items-center gap-2" role="status">
-            <CheckCircle size={20} weight="fill" aria-hidden="true" />
-            <span>{t("logged")}</span>
-          </div>
-        ) : step === "category" ? (
+        {step === "category" ? (
           <CategoryGrid onSelect={handleCategorySelect} />
         ) : step === "backfill" ? (
           <div>

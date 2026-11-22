@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { locales, type Locale } from "@/i18n";
+import { Toaster } from "@/components/ui/Toaster";
 
 interface LocaleLayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       {children}
+      <Toaster />
     </NextIntlClientProvider>
   );
 }
