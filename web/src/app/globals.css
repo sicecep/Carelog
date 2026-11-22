@@ -87,7 +87,14 @@
      inputs and secondary buttons lost their border entirely, skeletons went
      transparent, and `border-[var(--color-border)]` dividers fell back to
      currentColor (dark text colour) in light mode. */
-  --color-ring: var(--color-accent-soft);
+  --color-ring: var(--color-accent);
+
+  /* Focus indicator (DESIGN.md §5/§7): a 3px gap in the page colour, then a
+     2px accent ring — reads on any fill, including accent buttons. Was a
+     3px accent-soft halo: ~1.2:1 on surface in both themes, effectively
+     invisible to keyboard and switch-access users (WCAG 2.4.7 / 1.4.11).
+     Accent is 4.7–5.0:1 on light bg/surface and 7.5:1 on the dark surface. */
+  --shadow-focus: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-ring);
 }
 
 /* Dark mode (DESIGN.md §2.5). Follows the phone's setting; a `.light` class
@@ -161,11 +168,11 @@
     line-height: 1.6;
   }
 
-  /* Focus visible for all interactive elements */
+  /* Suppress the browser outline; the ring itself is the unlayered
+     :focus-visible rule at the end of this file. outline:none stays in this
+     base layer so utilities that use outline (.sev-emergency-ring) win. */
   *:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--color-ring);
-    border-color: var(--color-ring);
   }
 
   /* Reduced motion */
@@ -205,7 +212,7 @@
   /* Focus goes darker (accent), never lighter than the resting outline. */
   .input-base:focus {
     border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px var(--color-ring);
+    box-shadow: var(--shadow-focus);
   }
   .input-base::placeholder {
     color: var(--color-text-muted);
@@ -396,4 +403,13 @@
     border-radius: 0.5rem;
     padding: 1rem 1.25rem;
   }
+}
+/* Focus ring — deliberately UNLAYERED so it beats every @layer, including
+   Tailwind's `shadow-*` utilities (a button with `shadow-sm` would otherwise
+   hide its focus ring). The border is left alone: repainting it in the ring
+   colour used to make a control's outline go lighter on focus. Don't add
+   per-component `focus:ring-*` overrides — they fire on mouse clicks too and
+   drift from this one indicator. */
+:focus-visible {
+  box-shadow: var(--shadow-focus);
 }

@@ -248,7 +248,7 @@ export default function OnboardingPage() {
                           type="checkbox"
                           checked={enabledModules.includes(module)}
                           onChange={() => handleModuleToggle(module)}
-                          className="w-5 h-5 shrink-0 rounded border-[var(--color-border-control)] text-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-ring)]"
+                          className="w-5 h-5 shrink-0 rounded border-[var(--color-border-control)] text-[var(--color-accent)]"
                         />
                         <span className="text-base text-[var(--color-text)]">{t(`modules.${module}`)}</span>
                       </label>

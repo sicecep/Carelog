@@ -261,7 +261,11 @@ meaning on its own (a save is confirmed by text, not by an animation). The careg
 - **No hover-only affordances** (ACC-005). Anything shown on hover must also be reachable by tap
   and by keyboard.
 - **Focus ring:** `--shadow-focus` (a 2px accent ring offset by 3px of the background colour), on
-  every focusable element via `:focus-visible`. Never remove it without a replacement.
+  every focusable element via `:focus-visible`. Never remove it without a replacement. The rule
+  is **unlayered** in `globals.css`, so it beats Tailwind `shadow-*` utilities on buttons. Don't
+  add per-component `focus:ring-*` / `focus:outline-none` overrides: `focus:` fires on mouse
+  clicks too, and overrides drift from the single indicator. Focus never repaints a control's
+  border.
 - **Disabled:** 50% opacity plus `cursor: not-allowed` plus an explanation nearby. Prefer
   keeping a button enabled and explaining what's missing when the user taps it: on a phone,
   people can't tell why a disabled button is greyed out.
@@ -549,7 +553,7 @@ revamped, not all at once.
 | ~~Severity colours~~ | **Done.** `IncidentSheet.tsx`, the recipient incident list and the alert email use `--color-sev-*`; Low is green | — |
 | ~~Emergency badge~~ | **Done.** Solid fill + `.sev-emergency-ring` (only the ring pulses) | — |
 | ~~Dark mode~~ | **Done.** Full dark token set (§2.5) follows the phone setting; ~155 raw palette classes and all `dark:` utilities replaced with tokens across 21 files; off-brand blue primary buttons on auth/PIN screens now use the accent | — |
-| Focus ring | `--color-ring` is `accent-soft`: ~1.2:1 on surface in both themes, too faint | `--shadow-focus` from §5 (bg gap + accent ring) |
+| ~~Focus ring~~ | **Done.** `--shadow-focus` (bg gap + 2px accent ring, 4.7–5.0:1 light / 7.5:1 dark), unlayered so `shadow-*` can't hide it; 3 per-component `focus:ring` overrides removed; focus no longer lightens borders | — |
 | WhatsApp share buttons | White on `#25D366` is 2.0:1 (fails AA) | Brand decision: dark text `#111B21` on `#25D366` (8.8:1), or white on the dark brand green `#075E54` (7.7:1) |
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
