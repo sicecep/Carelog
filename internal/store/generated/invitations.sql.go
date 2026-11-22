@@ -19,7 +19,7 @@ WHERE token_hash = $1
   AND consumed_at IS NULL
   AND revoked_at IS NULL
   AND expires_at > now()
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at, invitee_username
 `
 
 type ConsumeInvitationParams struct {
@@ -47,6 +47,7 @@ func (q *Queries) ConsumeInvitation(ctx context.Context, arg ConsumeInvitationPa
 		&i.ConsumedBy,
 		&i.RevokedAt,
 		&i.CreatedAt,
+		&i.InviteeUsername,
 	)
 	return i, err
 }
@@ -55,7 +56,7 @@ const createInvitation = `-- name: CreateInvitation :one
 INSERT INTO invitations (
     workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at, invitee_username
 `
 
 type CreateInvitationParams struct {
@@ -99,32 +100,34 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 		&i.ConsumedBy,
 		&i.RevokedAt,
 		&i.CreatedAt,
+		&i.InviteeUsername,
 	)
 	return i, err
 }
 
 const getInvitationByHash = `-- name: GetInvitationByHash :one
-SELECT i.id, i.workspace_id, i.recipient_id, i.token_hash, i.invitee_name, i.invitee_email, i.role, i.invited_by, i.expires_at, i.consumed_at, i.consumed_by, i.revoked_at, i.created_at, w.name AS workspace_name
+SELECT i.id, i.workspace_id, i.recipient_id, i.token_hash, i.invitee_name, i.invitee_email, i.role, i.invited_by, i.expires_at, i.consumed_at, i.consumed_by, i.revoked_at, i.created_at, i.invitee_username, w.name AS workspace_name
 FROM invitations i
 JOIN workspaces w ON w.id = i.workspace_id
 WHERE i.token_hash = $1
 `
 
 type GetInvitationByHashRow struct {
-	ID            uuid.UUID          `json:"id"`
-	WorkspaceID   uuid.UUID          `json:"workspace_id"`
-	RecipientID   pgtype.UUID        `json:"recipient_id"`
-	TokenHash     []byte             `json:"token_hash"`
-	InviteeName   string             `json:"invitee_name"`
-	InviteeEmail  pgtype.Text        `json:"invitee_email"`
-	Role          string             `json:"role"`
-	InvitedBy     uuid.UUID          `json:"invited_by"`
-	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt    pgtype.Timestamptz `json:"consumed_at"`
-	ConsumedBy    pgtype.UUID        `json:"consumed_by"`
-	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	WorkspaceName string             `json:"workspace_name"`
+	ID              uuid.UUID          `json:"id"`
+	WorkspaceID     uuid.UUID          `json:"workspace_id"`
+	RecipientID     pgtype.UUID        `json:"recipient_id"`
+	TokenHash       []byte             `json:"token_hash"`
+	InviteeName     string             `json:"invitee_name"`
+	InviteeEmail    pgtype.Text        `json:"invitee_email"`
+	Role            string             `json:"role"`
+	InvitedBy       uuid.UUID          `json:"invited_by"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy      pgtype.UUID        `json:"consumed_by"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	InviteeUsername pgtype.Text        `json:"invitee_username"`
+	WorkspaceName   string             `json:"workspace_name"`
 }
 
 // Public lookup used by the claim page. Returns the row regardless of state so
@@ -146,13 +149,14 @@ func (q *Queries) GetInvitationByHash(ctx context.Context, tokenHash []byte) (Ge
 		&i.ConsumedBy,
 		&i.RevokedAt,
 		&i.CreatedAt,
+		&i.InviteeUsername,
 		&i.WorkspaceName,
 	)
 	return i, err
 }
 
 const listPendingInvitations = `-- name: ListPendingInvitations :many
-SELECT id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at FROM invitations
+SELECT id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at, invitee_username FROM invitations
 WHERE workspace_id = $1
   AND consumed_at IS NULL
   AND revoked_at IS NULL
@@ -184,6 +188,7 @@ func (q *Queries) ListPendingInvitations(ctx context.Context, workspaceID uuid.U
 			&i.ConsumedBy,
 			&i.RevokedAt,
 			&i.CreatedAt,
+			&i.InviteeUsername,
 		); err != nil {
 			return nil, err
 		}
@@ -199,7 +204,7 @@ const revokeInvitation = `-- name: RevokeInvitation :one
 UPDATE invitations
 SET revoked_at = now()
 WHERE id = $1 AND workspace_id = $2 AND consumed_at IS NULL AND revoked_at IS NULL
-RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at
+RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at, invitee_username
 `
 
 type RevokeInvitationParams struct {
@@ -226,6 +231,7 @@ func (q *Queries) RevokeInvitation(ctx context.Context, arg RevokeInvitationPara
 		&i.ConsumedBy,
 		&i.RevokedAt,
 		&i.CreatedAt,
+		&i.InviteeUsername,
 	)
 	return i, err
 }

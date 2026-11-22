@@ -20,7 +20,7 @@ SET approval_status  = 'approved',
     rejection_reason = NULL,
     updated_at       = now()
 WHERE id = $2
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type ApproveUserParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) ApproveUser(ctx context.Context, arg ApproveUserParams) (User,
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -72,7 +73,7 @@ func (q *Queries) CountUsersByApprovalStatus(ctx context.Context, approvalStatus
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, full_name, avatar_url, google_id, locale)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type CreateUserParams struct {
@@ -111,6 +112,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -131,7 +133,7 @@ func (q *Queries) DemoteSuperAdminsNotIn(ctx context.Context, emails []string) e
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username FROM users
 WHERE id = $1
 `
 
@@ -157,12 +159,13 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username FROM users
 WHERE LOWER(email) = LOWER($1)
 `
 
@@ -188,12 +191,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, lower string) (User, error
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at FROM users
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username FROM users
 WHERE phone = $1
 `
 
@@ -222,6 +226,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, 
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -319,7 +324,7 @@ const markEmailVerified = `-- name: MarkEmailVerified :one
 UPDATE users
 SET email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 // COALESCE keeps the original verification timestamp: clicking a second magic
@@ -346,6 +351,7 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, er
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -365,7 +371,7 @@ const markPhoneVerified = `-- name: MarkPhoneVerified :one
 UPDATE users
 SET phone_verified_at = COALESCE(phone_verified_at, now()), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 // COALESCE for the same reason as MarkEmailVerified: re-authenticating later
@@ -392,6 +398,7 @@ func (q *Queries) MarkPhoneVerified(ctx context.Context, id uuid.UUID) (User, er
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -405,7 +412,7 @@ SET is_super_admin  = true,
     updated_at      = now()
 WHERE LOWER(email) = LOWER($1)
   AND (NOT is_super_admin OR approval_status <> 'approved')
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 // ─── Super-admin bootstrap ───────────────────────────────────────────────────
@@ -435,6 +442,7 @@ func (q *Queries) PromoteSuperAdminByEmail(ctx context.Context, email string) (U
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -447,7 +455,7 @@ SET approval_status  = 'rejected',
     rejection_reason = $2,
     updated_at       = now()
 WHERE id = $3
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type RejectUserParams struct {
@@ -480,6 +488,7 @@ func (q *Queries) RejectUser(ctx context.Context, arg RejectUserParams) (User, e
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -491,7 +500,7 @@ WHERE id = $1
   AND approval_status = 'approved'
   AND approved_at IS NULL
   AND NOT is_super_admin
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 // Marks a brand-new self-registering user as awaiting admin approval.
@@ -530,6 +539,7 @@ func (q *Queries) SetUserPendingApproval(ctx context.Context, id uuid.UUID) (Use
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -538,7 +548,7 @@ const setUserPhone = `-- name: SetUserPhone :one
 UPDATE users
 SET phone = $1, updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type SetUserPhoneParams struct {
@@ -570,6 +580,7 @@ func (q *Queries) SetUserPhone(ctx context.Context, arg SetUserPhoneParams) (Use
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -578,7 +589,7 @@ const updateUser = `-- name: UpdateUser :one
 UPDATE users
 SET email = $2, full_name = $3, avatar_url = $4, google_id = $5, locale = $6, email_verified_at = $7, is_active = $8, updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type UpdateUserParams struct {
@@ -623,6 +634,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -632,7 +644,7 @@ INSERT INTO users (email, locale)
 VALUES (LOWER($1), $2)
 ON CONFLICT (LOWER(email)) DO UPDATE
     SET updated_at = now()
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type UpsertUserByEmailParams struct {
@@ -666,6 +678,7 @@ func (q *Queries) UpsertUserByEmail(ctx context.Context, arg UpsertUserByEmailPa
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
@@ -675,7 +688,7 @@ INSERT INTO users (phone, locale)
 VALUES ($1, $2)
 ON CONFLICT (phone) WHERE phone IS NOT NULL DO UPDATE
     SET updated_at = now()
-RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
 `
 
 type UpsertUserByPhoneParams struct {
@@ -708,6 +721,7 @@ func (q *Queries) UpsertUserByPhone(ctx context.Context, arg UpsertUserByPhonePa
 		&i.IsSuperAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Username,
 	)
 	return i, err
 }
