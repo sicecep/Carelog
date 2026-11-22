@@ -14,7 +14,8 @@
     "next-intl": "^4.13.7",
     "phosphor-react": "^1.4.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sonner": "2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { X, CheckCircle, Minus, Plus } from "phosphor-react";
+import { X, Minus, Plus } from "phosphor-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { type LogCategory, type Module } from "@/lib/constants.generated";
 import { recipientApi, APIError } from "@/lib/api-client";
@@ -33,7 +34,6 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, modules,
   const [counts, setCounts] = useState<Partial<Record<LogCategory, number>>>({});
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Steppers cover the recipient's enabled modules; note is not countable
@@ -47,7 +47,6 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, modules,
     setCounts({});
     setNote("");
     setSubmitting(false);
-    setSuccess(false);
     setError(null);
   }, []);
 
@@ -80,9 +79,10 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, modules,
     recipientApi
       .submitDaySummary(workspaceId, recipientId, payload)
       .then(() => {
-        setSuccess(true);
+        // DESIGN.md §8.7: close straight away and confirm with a toast.
+        toast.success(t("saved"));
         onLogged?.();
-        setTimeout(handleClose, 1200);
+        handleClose();
       })
       .catch((err) => {
         setError(err instanceof APIError ? err.message : t("errorGeneric"));
@@ -118,73 +118,66 @@ export function SummarySheet({ open, onClose, recipientId, workspaceId, modules,
           </button>
         </div>
 
-        {success ? (
-          <div className="toast-success flex items-center gap-2" role="status">
-            <CheckCircle size={20} weight="fill" aria-hidden="true" />
-            <span>{t("saved")}</span>
-          </div>
-        ) : (
-          <div>
-            <p className="mb-4 text-sm text-[var(--color-text-muted)]">{t("hint")}</p>
+        <div>
+          <p className="mb-4 text-sm text-[var(--color-text-muted)]">{t("hint")}</p>
 
-            <ul className="space-y-3">
-              {countable.map((cat) => {
-                const n = counts[cat] ?? 0;
-                return (
-                  <li
-                    key={cat}
-                    className="flex items-center justify-between rounded-lg border-[1.5px] border-[var(--color-border-strong)] px-3 py-2"
-                  >
-                    <span className="text-base font-medium text-[var(--color-text)]">
-                      {tModules(cat)}
+          <ul className="space-y-3">
+            {countable.map((cat) => {
+              const n = counts[cat] ?? 0;
+              return (
+                <li
+                  key={cat}
+                  className="flex items-center justify-between rounded-lg border-[1.5px] border-[var(--color-border-strong)] px-3 py-2"
+                >
+                  <span className="text-base font-medium text-[var(--color-text)]">
+                    {tModules(cat)}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      aria-label={t("decrease", { category: tModules(cat) })}
+                      disabled={n === 0}
+                      onClick={() => bump(cat, -1)}
+                      className="btn-base btn-ghost btn-icon touch-target disabled:opacity-40"
+                    >
+                      <Minus size={18} weight="bold" aria-hidden="true" />
+                    </button>
+                    <span className="w-8 text-center text-base font-semibold tabular-nums text-[var(--color-text)]">
+                      {n}
                     </span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        aria-label={t("decrease", { category: tModules(cat) })}
-                        disabled={n === 0}
-                        onClick={() => bump(cat, -1)}
-                        className="btn-base btn-ghost btn-icon touch-target disabled:opacity-40"
-                      >
-                        <Minus size={18} weight="bold" aria-hidden="true" />
-                      </button>
-                      <span className="w-8 text-center text-base font-semibold tabular-nums text-[var(--color-text)]">
-                        {n}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={t("increase", { category: tModules(cat) })}
-                        disabled={n >= COUNT_MAX}
-                        onClick={() => bump(cat, 1)}
-                        className="btn-base btn-ghost btn-icon touch-target disabled:opacity-40"
-                      >
-                        <Plus size={18} weight="bold" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    <button
+                      type="button"
+                      aria-label={t("increase", { category: tModules(cat) })}
+                      disabled={n >= COUNT_MAX}
+                      onClick={() => bump(cat, 1)}
+                      className="btn-base btn-ghost btn-icon touch-target disabled:opacity-40"
+                    >
+                      <Plus size={18} weight="bold" aria-hidden="true" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
-            <textarea
-              rows={2}
-              maxLength={NOTE_MAX}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t("notePlaceholder")}
-              className="input-base mt-4 w-full resize-y py-3 text-base"
-            />
+          <textarea
+            rows={2}
+            maxLength={NOTE_MAX}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t("notePlaceholder")}
+            className="input-base mt-4 w-full resize-y py-3 text-base"
+          />
 
-            <button
-              type="button"
-              disabled={submitting || !hasCounts}
-              onClick={submit}
-              className="btn-base btn-primary mt-4 w-full py-3 text-base disabled:opacity-50"
-            >
-              {submitting ? t("saving") : t("save")}
-            </button>
-          </div>
-        )}
+          <button
+            type="button"
+            disabled={submitting || !hasCounts}
+            onClick={submit}
+            className="btn-base btn-primary mt-4 w-full py-3 text-base disabled:opacity-50"
+          >
+            {submitting ? t("saving") : t("save")}
+          </button>
+        </div>
 
         {error && (
           <p role="alert" className={cn("mt-4 text-sm text-[var(--color-error-ink)]")}>

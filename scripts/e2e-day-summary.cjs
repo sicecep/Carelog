@@ -147,8 +147,8 @@ async function main() {
 
     await cg.page.locator("[role='dialog'] textarea").fill(NOTE);
     await saveBtn.click();
-    await cg.page.waitForSelector("[role='status']", { timeout: 10000 });
-    const savedMsg = await cg.page.innerText("[role='status']").catch(() => "");
+    await cg.page.waitForSelector("[data-sonner-toast][data-type='success']", { timeout: 10000 });
+    const savedMsg = await cg.page.innerText("[data-sonner-toast][data-type='success']").catch(() => "");
     check("3a. save confirmation shown", savedMsg.includes("Tersimpan"), savedMsg.slice(0, 40));
 
     const dbRows = sql(

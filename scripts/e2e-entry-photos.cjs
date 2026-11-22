@@ -127,11 +127,11 @@ async function main() {
 
     // ── 2. Submit: upload first, then entry carries the URL ───────────────
     await cg.page.locator("[role='dialog'] button", { hasText: "Sarapan" }).click();
-    // Scope to the dialog: the timeline empty state (RPT-003) also uses
-    // role="status" and it lives on the page background, so an unscoped
-    // waitForSelector resolves to the wrong element and reads "empty".
-    await cg.page.waitForSelector("[role='dialog'] [role='status']", { timeout: 15000 });
-    const saved = await cg.page.innerText("[role='dialog'] [role='status']").catch(() => "");
+    // The sheet closes on save and confirms with a Sonner toast (DESIGN.md
+    // §8.7). Target the toast itself: the timeline empty state (RPT-003)
+    // also uses role="status", so a role-based selector reads "empty".
+    await cg.page.waitForSelector("[data-sonner-toast][data-type='success']", { timeout: 15000 });
+    const saved = await cg.page.innerText("[data-sonner-toast][data-type='success']").catch(() => "");
     check("2a. save confirmation shown", saved.includes("Tersimpan"), saved.slice(0, 40));
 
     const rows = sql(

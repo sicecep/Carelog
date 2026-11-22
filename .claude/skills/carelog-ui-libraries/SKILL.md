@@ -1,6 +1,6 @@
 ---
 name: carelog-ui-libraries
-description: Use when building or changing any CareLog web UI (web/) and deciding whether to use a component library — primitives (shadcn/ui, Radix, Base UI), toasts (Sonner), bottom sheets/drawers (Vaul), command menus (cmdk), animated numbers (NumberFlow), or visual/marketing component galleries (Magic UI, Aceternity UI, 21st.dev, Beautiful UI, RareUI). Says which library fits which CareLog surface and the rules for adding one.
+description: Use when building or changing any CareLog web UI (web/) and deciding whether to use a component library — primitives (shadcn/ui, Radix, Base UI), toasts (Sonner), bottom sheets/drawers (Radix Dialog; Vaul is unmaintained), command menus (cmdk), animated numbers (NumberFlow), or visual/marketing component galleries (Magic UI, Aceternity UI, 21st.dev, Beautiful UI, RareUI). Says which library fits which CareLog surface and the rules for adding one.
 ---
 
 # CareLog UI Libraries
@@ -17,9 +17,9 @@ For a generic "which library for task X" lookup outside this list, the vendored
 1. **Ask before adding a dependency** (repo rule, `CLAUDE.md`). Name the package, the version,
    the screen that needs it, and what it replaces. One library per PR.
 2. **Check `web/package.json` first.** If something already covers the task, use it. Today the
-   only UI deps are `clsx` and `phosphor-react`. Every sheet (`LoggingSheet`, `IncidentSheet`,
-   `SummarySheet`, `EditRecipientSheet`) is hand-built, so migrating one is a deliberate,
-   separate change, never a side effect.
+   UI deps are `clsx`, `phosphor-react` and `sonner`. Every sheet (`LoggingSheet`,
+   `IncidentSheet`, `SummarySheet`, `EditRecipientSheet`) is hand-built, so migrating one is a
+   deliberate, separate change, never a side effect.
 3. **This is Next.js 16, not the version you remember.** Read `web/AGENTS.md` and the guide in
    `web/node_modules/next/dist/docs/` before writing component code. Check that the library
    supports React 19.
@@ -56,24 +56,31 @@ For a generic "which library for task X" lookup outside this list, the vendored
 - CareLog fits: revoke confirmation (WRK-004 "Cabut akses …?" uses an alert dialog), date
   picker popover (RPT-003), settings selects, workspace switcher menu.
 
-### Toasts: **Sonner**
+### Toasts: **Sonner** (installed)
 
 - For short, non-blocking feedback: "Tersimpan" after a log entry saves (LOG-002/LOG-006),
   invite link copied, shift started/ended, network-failure retry.
-- Mount one `<Toaster />` in the locale layout (in a client leaf component). Position it
-  bottom-center on mobile, above the bottom nav.
+- Already mounted: `components/ui/Toaster.tsx` in the locale layout, `unstyled` and styled with
+  tokens, bottom-center and above the bottom nav. Just call `toast.success(t("…"))` from
+  `sonner`. Don't add a second `<Toaster />`.
+- A sheet that saves should close and confirm with a toast, not show a success panel inside
+  itself.
+- E2E scripts wait for `[data-sonner-toast][data-type='success']`, not `[role='status']`, which
+  also matches page empty states.
 - Don't use a toast for incidents, errors that need action, or access revocation. Those need a
   persistent banner or a page state (WRK-004 needs a clear "access removed" screen).
 
-### Bottom sheets / drawers: **Vaul**
+### Bottom sheets / drawers: **Radix Dialog** (not Vaul)
 
-- The candidate for the logging, incident, and summary sheets (LOG-002 "bottom sheet with
-  chips", INC-001). It gives drag-to-dismiss, focus trapping, and scroll locking that the
-  hand-built sheets have to do manually.
-- The incident sheet must open in one tap and never be dismissed by an accidental swipe. Gate
-  dismissal while the form is dirty.
-- Before proposing it, check the project's README/repo for current maintenance status and React
-  19 support.
+- **Don't add Vaul.** Its README says "This repo is unmaintained" (checked 2026-11-22: last
+  release 1.1.2 in Dec 2024, 163 open issues).
+- For the logging, incident and summary sheets (LOG-002 "bottom sheet with chips", INC-001),
+  build one shared bottom-sheet component on `@radix-ui/react-dialog`, the same primitive layer
+  as the rest of shadcn/ui. It gives focus trapping, scroll locking, Escape-to-close and focus
+  return that the hand-built sheets do manually. It does **not** give drag-to-dismiss; add that
+  only if a ticket asks for it.
+- The incident sheet must open in one tap and never be dismissed by an accidental tap outside.
+  Block dismissal while the form has input.
 
 ### Command menu: **cmdk**
 

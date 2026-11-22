@@ -90,8 +90,8 @@ async function main() {
     await tempInput.fill("36.8");
     check("2f. save enabled with valid value", (await saveBtn.isDisabled()) === false);
     await saveBtn.click();
-    await owner.page.waitForSelector("[role='status']", { timeout: 10000 });
-    const loggedMsg = await owner.page.innerText("[role='status']").catch(() => "");
+    await owner.page.waitForSelector("[data-sonner-toast][data-type='success']", { timeout: 10000 });
+    const loggedMsg = await owner.page.innerText("[data-sonner-toast][data-type='success']").catch(() => "");
     check("2g. save confirmation shown", loggedMsg.length > 0, loggedMsg.slice(0, 40));
 
     // ── 3. Persisted to DB with the structured measurement ───────────────
@@ -120,7 +120,7 @@ async function main() {
     await owner.page.locator("#vital-systolic").fill("120");
     await owner.page.locator("#vital-diastolic").fill("80");
     await owner.page.locator("[role='dialog'] button", { hasText: "Simpan" }).click();
-    await owner.page.waitForSelector("[role='status']", { timeout: 10000 });
+    await owner.page.waitForSelector("[data-sonner-toast][data-type='success']", { timeout: 10000 });
     await owner.page.goto(`${WEB}/id/recipients/${REC}`, { waitUntil: "networkidle" });
     const bodyId2 = await owner.page.innerText("body");
     check("4c. timeline renders 120/80 mmHg", bodyId2.includes("120/80 mmHg"));
@@ -150,7 +150,7 @@ async function main() {
     await owner.page.locator("button", { hasText: "Catat kegiatan" }).click();
     await owner.page.locator("button", { hasText: "Kesehatan" }).click();
     await owner.page.locator("button", { hasText: "Bersin" }).click();
-    await owner.page.waitForSelector("[role='status']", { timeout: 10000 });
+    await owner.page.waitForSelector("[data-sonner-toast][data-type='success']", { timeout: 10000 });
     const sneezeRows = sql(
       `SELECT count(*) FROM report_entries e
        JOIN daily_reports r ON r.id=e.report_id
