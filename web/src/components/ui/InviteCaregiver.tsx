@@ -102,7 +102,7 @@ export function InviteCaregiver({ workspaceId }: InviteCaregiverProps) {
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-[56px] items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-3 text-base font-semibold text-white hover:opacity-90"
+              className="flex min-h-[56px] items-center justify-center gap-2 rounded-lg bg-[var(--color-whatsapp)] px-4 py-3 text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
             >
               <WhatsappLogo size={22} weight="fill" aria-hidden="true" />
               <span>{t("sendWhatsApp")}</span>

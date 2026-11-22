@@ -459,7 +459,7 @@ export function IncidentSheet({
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] text-base font-semibold text-white hover:opacity-90"
+                  className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-whatsapp)] text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
                 >
                   <WhatsappLogo size={24} weight="fill" aria-hidden="true" />
                   <span>{t("shareWhatsApp")}</span>
