@@ -91,19 +91,20 @@ type Incident struct {
 }
 
 type Invitation struct {
-	ID           uuid.UUID          `json:"id"`
-	WorkspaceID  uuid.UUID          `json:"workspace_id"`
-	RecipientID  pgtype.UUID        `json:"recipient_id"`
-	TokenHash    []byte             `json:"token_hash"`
-	InviteeName  string             `json:"invitee_name"`
-	InviteeEmail pgtype.Text        `json:"invitee_email"`
-	Role         string             `json:"role"`
-	InvitedBy    uuid.UUID          `json:"invited_by"`
-	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt   pgtype.Timestamptz `json:"consumed_at"`
-	ConsumedBy   pgtype.UUID        `json:"consumed_by"`
-	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ID              uuid.UUID          `json:"id"`
+	WorkspaceID     uuid.UUID          `json:"workspace_id"`
+	RecipientID     pgtype.UUID        `json:"recipient_id"`
+	TokenHash       []byte             `json:"token_hash"`
+	InviteeName     string             `json:"invitee_name"`
+	InviteeEmail    pgtype.Text        `json:"invitee_email"`
+	Role            string             `json:"role"`
+	InvitedBy       uuid.UUID          `json:"invited_by"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt      pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy      pgtype.UUID        `json:"consumed_by"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	InviteeUsername pgtype.Text        `json:"invitee_username"`
 }
 
 type Notification struct {
@@ -237,6 +238,18 @@ type User struct {
 	IsSuperAdmin        bool               `json:"is_super_admin"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Username            pgtype.Text        `json:"username"`
+}
+
+type UserPassword struct {
+	UserID       uuid.UUID          `json:"user_id"`
+	PasswordHash string             `json:"password_hash"`
+	MustChange   bool               `json:"must_change"`
+	FailedCount  int32              `json:"failed_count"`
+	LockLevel    int32              `json:"lock_level"`
+	LockedUntil  pgtype.Timestamptz `json:"locked_until"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserPin struct {
@@ -246,6 +259,7 @@ type UserPin struct {
 	LockedUntil pgtype.Timestamptz `json:"locked_until"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	LockLevel   int32              `json:"lock_level"`
 }
 
 type Workspace struct {

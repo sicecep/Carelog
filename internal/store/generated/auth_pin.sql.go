@@ -236,7 +236,7 @@ func (q *Queries) GetTrustedDeviceByHash(ctx context.Context, tokenHash []byte) 
 }
 
 const getUserPIN = `-- name: GetUserPIN :one
-SELECT user_id, pin_hash, failed_count, locked_until, created_at, updated_at FROM user_pins WHERE user_id = $1
+SELECT user_id, pin_hash, failed_count, locked_until, created_at, updated_at, lock_level FROM user_pins WHERE user_id = $1
 `
 
 func (q *Queries) GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, error) {
@@ -249,6 +249,7 @@ func (q *Queries) GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, er
 		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LockLevel,
 	)
 	return i, err
 }
@@ -361,7 +362,7 @@ SET failed_count = failed_count + 1,
     END,
     updated_at = now()
 WHERE user_id = $3
-RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at
+RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at, lock_level
 `
 
 type RecordPINFailureParams struct {
@@ -382,6 +383,7 @@ func (q *Queries) RecordPINFailure(ctx context.Context, arg RecordPINFailurePara
 		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LockLevel,
 	)
 	return i, err
 }
@@ -431,7 +433,7 @@ ON CONFLICT (user_id) DO UPDATE
         failed_count = 0,
         locked_until = NULL,
         updated_at   = now()
-RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at
+RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at, lock_level
 `
 
 type UpsertUserPINParams struct {
@@ -453,6 +455,7 @@ func (q *Queries) UpsertUserPIN(ctx context.Context, arg UpsertUserPINParams) (U
 		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LockLevel,
 	)
 	return i, err
 }

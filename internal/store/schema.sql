@@ -49,14 +49,26 @@ CREATE TABLE users (
     is_super_admin       BOOLEAN NOT NULL DEFAULT false,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- An account with neither identity could never be authenticated as, yet
+    -- Caregiver login identifier alongside phone (login revamp D3). Lowercase,
+    -- unique case-insensitively app-wide, must contain a letter.
+    username             TEXT,
+    -- An account with no identity could never be authenticated as, yet
     -- would still hold workspace memberships.
-    CONSTRAINT users_identity_present CHECK (email IS NOT NULL OR phone IS NOT NULL),
-    CONSTRAINT users_phone_e164 CHECK (phone IS NULL OR phone ~ '^\+[1-9][0-9]{6,14}$')
+    CONSTRAINT users_identity_present
+        CHECK (email IS NOT NULL OR phone IS NOT NULL OR username IS NOT NULL),
+    CONSTRAINT users_phone_e164 CHECK (phone IS NULL OR phone ~ '^\+[1-9][0-9]{6,14}$'),
+    CONSTRAINT users_username_format CHECK (
+        username IS NULL OR (
+            username ~ '^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$'
+            AND username ~ '[a-z]'
+        )
+    )
 );
 
 CREATE UNIQUE INDEX idx_users_email_lower ON users (LOWER(email));
 CREATE UNIQUE INDEX idx_users_phone ON users (phone) WHERE phone IS NOT NULL;
+CREATE UNIQUE INDEX idx_users_username_lower ON users (LOWER(username))
+    WHERE username IS NOT NULL;
 CREATE INDEX idx_users_pending_approval ON users (created_at)
     WHERE approval_status = 'pending';
 CREATE INDEX idx_users_super_admin ON users (id) WHERE is_super_admin;
@@ -249,7 +261,14 @@ CREATE TABLE invitations (
     consumed_at   TIMESTAMPTZ,
     consumed_by   UUID REFERENCES users(id) ON DELETE SET NULL,
     revoked_at    TIMESTAMPTZ,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Username the owner picked at invite time (login revamp §5.2).
+    invitee_username TEXT CHECK (
+        invitee_username IS NULL OR (
+            invitee_username ~ '^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$'
+            AND invitee_username ~ '[a-z]'
+        )
+    )
 );
 
 CREATE INDEX idx_invitations_workspace ON invitations(workspace_id);
@@ -312,7 +331,9 @@ CREATE TABLE user_pins (
     failed_count INT NOT NULL DEFAULT 0,
     locked_until TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Consecutive locks; lock lasts 15 min * 2^lock_level, capped at 24 h.
+    lock_level   INT NOT NULL DEFAULT 0 CHECK (lock_level >= 0)
 );
 
 -- The raw device secret lives only in the client cookie; we store SHA-256.
@@ -363,4 +384,19 @@ CREATE TABLE caregiver_reminder_prefs (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (workspace_id, user_id)
+);
+
+-- ─── Login revamp: owner email/phone + password ─────────────────────────────
+
+CREATE TABLE user_passwords (
+    user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    -- argon2id PHC string, same format as user_pins.pin_hash.
+    password_hash TEXT NOT NULL,
+    -- Set by an admin-assisted reset; owner must pick a new password first.
+    must_change   BOOLEAN NOT NULL DEFAULT false,
+    failed_count  INT NOT NULL DEFAULT 0,
+    lock_level    INT NOT NULL DEFAULT 0 CHECK (lock_level >= 0),
+    locked_until  TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
