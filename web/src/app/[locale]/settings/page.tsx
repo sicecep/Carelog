@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -23,6 +24,7 @@ interface SettingsPageProps {
 export default async function SettingsPage({ params }: SettingsPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "workspaceSettings" });
+  const tAccount = await getTranslations({ locale, namespace: "settings" });
 
   // A server fetch has no cookie jar, so the incoming Cookie header is
   // forwarded explicitly. See authApi.me for the full reasoning.
@@ -48,8 +50,14 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
   const active = me?.workspaces.find((w) => w.active) ?? me?.workspaces[0] ?? null;
   let reminderPrefs: ReminderPrefs | null = null;
+  // Workspace endpoints answer password_change_required until an admin-issued
+  // temporary password is replaced; go straight to the change screen.
+  const mustChangePassword = me?.auth?.password_change_required ?? false;
+  // Owners sign in with a password (or should set one); caregivers use a
+  // PIN, so the section only shows when it applies.
+  const showPassword = Boolean(me?.auth?.has_password || active?.role === "owner");
 
-  if (active) {
+  if (active && !mustChangePassword) {
     try {
       const res = await workspaceApi.get(active.id, forwarded);
       workspace = res.data;
@@ -82,6 +90,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   // redirect() throws NEXT_REDIRECT, so it must run outside the try/catch that
   // would otherwise swallow it.
   if (redirectToLogin) redirect(`/${locale}/login`);
+  if (mustChangePassword) redirect(`/${locale}/change-password`);
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
@@ -99,6 +108,19 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             <WorkspaceSettingsForm workspace={workspace} locale={locale} />
             {reminderPrefs && active && (
               <ReminderSettings workspaceId={active.id} initial={reminderPrefs} />
+            )}
+            {showPassword && (
+              <section className="card mt-6" aria-labelledby="password-section-title">
+                <h2 id="password-section-title" className="text-lg font-semibold text-[var(--color-text)]">
+                  {tAccount("passwordSection")}
+                </h2>
+                <Link
+                  href={`/${locale}/change-password`}
+                  className="btn-base btn-secondary touch-target mt-4 w-full sm:w-auto"
+                >
+                  {me?.auth?.has_password ? tAccount("passwordChange") : tAccount("passwordSet")}
+                </Link>
+              </section>
             )}
           </>
         )}

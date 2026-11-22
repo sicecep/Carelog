@@ -18,6 +18,8 @@ import (
 // behind RequireSuperAdmin.
 type AdminHandlers struct {
 	Queries *store.Queries
+	// PasswordSvc issues admin-assisted password resets (login revamp D2).
+	PasswordSvc *service.PasswordAuthDeps
 }
 
 // The pending list is intentionally uncapped in the query semantics but
@@ -31,12 +33,14 @@ const defaultAdminListLimit = 200
 //	GET    /admin/users/pending/count   — badge count for the nav
 //	POST   /admin/users/{id}/approve    — approve a pending user
 //	POST   /admin/users/{id}/reject     — reject a pending user
+//	POST   /admin/users/{id}/password-reset — issue a temporary password
 func RegisterAdminRoutes(r chi.Router, h *AdminHandlers) {
 	r.Route("/admin", func(r chi.Router) {
 		r.Get("/users", HandlerFunc(h.handleListUsers).Wrap())
 		r.Get("/users/pending/count", HandlerFunc(h.handleCountPending).Wrap())
 		r.Post("/users/{id}/approve", HandlerFunc(h.handleApproveUser).Wrap())
 		r.Post("/users/{id}/reject", HandlerFunc(h.handleRejectUser).Wrap())
+		r.Post("/users/{id}/password-reset", HandlerFunc(h.handlePasswordReset).Wrap())
 	})
 }
 
@@ -155,6 +159,33 @@ func (h *AdminHandlers) handleRejectUser(w http.ResponseWriter, r *http.Request)
 		return err
 	}
 	OK(w, ptr(map[string]string{"status": "rejected"}))
+	return nil
+}
+
+// PasswordResetResponse carries the temporary password, shown to the admin
+// exactly once to send to the owner over WhatsApp.
+type PasswordResetResponse struct {
+	TemporaryPassword string `json:"temporary_password"`
+}
+
+// handlePasswordReset issues a temporary password for an owner (D2). The
+// owner must replace it on next login; every existing session is revoked.
+func (h *AdminHandlers) handlePasswordReset(w http.ResponseWriter, r *http.Request) error {
+	adminID, ok := middleware.SuperAdminIDFromContext(r.Context())
+	if !ok {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "super-admin context missing"}}}
+	}
+	targetID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "id", Message: "invalid UUID"}}}
+	}
+	temp, err := h.PasswordSvc.AdminResetPassword(r.Context(), adminID, targetID)
+	if err != nil {
+		return err
+	}
+	// A credential: never let a browser or proxy cache this response.
+	w.Header().Set("Cache-Control", "no-store")
+	OK(w, ptr(PasswordResetResponse{TemporaryPassword: temp}))
 	return nil
 }
 

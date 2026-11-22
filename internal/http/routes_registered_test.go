@@ -72,6 +72,13 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		"POST /api/v1/auth/pin/reset/complete",
 		"POST /api/v1/auth/pin/set",
 
+		// Login revamp: owner email/phone + password, and the super-admin
+		// reset that issues a temporary password.
+		"POST /api/v1/auth/register",
+		"POST /api/v1/auth/password/login",
+		"POST /api/v1/auth/password/change",
+		"POST /api/v1/admin/users/{id}/password-reset",
+
 		// AUTH-005: owner-side reset approvals (workspace group).
 		"GET /api/v1/workspace/pin-resets",
 		"POST /api/v1/workspace/pin-resets/{requestID}/approve",

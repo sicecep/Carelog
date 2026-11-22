@@ -2,19 +2,20 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { LoginForm } from "./login-form";
+import { OwnerLoginForm } from "./owner-login-form";
 import { PinLoginForm } from "./pin-login-form";
 
 type Method = "pin" | "email";
 
 /**
- * Chooses between the two sign-in methods (AUTH-005).
+ * Chooses between the two sign-in methods: caregiver phone + PIN (AUTH-005)
+ * and owner email/phone + password (login revamp D1).
  *
- * PIN is first and default: caregivers are the majority of daily logins and
- * the persona least able to deal with an email inbox. Owners sign in far
- * less often and are comfortable finding the second tab.
+ * PIN is first and default: caregivers are the majority of daily logins.
+ * Owners sign in far less often and are comfortable finding the second tab.
+ * (The role-choice screen replaces these tabs in a later PR — spec §7.)
  */
-export function LoginMethodTabs() {
+export function LoginMethodTabs({ supportWhatsApp }: { supportWhatsApp?: string }) {
   const t = useTranslations("auth");
   const [method, setMethod] = useState<Method>("pin");
 
@@ -49,7 +50,7 @@ export function LoginMethodTabs() {
         </button>
       </div>
 
-      {method === "pin" ? <PinLoginForm /> : <LoginForm />}
+      {method === "pin" ? <PinLoginForm /> : <OwnerLoginForm supportWhatsApp={supportWhatsApp} />}
     </div>
   );
 }

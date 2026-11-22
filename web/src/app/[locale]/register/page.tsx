@@ -3,16 +3,14 @@ import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { authApi, APIError } from "@/lib/api-client";
-import { LoginForm } from "../login/login-form";
+import { RegisterForm } from "./register-form";
 
 interface RegisterPageProps {
   params: Promise<{ locale: string }>;
 }
 
-// Register-framed entry to the magic-link flow. Same endpoint as /login —
-// the API deliberately doesn't distinguish sign-up from sign-in (email
-// enumeration protection) — so this page differs only in copy and, on
-// success, tells an existing account holder that the link signs them in.
+// Owner self-registration with email and/or phone + password (login revamp
+// D1). The account waits for super-admin approval before it can sign in.
 export default async function RegisterPage({ params }: RegisterPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "register" });
@@ -42,7 +40,7 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
           <p className="mt-2 text-base text-[var(--color-text-muted)]">{t("intro")}</p>
         </div>
 
-        <LoginForm variant="register" />
+        <RegisterForm />
 
         <p className="text-center text-sm text-[var(--color-text-muted)]">
           {t("haveAccount")}{" "}

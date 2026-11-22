@@ -35,6 +35,8 @@ type Querier interface {
 	CleanExpiredRefreshTokens(ctx context.Context) error
 	// Called after a successful verification.
 	ClearPINFailures(ctx context.Context, userID uuid.UUID) error
+	// After a successful login: the account is back in good standing.
+	ClearPasswordFailures(ctx context.Context, userID uuid.UUID) error
 	// Single-use claim. The WHERE clause is the guard: it only matches a row that
 	// is still unconsumed, unrevoked and unexpired, so a double-claim affects zero
 	// rows and returns ErrNoRows rather than granting access twice.
@@ -75,6 +77,10 @@ type Querier interface {
 	// Returns no row when the notification was already sent, which callers use to
 	// count what was actually delivered.
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	// Owner self-registration. Starts pending: a super-admin approves it before
+	// any session is issued. ON CONFLICT DO NOTHING covers both unique indexes
+	// (email, phone); no row back means the identity is already taken.
+	CreateOwnerUser(ctx context.Context, arg CreateOwnerUserParams) (User, error)
 	// ─── PIN reset requests ─────────────────────────────────────────────────────
 	// One pending request per user (partial unique index): re-asking refreshes
 	// the existing row instead of queueing a second prompt for the owner.
@@ -161,6 +167,9 @@ type Querier interface {
 	// second account.
 	GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error)
 	GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, error)
+	// Owner passwords (login revamp D1/D2). Lockout mechanics mirror user_pins,
+	// with a doubling backoff: each consecutive lock lasts twice as long.
+	GetUserPassword(ctx context.Context, userID uuid.UUID) (UserPassword, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, error)
 	GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error)
 	// Resolved per request by the workspace middleware. Role is never a JWT claim
@@ -177,6 +186,9 @@ type Querier interface {
 	// claim (claiming requires an authenticated session, and pending users don't
 	// get one). Comparison is case-insensitive to match the users email index.
 	HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error)
+	// True if the user owns at least one workspace. Admin password resets are
+	// for owners; a caregiver signs in with a PIN and has no password.
+	IsWorkspaceOwner(ctx context.Context, userID uuid.UUID) (bool, error)
 	// OWN-008D: who currently has access to this recipient. Joins users for
 	// display names; scoped by workspace for tenant safety.
 	ListActiveCaregiversForRecipient(ctx context.Context, arg ListActiveCaregiversForRecipientParams) ([]ListActiveCaregiversForRecipientRow, error)
@@ -314,6 +326,12 @@ type Querier interface {
 	// Increments the counter and locks once the threshold is crossed. Doing both
 	// in one statement keeps concurrent attempts from racing past the limit.
 	RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (UserPin, error)
+	// One statement so concurrent attempts cannot race past the threshold.
+	// Every SET expression reads the row as it was BEFORE this update, so the
+	// CASE arms agree on whether this failure is the one that locks.
+	// On the locking failure: lock for base_seconds * 2^lock_level (capped),
+	// raise lock_level, and restart the count for the next window.
+	RecordPasswordFailure(ctx context.Context, arg RecordPasswordFailureParams) (UserPassword, error)
 	// Rejection is reversible (an admin can approve later), so the row is kept
 	// rather than deleted — the audit trail is the point.
 	RejectUser(ctx context.Context, arg RejectUserParams) (User, error)
@@ -325,6 +343,8 @@ type Querier interface {
 	// WRK-004.2: owner cancels an outstanding invite. Workspace-scoped so an owner
 	// cannot revoke another tenant's invitation.
 	RevokeInvitation(ctx context.Context, arg RevokeInvitationParams) (Invitation, error)
+	// Password change: sign out every other session but keep the current one.
+	RevokeOtherUserRefreshFamilies(ctx context.Context, arg RevokeOtherUserRefreshFamiliesParams) error
 	// Used by logout and by reuse detection; kills every token in the lineage.
 	RevokeRefreshTokenFamily(ctx context.Context, familyID uuid.UUID) error
 	RevokeTrustedDevice(ctx context.Context, arg RevokeTrustedDeviceParams) error
@@ -408,6 +428,10 @@ type Querier interface {
 	// enrolment or an approved reset, so stale failure state must not follow
 	// them into the new PIN.
 	UpsertUserPIN(ctx context.Context, arg UpsertUserPINParams) (UserPin, error)
+	// Sets a new hash and clears all lockout state. Used for signup, a
+	// self-service change (must_change = false) and an admin reset
+	// (must_change = true).
+	UpsertUserPassword(ctx context.Context, arg UpsertUserPasswordParams) (UserPassword, error)
 }
 
 var _ Querier = (*Queries)(nil)
