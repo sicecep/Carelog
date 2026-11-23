@@ -41,23 +41,25 @@ func (q *Queries) CountActiveRecipientsByWorkspace(ctx context.Context, workspac
 }
 
 const createCareRecipient = `-- name: CreateCareRecipient :one
-INSERT INTO care_recipients (workspace_id, full_name, display_name, care_type, date_of_birth, gender, photo_url, notes, medical_notes, enabled_modules, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at
+INSERT INTO care_recipients (workspace_id, full_name, display_name, care_type, date_of_birth, gender, photo_url, notes, medical_notes, enabled_modules, created_by, weight_kg, height_cm)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at, weight_kg, height_cm
 `
 
 type CreateCareRecipientParams struct {
-	WorkspaceID    uuid.UUID   `json:"workspace_id"`
-	FullName       string      `json:"full_name"`
-	DisplayName    pgtype.Text `json:"display_name"`
-	CareType       string      `json:"care_type"`
-	DateOfBirth    pgtype.Date `json:"date_of_birth"`
-	Gender         pgtype.Text `json:"gender"`
-	PhotoUrl       pgtype.Text `json:"photo_url"`
-	Notes          pgtype.Text `json:"notes"`
-	MedicalNotes   pgtype.Text `json:"medical_notes"`
-	EnabledModules []byte      `json:"enabled_modules"`
-	CreatedBy      pgtype.UUID `json:"created_by"`
+	WorkspaceID    uuid.UUID      `json:"workspace_id"`
+	FullName       string         `json:"full_name"`
+	DisplayName    pgtype.Text    `json:"display_name"`
+	CareType       string         `json:"care_type"`
+	DateOfBirth    pgtype.Date    `json:"date_of_birth"`
+	Gender         pgtype.Text    `json:"gender"`
+	PhotoUrl       pgtype.Text    `json:"photo_url"`
+	Notes          pgtype.Text    `json:"notes"`
+	MedicalNotes   pgtype.Text    `json:"medical_notes"`
+	EnabledModules []byte         `json:"enabled_modules"`
+	CreatedBy      pgtype.UUID    `json:"created_by"`
+	WeightKg       pgtype.Numeric `json:"weight_kg"`
+	HeightCm       pgtype.Numeric `json:"height_cm"`
 }
 
 func (q *Queries) CreateCareRecipient(ctx context.Context, arg CreateCareRecipientParams) (CareRecipient, error) {
@@ -73,6 +75,8 @@ func (q *Queries) CreateCareRecipient(ctx context.Context, arg CreateCareRecipie
 		arg.MedicalNotes,
 		arg.EnabledModules,
 		arg.CreatedBy,
+		arg.WeightKg,
+		arg.HeightCm,
 	)
 	var i CareRecipient
 	err := row.Scan(
@@ -91,6 +95,8 @@ func (q *Queries) CreateCareRecipient(ctx context.Context, arg CreateCareRecipie
 		&i.EnabledModules,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeightKg,
+		&i.HeightCm,
 	)
 	return i, err
 }
@@ -112,7 +118,7 @@ func (q *Queries) DeactivateCareRecipient(ctx context.Context, arg DeactivateCar
 }
 
 const getCareRecipient = `-- name: GetCareRecipient :one
-SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
+SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at, weight_kg, height_cm FROM care_recipients
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -140,12 +146,14 @@ func (q *Queries) GetCareRecipient(ctx context.Context, arg GetCareRecipientPara
 		&i.EnabledModules,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeightKg,
+		&i.HeightCm,
 	)
 	return i, err
 }
 
 const listArchivedCareRecipientsByWorkspace = `-- name: ListArchivedCareRecipientsByWorkspace :many
-SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
+SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at, weight_kg, height_cm FROM care_recipients
 WHERE workspace_id = $1 AND is_active = false
 ORDER BY updated_at DESC
 `
@@ -178,6 +186,8 @@ func (q *Queries) ListArchivedCareRecipientsByWorkspace(ctx context.Context, wor
 			&i.EnabledModules,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.WeightKg,
+			&i.HeightCm,
 		); err != nil {
 			return nil, err
 		}
@@ -190,7 +200,7 @@ func (q *Queries) ListArchivedCareRecipientsByWorkspace(ctx context.Context, wor
 }
 
 const listCareRecipientsByWorkspace = `-- name: ListCareRecipientsByWorkspace :many
-SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at FROM care_recipients
+SELECT id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at, weight_kg, height_cm FROM care_recipients
 WHERE workspace_id = $1 AND is_active = true
 ORDER BY created_at
 `
@@ -220,6 +230,8 @@ func (q *Queries) ListCareRecipientsByWorkspace(ctx context.Context, workspaceID
 			&i.EnabledModules,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.WeightKg,
+			&i.HeightCm,
 		); err != nil {
 			return nil, err
 		}
@@ -252,23 +264,25 @@ func (q *Queries) ReactivateCareRecipient(ctx context.Context, arg ReactivateCar
 
 const updateCareRecipient = `-- name: UpdateCareRecipient :one
 UPDATE care_recipients
-SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, updated_at = now()
+SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, weight_kg = $12, height_cm = $13, updated_at = now()
 WHERE id = $1 AND workspace_id = $11
-RETURNING id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at
+RETURNING id, workspace_id, full_name, display_name, date_of_birth, care_type, gender, photo_url, notes, medical_notes, is_active, created_by, enabled_modules, created_at, updated_at, weight_kg, height_cm
 `
 
 type UpdateCareRecipientParams struct {
-	ID             uuid.UUID   `json:"id"`
-	FullName       string      `json:"full_name"`
-	DisplayName    pgtype.Text `json:"display_name"`
-	CareType       string      `json:"care_type"`
-	DateOfBirth    pgtype.Date `json:"date_of_birth"`
-	Gender         pgtype.Text `json:"gender"`
-	PhotoUrl       pgtype.Text `json:"photo_url"`
-	Notes          pgtype.Text `json:"notes"`
-	MedicalNotes   pgtype.Text `json:"medical_notes"`
-	EnabledModules []byte      `json:"enabled_modules"`
-	WorkspaceID    uuid.UUID   `json:"workspace_id"`
+	ID             uuid.UUID      `json:"id"`
+	FullName       string         `json:"full_name"`
+	DisplayName    pgtype.Text    `json:"display_name"`
+	CareType       string         `json:"care_type"`
+	DateOfBirth    pgtype.Date    `json:"date_of_birth"`
+	Gender         pgtype.Text    `json:"gender"`
+	PhotoUrl       pgtype.Text    `json:"photo_url"`
+	Notes          pgtype.Text    `json:"notes"`
+	MedicalNotes   pgtype.Text    `json:"medical_notes"`
+	EnabledModules []byte         `json:"enabled_modules"`
+	WorkspaceID    uuid.UUID      `json:"workspace_id"`
+	WeightKg       pgtype.Numeric `json:"weight_kg"`
+	HeightCm       pgtype.Numeric `json:"height_cm"`
 }
 
 func (q *Queries) UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipientParams) (CareRecipient, error) {
@@ -284,6 +298,8 @@ func (q *Queries) UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipie
 		arg.MedicalNotes,
 		arg.EnabledModules,
 		arg.WorkspaceID,
+		arg.WeightKg,
+		arg.HeightCm,
 	)
 	var i CareRecipient
 	err := row.Scan(
@@ -302,6 +318,8 @@ func (q *Queries) UpdateCareRecipient(ctx context.Context, arg UpdateCareRecipie
 		&i.EnabledModules,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeightKg,
+		&i.HeightCm,
 	)
 	return i, err
 }

@@ -264,13 +264,37 @@ func TestIsValidLogSubcategoryFor(t *testing.T) {
 	require.False(t, domain.IsValidLogSubcategoryFor(domain.LogCategoryNote, "something"))
 }
 
-// TestIsDiaperAllowedFor enforces LOG-002.1: diaper is child/infant only.
-func TestIsDiaperAllowedFor(t *testing.T) {
-	require.True(t, domain.IsDiaperAllowedFor(domain.CareTypeChild))
-	require.True(t, domain.IsDiaperAllowedFor(domain.CareTypeInfant))
-	require.False(t, domain.IsDiaperAllowedFor(domain.CareTypeElderly))
-	require.False(t, domain.IsDiaperAllowedFor(domain.CareTypePatient))
-	require.False(t, domain.IsDiaperAllowedFor(domain.CareType("alien")))
+// TestRecipientMeasurementRanges pins the profile bounds to the CHECK
+// constraints in migration 20261123100000_recipient_weight_height.
+func TestRecipientMeasurementRanges(t *testing.T) {
+	tests := []struct {
+		name  string
+		r     domain.MeasurementRange
+		value float64
+		want  bool
+	}{
+		{"weight at min", domain.RecipientWeight, 0.5, true},
+		{"weight at max", domain.RecipientWeight, 300, true},
+		{"weight below min", domain.RecipientWeight, 0.49, false},
+		{"weight above max", domain.RecipientWeight, 300.01, false},
+		{"height at min", domain.RecipientHeight, 20, true},
+		{"height at max", domain.RecipientHeight, 250, true},
+		{"height below min", domain.RecipientHeight, 19.9, false},
+		{"height above max", domain.RecipientHeight, 250.1, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, tc.r.Contains(tc.value))
+		})
+	}
+}
+
+func TestGenders(t *testing.T) {
+	for _, g := range domain.Genders {
+		require.True(t, domain.IsValidGender(g.String()))
+	}
+	require.False(t, domain.IsValidGender(""))
+	require.False(t, domain.IsValidGender("Male"))
 }
 
 // TestMaxNoteLength ensures the constant is correct per LOG-005.

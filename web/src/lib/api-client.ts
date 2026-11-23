@@ -1,7 +1,7 @@
 // API client for talking to the Go backend.
 // All paths are proxied through /api/* to the backend running on :8080.
 
-import type { CareType, Module, LogCategory, TaskStatus, NotificationType } from "./constants.generated";
+import type { CareType, Gender, Module, LogCategory, TaskStatus, NotificationType } from "./constants.generated";
 import type { LogSubcategory } from "./log-subcategories";
 
 // Paths are proxied through /api/* to the Go backend by next.config.ts
@@ -214,6 +214,11 @@ export interface Recipient {
   display_name?: string;
   care_type: CareType;
   enabled_modules: Module[];
+  /** Optional profile details; absent when not set. */
+  gender?: Gender;
+  date_of_birth?: string; // YYYY-MM-DD
+  weight_kg?: number;
+  height_cm?: number;
   is_active: boolean;
   created_at: string;
 }
@@ -263,14 +268,31 @@ export const recipientApi = {
   // POST /api/v1/recipients - Create a recipient (used by the onboarding wizard).
   create: (
     workspaceId: string,
-    body: { full_name: string; care_type: CareType; enabled_modules: Module[] }
+    body: {
+      full_name: string;
+      care_type: CareType;
+      enabled_modules: Module[];
+      gender?: Gender;
+      date_of_birth?: string;
+      weight_kg?: number;
+      height_cm?: number;
+    }
   ) => api.post<Recipient>("/api/v1/recipients", body, { "X-Workspace-ID": workspaceId }),
 
   // PATCH /api/v1/recipients/{id} - Edit a recipient.
   update: (
     workspaceId: string,
     recipientId: string,
-    body: { full_name?: string; display_name?: string }
+    body: {
+      full_name?: string;
+      display_name?: string;
+      // "" clears gender / date_of_birth; null clears weight / height.
+      // An absent key keeps the current value.
+      gender?: Gender | "";
+      date_of_birth?: string;
+      weight_kg?: number | null;
+      height_cm?: number | null;
+    }
   ) => api.patch<Recipient>(`/api/v1/recipients/${recipientId}`, body, { "X-Workspace-ID": workspaceId }),
 
   // GET /api/v1/recipients?archived=true - List archived (soft-deleted)

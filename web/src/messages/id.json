@@ -199,6 +199,29 @@
     "editError": "Gagal menyimpan. Coba lagi.",
     "editOpen": "Ubah profil"
   },
+  "recipientDetails": {
+    "heading": "Detail profil",
+    "optional": "opsional",
+    "hint": "Boleh dikosongkan dan diisi nanti.",
+    "gender": "Jenis kelamin",
+    "genders": {
+      "male": "Laki-laki",
+      "female": "Perempuan",
+      "other": "Lainnya"
+    },
+    "genderClearHint": "Ketuk lagi untuk membatalkan pilihan.",
+    "dateOfBirth": "Tanggal lahir",
+    "weight": "Berat badan",
+    "height": "Tinggi badan",
+    "invalidNumber": "Masukkan angka, misalnya 52,5.",
+    "outOfRange": "Harus antara {min, number} dan {max, number} {unit}.",
+    "invalidDate": "Tanggal tidak valid.",
+    "futureDate": "Tanggal lahir tidak boleh di masa depan.",
+    "fixErrors": "Periksa kembali detail profil.",
+    "ageYears": "{count} tahun",
+    "ageMonths": "{count} bulan",
+    "detailsLabel": "Detail profil"
+  },
   "reports": {
     "title": "Laporan Harian",
     "newReport": "Laporan baru",

@@ -16,6 +16,13 @@ import {
   Module,
 } from "@/lib/constants.generated";
 import { APIError, authApi, recipientApi, type AuthWorkspace } from "@/lib/api-client";
+import { RecipientDetailsFields } from "@/components/ui/RecipientDetailsFields";
+import {
+  EMPTY_RECIPIENT_DETAILS,
+  parseRecipientDetails,
+  type RecipientDetailsDraft,
+  type RecipientDetailsErrors,
+} from "@/lib/recipient-details";
 
 type Step = 1 | 2 | 3;
 
@@ -33,6 +40,8 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
   const [careType, setCareType] = useState<CareType | null>(null);
   const [enabledModules, setEnabledModules] = useState<Module[]>([]);
+  const [details, setDetails] = useState<RecipientDetailsDraft>(EMPTY_RECIPIENT_DETAILS);
+  const [detailErrors, setDetailErrors] = useState<RecipientDetailsErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The workspace is provisioned server-side on first login, so it should
@@ -63,7 +72,8 @@ export default function OnboardingPage() {
 
   const handleCareTypeSelect = useCallback((type: CareType) => {
     setCareType(type);
-    // Get default modules for this care type from generated constants
+    // Pre-select the care type's suggested modules; step 3 still offers
+    // every module, and the owner may switch any of them on.
     const defaults = DEFAULT_MODULES_FOR_CARE_TYPE[type];
     if (defaults) {
       setEnabledModules([...defaults]);
@@ -79,6 +89,13 @@ export default function OnboardingPage() {
   const canSubmitStep2 = name.trim().length > 0 && careType !== null;
   const canSubmitStep3 = enabledModules.length > 0;
 
+  // Step 2 -> 3: the optional details must be valid (or empty) to continue.
+  const handleStep2Next = () => {
+    const { errors } = parseRecipientDetails(details);
+    setDetailErrors(errors);
+    if (Object.keys(errors).length === 0) setStep(3);
+  };
+
   const handleSubmit = async () => {
     if (!workspace) {
       setError(tCommon("error"));
@@ -88,10 +105,16 @@ export default function OnboardingPage() {
     setError(null);
     try {
       // Call the Go API with workspace header
+      const { values } = parseRecipientDetails(details);
       const res = await recipientApi.create(workspace.id, {
         full_name: name,
         care_type: careType!,
         enabled_modules: enabledModules,
+        // Empty optional fields are left out rather than sent as blanks.
+        ...(values.gender && { gender: values.gender }),
+        ...(values.date_of_birth && { date_of_birth: values.date_of_birth }),
+        ...(values.weight_kg != null && { weight_kg: values.weight_kg }),
+        ...(values.height_cm != null && { height_cm: values.height_cm }),
       });
 
       if (!res.data) {
@@ -211,11 +234,21 @@ export default function OnboardingPage() {
                   )}
                 </fieldset>
 
+                <RecipientDetailsFields
+                  idPrefix="onboarding-details"
+                  value={details}
+                  onChange={(next) => {
+                    setDetails(next);
+                    setDetailErrors({});
+                  }}
+                  errors={detailErrors}
+                />
+
                 <div className="flex gap-3">
                   <Button variant="secondary" className="flex-1" onClick={exitStep2}>
                     {t("back")}
                   </Button>
-                  <Button className="flex-1" disabled={!canSubmitStep2} onClick={() => setStep(3)}>
+                  <Button className="flex-1" disabled={!canSubmitStep2} onClick={handleStep2Next}>
                     {t("next")}
                   </Button>
                 </div>

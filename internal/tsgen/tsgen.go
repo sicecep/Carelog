@@ -31,6 +31,7 @@ func Render() []byte {
 	writeEnum(&b, "Role", "ROLES", toStrings(domain.Roles))
 	writeEnum(&b, "CareType", "CARE_TYPES", toStrings(domain.CareTypes))
 	writeEnum(&b, "Module", "MODULES", toStrings(domain.Modules))
+	writeEnum(&b, "Gender", "GENDERS", toStrings(domain.Genders))
 	writeEnum(&b, "LogCategory", "LOG_CATEGORIES", toStrings(domain.LogCategories))
 	writeEnum(&b, "IncidentType", "INCIDENT_TYPES", toStrings(domain.IncidentTypes))
 	writeEnum(&b, "Severity", "SEVERITIES", toStrings(domain.Severities))
@@ -45,6 +46,7 @@ func Render() []byte {
 	writeDefaultModules(&b)
 	writePlanLimits(&b)
 	writeVitalSpecs(&b)
+	writeRecipientMeasurements(&b)
 
 	fmt.Fprintf(&b, "\nexport const DEFAULT_LOCALE: Locale = %q;\n", domain.DefaultLocale.String())
 
@@ -63,8 +65,7 @@ func writeEnum(b *strings.Builder, typeName, constName string, values []string) 
 }
 
 // writeDefaultModules emits the per-care-type module defaults the onboarding
-// wizard pre-checks. Emitting them keeps the wizard from hard-coding a list that
-// would silently drift from the server's subset validation.
+// wizard pre-checks. They are a suggestion: the owner may enable any module.
 func writeDefaultModules(b *strings.Builder) {
 	b.WriteString("\nexport const DEFAULT_MODULES_FOR_CARE_TYPE = {\n")
 	for _, c := range domain.CareTypes {
@@ -107,6 +108,22 @@ func nullableInt(p *int) string {
 		return "null"
 	}
 	return fmt.Sprintf("%d", *p)
+}
+
+// writeRecipientMeasurements emits the ranges of the optional weight and
+// height on a recipient's profile, so the form's min/max match the server.
+func writeRecipientMeasurements(b *strings.Builder) {
+	b.WriteString("\nexport const RECIPIENT_MEASUREMENTS = {\n")
+	for _, m := range []struct {
+		key string
+		r   domain.MeasurementRange
+	}{
+		{"weight_kg", domain.RecipientWeight},
+		{"height_cm", domain.RecipientHeight},
+	} {
+		fmt.Fprintf(b, "  %s: { min: %g, max: %g, unit: %q },\n", m.key, m.r.Min, m.r.Max, m.r.Unit)
+	}
+	b.WriteString("} as const;\n")
 }
 
 // writeVitalSpecs emits the vitals table (CGR-009 / HLT-001) the logging UI

@@ -22,12 +22,13 @@ import {
   ClipboardText,
   PencilSimple,
 } from "phosphor-react";
-import { CARE_TYPES, MODULES, VITAL_SPECS, type CareType, type Module } from "@/lib/constants.generated";
+import { CARE_TYPES, GENDERS, MODULES, RECIPIENT_MEASUREMENTS, VITAL_SPECS, type CareType, type Gender, type Module } from "@/lib/constants.generated";
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 import { SummarySheet } from "@/components/ui/SummarySheet";
 import { formatClock } from "@/lib/format-time";
 import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
+import { ageFrom } from "@/lib/recipient-details";
 
 // formatVitalMeasurement renders a stored vital for the timeline (CGR-009):
 // single-field vitals as "36.8 °C", blood pressure as "120/80 mmHg".
@@ -72,6 +73,10 @@ function isCareType(value: string): value is CareType {
   return (CARE_TYPES as readonly string[]).includes(value);
 }
 
+function isGender(value: string): value is Gender {
+  return (GENDERS as readonly string[]).includes(value);
+}
+
 function isModule(value: string): value is Module {
   return (MODULES as readonly string[]).includes(value);
 }
@@ -79,6 +84,8 @@ function isModule(value: string): value is Module {
 
 interface DetailHeaderProps {
   recipient: Recipient;
+  /** YYYY-MM-DD in the workspace timezone, for the age. */
+  today: string;
   /**
    * Set for owners only: shows "Ubah profil" and its sheet. Profile edits
    * are owner-only (AUTH-004), and the API enforces it too.
@@ -86,9 +93,11 @@ interface DetailHeaderProps {
   editWorkspaceId?: string;
 }
 
-export function DetailHeader({ recipient, editWorkspaceId }: DetailHeaderProps) {
+export function DetailHeader({ recipient, today, editWorkspaceId }: DetailHeaderProps) {
   const tRecipients = useTranslations("recipients");
   const tOnboarding = useTranslations("onboarding");
+  const tDetails = useTranslations("recipientDetails");
+  const locale = useLocale();
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -97,6 +106,22 @@ export function DetailHeader({ recipient, editWorkspaceId }: DetailHeaderProps) 
   const careType = isCareType(recipient.care_type) ? recipient.care_type : null;
   const CareIcon = careType ? careTypeIcons[careType] : null;
   const modules = (recipient.enabled_modules ?? []).filter(isModule);
+
+  // Optional profile details, in reading order; empty ones are skipped.
+  // The number format is pinned to the app locale so server and browser
+  // render the same text ("52,5 kg" in Indonesian).
+  const numberFormat = new Intl.NumberFormat(locale === "id" ? "id-ID" : "en-GB", { maximumFractionDigits: 2 });
+  const age = ageFrom(recipient.date_of_birth, today);
+  const details = [
+    recipient.gender && isGender(recipient.gender) ? tDetails(`genders.${recipient.gender}`) : null,
+    age ? tDetails(age.unit === "months" ? "ageMonths" : "ageYears", { count: age.count }) : null,
+    recipient.weight_kg != null
+      ? `${numberFormat.format(recipient.weight_kg)} ${RECIPIENT_MEASUREMENTS.weight_kg.unit}`
+      : null,
+    recipient.height_cm != null
+      ? `${numberFormat.format(recipient.height_cm)} ${RECIPIENT_MEASUREMENTS.height_cm.unit}`
+      : null,
+  ].filter((d): d is string => d !== null);
 
   return (
     <section className="card">
@@ -115,6 +140,21 @@ export function DetailHeader({ recipient, editWorkspaceId }: DetailHeaderProps) 
               <CareIcon size={20} weight="thin" aria-hidden="true" />
               <span>{tRecipients(`careTypes.${careType}`)}</span>
             </p>
+          )}
+          {details.length > 0 && (
+            <ul
+              aria-label={tDetails("detailsLabel")}
+              className="mt-1 flex flex-wrap gap-x-2 text-base text-[var(--color-text-muted)]"
+            >
+              {/* Separator trails each item, so a wrapped line never
+                  starts with a dangling "·". */}
+              {details.map((d, i) => (
+                <li key={d} className="whitespace-nowrap">
+                  {d}
+                  {i < details.length - 1 && <span aria-hidden="true" className="ml-2">·</span>}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

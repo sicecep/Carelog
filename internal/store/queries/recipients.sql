@@ -1,6 +1,6 @@
 -- name: CreateCareRecipient :one
-INSERT INTO care_recipients (workspace_id, full_name, display_name, care_type, date_of_birth, gender, photo_url, notes, medical_notes, enabled_modules, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO care_recipients (workspace_id, full_name, display_name, care_type, date_of_birth, gender, photo_url, notes, medical_notes, enabled_modules, created_by, weight_kg, height_cm)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: GetCareRecipient :one
@@ -26,7 +26,7 @@ WHERE workspace_id = $1 AND is_active = true;
 
 -- name: UpdateCareRecipient :one
 UPDATE care_recipients
-SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, updated_at = now()
+SET full_name = $2, display_name = $3, care_type = $4, date_of_birth = $5, gender = $6, photo_url = $7, notes = $8, medical_notes = $9, enabled_modules = $10, weight_kg = $12, height_cm = $13, updated_at = now()
 WHERE id = $1 AND workspace_id = $11
 RETURNING *;
 

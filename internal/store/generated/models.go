@@ -36,6 +36,8 @@ type CareRecipient struct {
 	EnabledModules []byte             `json:"enabled_modules"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	WeightKg       pgtype.Numeric     `json:"weight_kg"`
+	HeightCm       pgtype.Numeric     `json:"height_cm"`
 }
 
 type CaregiverAssignment struct {

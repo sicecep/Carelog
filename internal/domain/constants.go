@@ -78,10 +78,10 @@ func (m Module) String() string { return string(m) }
 func IsValidModule(s string) bool { return isValid(Modules, s) }
 
 // defaultModules holds the modules pre-selected when a profile of each care type
-// is created. The onboarding wizard offers exactly this set, and a recipient's
-// enabled_modules must be a subset of it — a care type never gains a module that
-// makes no sense for it (an infant has no therapy log; a patient has no diaper
-// log).
+// is created. They are a suggestion only: the owner may switch on any module
+// for any care type (an elderly parent may need the diaper log, a child may
+// need medication), so the server validates modules against Modules, not
+// against this map.
 var defaultModules = map[CareType][]Module{
 	CareTypeInfant: {
 		ModuleMeal, ModuleSleep, ModuleDiaper, ModuleHealth, ModuleMood, ModuleNote,
@@ -112,6 +112,45 @@ func DefaultModulesForCareType(c CareType) ([]Module, bool) {
 	copy(out, mods)
 	return out, true
 }
+
+// Gender is a care recipient's gender. Optional on the profile; the values
+// mirror the CHECK constraint on care_recipients.gender.
+type Gender string
+
+const (
+	GenderMale   Gender = "male"
+	GenderFemale Gender = "female"
+	GenderOther  Gender = "other"
+)
+
+// Genders lists every valid Gender in display order.
+var Genders = []Gender{GenderMale, GenderFemale, GenderOther}
+
+func (g Gender) String() string { return string(g) }
+
+// IsValidGender reports whether s names a known gender.
+func IsValidGender(s string) bool { return isValid(Genders, s) }
+
+// MeasurementRange is the inclusive range an optional profile measurement
+// accepts, in Unit. The bounds match the CHECK constraints on
+// care_recipients, so the API rejects a bad value with a 400 before the
+// database would.
+type MeasurementRange struct {
+	Min  float64
+	Max  float64
+	Unit string
+}
+
+// Contains reports whether v lies within the range.
+func (r MeasurementRange) Contains(v float64) bool { return v >= r.Min && v <= r.Max }
+
+// RecipientWeight bounds care_recipients.weight_kg: from a premature newborn
+// to the heaviest adult the vitals log accepts.
+var RecipientWeight = MeasurementRange{Min: 0.5, Max: 300, Unit: "kg"}
+
+// RecipientHeight bounds care_recipients.height_cm: from a premature newborn
+// to a very tall adult.
+var RecipientHeight = MeasurementRange{Min: 20, Max: 250, Unit: "cm"}
 
 // LogCategory is the category of a single report entry.
 type LogCategory string
@@ -336,12 +375,6 @@ func IsValidLogSubcategoryFor(c LogCategory, sub string) bool {
 		return sub == "" // categories without subs only allow empty
 	}
 	return isValid(subs, sub)
-}
-
-// IsDiaperAllowedFor reports whether the diaper log is permitted for the given
-// care type. Per LOG-002.1, diapers are for child and infant only.
-func IsDiaperAllowedFor(c CareType) bool {
-	return c == CareTypeChild || c == CareTypeInfant
 }
 
 // MaxNoteLength is the maximum allowed length for a note entry (LOG-005).

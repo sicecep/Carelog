@@ -85,14 +85,46 @@ async function main() {
     check("M4. elderly keeps medication module", elderMods.includes("medication"), elderMods);
     check("M5. profiles have DIFFERENT module sets", childMods !== elderMods);
 
-    // ── Module validation: a module outside the care type is rejected ────
+    // ── Modules: any module fits any care type; unknown ones are rejected ─
     // 400 validation_error is the project-wide shape for ErrValidation
-    // (service/recipient.go), not 422 — the elderly care type has no diaper
-    // module, and the service enforces the care-type subset.
-    const badMod = await mk(`Salah ${stamp}`, "elderly", ["diaper"]);
-    check("M6. module invalid for care type is rejected",
+    // (service/recipient.go), not 422. Validation runs before the plan
+    // quota, so this does not count against the 2-profile cap.
+    const badMod = await mk(`Salah ${stamp}`, "elderly", ["teleport"]);
+    check("M6. unknown module is rejected",
       badMod.status === 400 && badMod.body?.error?.code === "validation_error",
       `status=${badMod.status} code=${badMod.body?.error?.code}`);
+    const elderDiaper = await api("PATCH", `/recipients/${elderId}`, {
+      enabled_modules: ["meal", "medication", "health", "diaper"],
+    });
+    check("M6b. elderly may enable the diaper module",
+      elderDiaper.status === 200 && elderDiaper.body?.data?.enabled_modules?.includes("diaper"),
+      `status=${elderDiaper.status} body=${JSON.stringify(elderDiaper.body)}`);
+
+    // ── Optional profile details: set, keep, clear, validate ─────────────
+    const setDetails = await api("PATCH", `/recipients/${elderId}`, {
+      gender: "female", date_of_birth: "1950-03-14", weight_kg: 52.5, height_cm: 150.5,
+    });
+    const d = setDetails.body?.data ?? {};
+    check("M6c. details are saved and returned",
+      setDetails.status === 200 && d.gender === "female" && d.date_of_birth === "1950-03-14" &&
+        d.weight_kg === 52.5 && d.height_cm === 150.5,
+      JSON.stringify(setDetails.body));
+    const keep = await api("PATCH", `/recipients/${elderId}`, { full_name: `Nenek ${stamp}` });
+    check("M6d. an update without the fields keeps them",
+      keep.body?.data?.weight_kg === 52.5 && keep.body?.data?.gender === "female",
+      JSON.stringify(keep.body));
+    const cleared = await api("PATCH", `/recipients/${elderId}`, {
+      gender: "", date_of_birth: "", weight_kg: null, height_cm: null,
+    });
+    const c = cleared.body?.data ?? {};
+    check("M6e. empty values clear the fields",
+      cleared.status === 200 && c.gender === undefined && c.date_of_birth === undefined &&
+        c.weight_kg === undefined && c.height_cm === undefined,
+      JSON.stringify(cleared.body));
+    const badWeight = await api("PATCH", `/recipients/${elderId}`, { weight_kg: 900 });
+    check("M6f. out-of-range weight is a 400, not a 500",
+      badWeight.status === 400 && badWeight.body?.error?.code === "validation_error",
+      `status=${badWeight.status}`);
 
     // ── Data isolation between profiles ──────────────────────────────────
     const tlChild = await api("GET", `/recipients/${childId}/timeline`);

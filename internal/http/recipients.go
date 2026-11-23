@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -79,6 +80,9 @@ type CreateRecipientRequest struct {
 	Notes           string   `json:"notes,omitempty"`
 	MedicalNotes    string   `json:"medical_notes,omitempty"`
 	EnabledModules  []string `json:"enabled_modules,omitempty"`
+	// Optional body measurements; absent or null means not provided.
+	WeightKg        *float64 `json:"weight_kg,omitempty"`
+	HeightCm        *float64 `json:"height_cm,omitempty"`
 }
 
 type UpdateRecipientRequest struct {
@@ -87,12 +91,40 @@ type UpdateRecipientRequest struct {
 	// keeps the current one, "" removes it.
 	DisplayName     *string  `json:"display_name,omitempty"`
 	CareType        string   `json:"care_type,omitempty"`
-	DateOfBirth     string   `json:"date_of_birth,omitempty"`
-	Gender          string   `json:"gender,omitempty"`
+	// DateOfBirth and Gender follow DisplayName: absent keeps the current
+	// value, "" clears it.
+	DateOfBirth     *string  `json:"date_of_birth,omitempty"`
+	Gender          *string  `json:"gender,omitempty"`
 	PhotoURL        string   `json:"photo_url,omitempty"`
 	Notes           string   `json:"notes,omitempty"`
 	MedicalNotes    string   `json:"medical_notes,omitempty"`
 	EnabledModules  []string `json:"enabled_modules,omitempty"`
+	// WeightKg and HeightCm are numbers, so null (not "") clears them;
+	// absent keeps the current value.
+	WeightKg        OptionalFloat `json:"weight_kg"`
+	HeightCm        OptionalFloat `json:"height_cm"`
+}
+
+// OptionalFloat is a JSON number field that tells "absent" from "null":
+// Set is false when the key is missing, and Value is nil when it is null.
+type OptionalFloat struct {
+	Set   bool
+	Value *float64
+}
+
+// UnmarshalJSON is only called when the key is present, null included.
+func (o *OptionalFloat) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	o.Value = nil
+	if string(b) == "null" {
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(b, &f); err != nil {
+		return fmt.Errorf("decode number: %w", err)
+	}
+	o.Value = &f
+	return nil
 }
 
 type RecipientResponse struct {
@@ -107,6 +139,8 @@ type RecipientResponse struct {
 	Notes           string    `json:"notes,omitempty"`
 	MedicalNotes    string    `json:"medical_notes,omitempty"`
 	EnabledModules  []string  `json:"enabled_modules"`
+	WeightKg        *float64  `json:"weight_kg,omitempty"`
+	HeightCm        *float64  `json:"height_cm,omitempty"`
 	IsActive        bool      `json:"is_active"`
 	CreatedAt       string    `json:"created_at"`
 	CreatedBy       uuid.UUID `json:"created_by"`
@@ -126,6 +160,99 @@ func mergeDisplayName(requested *string, current pgtype.Text) string {
 		return pgTextFrom(current)
 	}
 	return strings.TrimSpace(*requested)
+}
+
+// dateLayout is the wire format of date_of_birth.
+const dateLayout = "2006-01-02"
+
+// parseDate parses a YYYY-MM-DD date_of_birth.
+func parseDate(s string) (pgtype.Date, error) {
+	t, err := time.Parse(dateLayout, s)
+	if err != nil {
+		return pgtype.Date{}, service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
+	}
+	return pgtype.Date{Time: t, Valid: true}, nil
+}
+
+func formatDate(d pgtype.Date) string {
+	if !d.Valid {
+		return ""
+	}
+	return d.Time.Format(dateLayout)
+}
+
+func floatFromNumeric(n pgtype.Numeric) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	f, err := n.Float64Value()
+	if err != nil || !f.Valid {
+		return nil
+	}
+	return &f.Float64
+}
+
+// profileUpdate is the optional profile after an update is merged: each field
+// is the requested value, the current one when absent, or NULL when cleared.
+type profileUpdate struct {
+	Gender      pgtype.Text
+	DateOfBirth pgtype.Date
+	WeightKg    pgtype.Numeric
+	HeightCm    pgtype.Numeric
+}
+
+// mergeProfileDetails applies and validates an update's optional profile
+// fields against the recipient's current values.
+func mergeProfileDetails(req UpdateRecipientRequest, current store.CareRecipient, now time.Time) (profileUpdate, error) {
+	out := profileUpdate{
+		Gender:      current.Gender,
+		DateOfBirth: current.DateOfBirth,
+		WeightKg:    current.WeightKg,
+		HeightCm:    current.HeightCm,
+	}
+	var check service.ProfileDetails
+	if req.Gender != nil {
+		g := strings.TrimSpace(*req.Gender)
+		out.Gender = pgText(g)
+		if g != "" {
+			check.Gender = &g
+		}
+	}
+	if req.DateOfBirth != nil {
+		out.DateOfBirth = pgtype.Date{}
+		if s := strings.TrimSpace(*req.DateOfBirth); s != "" {
+			d, err := parseDate(s)
+			if err != nil {
+				return out, err
+			}
+			out.DateOfBirth = d
+			check.DateOfBirth = &d
+		}
+	}
+	if req.WeightKg.Set {
+		check.WeightKg = req.WeightKg.Value
+	}
+	if req.HeightCm.Set {
+		check.HeightCm = req.HeightCm.Value
+	}
+	if errs := service.ValidateProfileDetails(check, now); len(errs) > 0 {
+		return out, service.ErrValidation{Errors: errs}
+	}
+	if req.WeightKg.Set {
+		n, err := service.NumericFromFloat(req.WeightKg.Value)
+		if err != nil {
+			return out, fmt.Errorf("weight_kg: %w", err)
+		}
+		out.WeightKg = n
+	}
+	if req.HeightCm.Set {
+		n, err := service.NumericFromFloat(req.HeightCm.Value)
+		if err != nil {
+			return out, fmt.Errorf("height_cm: %w", err)
+		}
+		out.HeightCm = n
+	}
+	return out, nil
 }
 
 func pgTextFrom(t pgtype.Text) string {
@@ -157,12 +284,14 @@ func toRecipientResponse(r store.CareRecipient) RecipientResponse {
 		FullName:        r.FullName,
 		DisplayName:     pgTextFrom(r.DisplayName),
 		CareType:        r.CareType,
-		DateOfBirth:     "",
+		DateOfBirth:     formatDate(r.DateOfBirth),
 		Gender:          pgTextFrom(r.Gender),
 		PhotoURL:        pgTextFrom(r.PhotoUrl),
 		Notes:           pgTextFrom(r.Notes),
 		MedicalNotes:    pgTextFrom(r.MedicalNotes),
 		EnabledModules:  modules,
+		WeightKg:        floatFromNumeric(r.WeightKg),
+		HeightCm:        floatFromNumeric(r.HeightCm),
 		IsActive:        r.IsActive,
 		CreatedAt:       r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		CreatedBy:       pgUUID(r.CreatedBy),
@@ -194,9 +323,10 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 	}
 
 	var dob pgtype.Date
-	if req.DateOfBirth != "" {
-		if err := dob.Scan(req.DateOfBirth); err != nil {
-			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
+	if s := strings.TrimSpace(req.DateOfBirth); s != "" {
+		var err error
+		if dob, err = parseDate(s); err != nil {
+			return err
 		}
 	}
 
@@ -221,12 +351,14 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 		FullName:       req.FullName,
 		CareType:       careType,
 		EnabledModules: mods,
+		WeightKg:       req.WeightKg,
+		HeightCm:       req.HeightCm,
 	}
 	if req.DisplayName != "" {
 		input.DisplayName = &req.DisplayName
 	}
-	if req.Gender != "" {
-		input.Gender = &req.Gender
+	if g := strings.TrimSpace(req.Gender); g != "" {
+		input.Gender = &g
 	}
 	if req.PhotoURL != "" {
 		input.PhotoURL = &req.PhotoURL
@@ -237,7 +369,7 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 	if req.MedicalNotes != "" {
 		input.MedicalNotes = &req.MedicalNotes
 	}
-	if req.DateOfBirth != "" {
+	if dob.Valid {
 		input.DateOfBirth = &dob
 	}
 
@@ -402,10 +534,12 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 	careType := req.CareType
 	if careType == "" {
 		careType = existing.CareType
+	} else if !domain.IsValidCareType(careType) {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "care_type", Message: "invalid care type"}}}
 	}
-	gender := req.Gender
-	if gender == "" {
-		gender = pgTextFrom(existing.Gender)
+	profile, err := mergeProfileDetails(req, existing, time.Now())
+	if err != nil {
+		return err
 	}
 	photoURL := req.PhotoURL
 	if photoURL == "" {
@@ -424,11 +558,13 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 		var m []string
 		_ = json.Unmarshal(existing.EnabledModules, &m)
 		enabledModules = m
-	}
-	dob := existing.DateOfBirth
-	if req.DateOfBirth != "" {
-		if err := dob.Scan(req.DateOfBirth); err != nil {
-			return service.ErrValidation{Errors: []service.RecipientError{{Field: "date_of_birth", Message: "invalid date format, use YYYY-MM-DD"}}}
+	} else {
+		mods := make([]domain.Module, len(enabledModules))
+		for i, m := range enabledModules {
+			mods[i] = domain.Module(m)
+		}
+		if errs := service.ValidateModules(mods); len(errs) > 0 {
+			return service.ErrValidation{Errors: errs}
 		}
 	}
 
@@ -439,13 +575,15 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 		FullName:        fullName,
 		DisplayName:     pgText(displayName),
 		CareType:        careType,
-		DateOfBirth:     dob,
-		Gender:          pgText(gender),
+		DateOfBirth:     profile.DateOfBirth,
+		Gender:          profile.Gender,
 		PhotoUrl:        pgText(photoURL),
 		Notes:           pgText(notes),
 		MedicalNotes:    pgText(medicalNotes),
 		EnabledModules:  modsJSON,
 		WorkspaceID:     workspaceID,
+		WeightKg:        profile.WeightKg,
+		HeightCm:        profile.HeightCm,
 	})
 	if err != nil {
 		return fmt.Errorf("update recipient: %w", err)
