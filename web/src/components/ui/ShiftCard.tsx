@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import type { ShiftRow } from "@/lib/api-client";
+import { formatClock } from "@/lib/format-time";
 
 /**
  * RPT-004: one shift card per caregiver who checked in on the viewed day.
@@ -25,18 +26,9 @@ export async function ShiftCard({
 }) {
   const t = await getTranslations({ locale, namespace: "shifts" });
 
-  const timeFmt = new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-GB", {
-    timeZone: timezone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  const inLabel = timeFmt.format(new Date(shift.checked_in_at));
+  const inLabel = formatClock(shift.checked_in_at, locale, timezone);
   const active = !shift.checked_out_at;
-  const outLabel = active
-    ? t("stillOnShift")
-    : timeFmt.format(new Date(shift.checked_out_at!));
+  const outLabel = active ? t("stillOnShift") : formatClock(shift.checked_out_at!, locale, timezone);
 
   // Duration is only shown for closed shifts. An open shift's "duration so
   // far" would render as stale-by-render — the number is wrong the instant
