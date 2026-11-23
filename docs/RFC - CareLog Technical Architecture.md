@@ -3,15 +3,16 @@
 | **Field**        | **Value**                                                                                          |
 |------------------|----------------------------------------------------------------------------------------------------|
 | **Status**       | Draft                                                                                              |
-| **Version**      | 3.1                                                                                                |
+| **Version**      | 3.3                                                                                                |
 | **Author**       | Sepry                                                                                              |
-| **Last Updated** | August 24, 2026                                                                                    |
+| **Last Updated** | November 23, 2026                                                                                  |
 | **Relevant Docs**| [PRD — CareLog MVP to Production](./PRD%20-%20CareLog%20MVP%20to%20Production.md)                |
 
 ### Changelog
 
 | Version | Change |
 |---|---|
+| 3.3 | **Login revamp** ([spec](./superpowers/specs/2026-11-22-login-revamp-design.md)). Owners sign in with **email or phone + password** (argon2id, doubling lockout, admin-assisted reset with a forced change); Google stays planned until the OAuth client exists. The magic link is retired from the UI and gated behind `AUTH_MAGIC_LINK_ENABLED`. Caregivers sign in with **phone or username + PIN from any device**: the device binding is replaced by per-account doubling lockout, a per-IP daily cap, owner unlock, and owner alerts on lock and on new devices. §6.6 and §8 rewritten to match what is built. |
 | 3.2 | **Phone is a first-class identity; caregivers authenticate with phone + device-bound PIN (AUTH-005).** `users.email` is now optional (`CHECK (email IS NOT NULL OR phone IS NOT NULL)`), phones are stored canonically as E.164, and the invite link doubles as PIN enrolment. WhatsApp Business API OTP was evaluated and rejected on per-message cost — the owner's own WhatsApp already carries the invite for free. Rate limiting (§6.6) is implemented as fixed-window Redis counters, not the token bucket originally specced. |
 | 3.1 | **ImageKit replaces R2/MinIO as MVP media storage (owner decision).** Photos upload browser-direct to ImageKit with auth params signed by the Go API; reads go through ImageKit's CDN with signed URLs. Tenant isolation (workspace folder prefix + membership-checked signing) is unchanged. |
 | 3.0 | **Go is the day-one backend.** Supabase (Auth, Edge Functions, PostgREST, Realtime, Storage) is removed from the architecture. The backend is a Go API (chi + sqlc + goose) with PostgreSQL 15, Redis, and ImageKit for media, behind Caddy. The former "Go Migration Path" section is deleted — it is now the architecture, not a migration. Product requirements are unchanged. |
@@ -59,7 +60,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | Database | PostgreSQL 15 (managed, Singapore region) | Boring, portable SQL; no vendor schema (`auth.*`) dependencies |
 | Query layer | sqlc (generated, type-safe) | SQL stays in `.sql` files; compile-time checked Go bindings; no ORM |
 | Migrations | goose (`migrations/`, append-only) | Plain SQL migrations, already in repo |
-| Auth | Go-native magic link + Google OAuth (owners); phone + device-bound PIN via argon2id (caregivers); JWT access + rotating refresh tokens | AUTH-001..005; auth data lives in our own `users` table. Email optional — see §8 |
+| Auth | Go-native: email-or-phone + password for owners (Google planned); phone-or-username + PIN from any device for caregivers, both argon2id with doubling lockout; JWT access + rotating refresh tokens | AUTH-001..005; auth data lives in our own `users` table. Email optional — see §8 |
 | Multi-tenancy | Enforced in the Go layer (middleware + workspace-scoped sqlc queries); Postgres RLS retained as defense-in-depth | Isolation logic is testable Go code; RLS backstops application bugs |
 | Multi-contributor | `UNIQUE(recipient_id, report_date, contributor_id)` | Each contributor owns their row; merged at read time (unchanged from v2) |
 | Background jobs | River (Postgres-backed job queue) | Transactional enqueue with domain writes; retries + periodic jobs; no extra infrastructure |
@@ -86,7 +87,7 @@ v3 changes *where the backend runs*, not *what the product does*: the backend is
 | Styling | Tailwind CSS v4 | Utility-first; no CSS modules or styled-components |
 | UI components | shadcn/ui | Radix-based; tree-shakeable |
 | i18n | next-intl | Bahasa Indonesia (default) + English |
-| Auth | Go-native: magic link + Google OAuth | JWT access token + rotating refresh token in HttpOnly cookies (see §8) |
+| Auth | Go-native: owner password, caregiver PIN (Google planned) | JWT access token + rotating refresh token in HttpOnly cookies (see §8) |
 | File storage | ImageKit | Private files; upload auth params + signed read URLs issued by the Go API; CDN + transformations built in |
 | Email | Resend | Bilingual templates rendered server-side |
 | Payments | Midtrans | IDR-denominated subscriptions; webhook handled by Go API |
@@ -135,7 +136,7 @@ carelog/
 │   │   │   ├── ratelimit.go        # Redis fixed-window limiter
 │   │   │   └── requestlog.go       # Request ID, logging, Sentry
 │   │   └── handlers/
-│   │       ├── auth.go             # Magic link, Google OAuth, refresh, logout
+│   │       ├── auth.go             # Session, refresh, logout, /me (+ password_auth.go, pin_auth.go)
 │   │       ├── workspaces.go       # Workspace CRUD, members, invitations
 │   │       ├── recipients.go       # Care recipients
 │   │       ├── assignments.go      # Caregiver assign/revoke
@@ -217,7 +218,7 @@ All tables live in the `public` schema and share `workspace_id` as the tenant di
 ```
 users (owned by Go API)
   │
-  ├── auth_magic_links / refresh_tokens        (auth infrastructure, §8)
+  ├── auth_magic_links / refresh_tokens / user_passwords / user_pins / trusted_devices  (auth, §8)
   │
   ├── workspace_members ──── workspaces
   │                               │
@@ -272,7 +273,7 @@ CREATE UNIQUE INDEX idx_users_email_lower ON users (LOWER(email));
 CREATE UNIQUE INDEX idx_users_phone ON users (phone) WHERE phone IS NOT NULL;
 ```
 
-Auth-support tables (`auth_magic_links`, `refresh_tokens`) are defined in §8.
+Auth-support tables (`auth_magic_links`, `refresh_tokens`, `user_passwords`, `user_pins`, `trusted_devices`) are defined in §8.
 
 #### `workspaces`
 
@@ -719,7 +720,7 @@ ALTER TABLE workspace_members      FORCE ROW LEVEL SECURITY;
 -- ... etc
 ```
 
-`users`, `auth_magic_links`, and `refresh_tokens` are accessed only by the auth subsystem before an identity exists; they are excluded from the session-variable scheme and simply have no grants beyond `carelog_app`.
+`users`, `auth_magic_links`, `refresh_tokens`, `user_passwords`, `user_pins` and `trusted_devices` are accessed only by the auth subsystem before an identity exists; they are excluded from the session-variable scheme and simply have no grants beyond `carelog_app`.
 
 ### 5.3 Daily Reports — Multi-Contributor Policies
 
@@ -812,10 +813,16 @@ Client → Cloudflare → Caddy
 ### 6.2 Route Table (v1)
 
 ```
-POST   /api/v1/auth/magic-link                 # request login email
-GET    /api/v1/auth/verify                     # consume magic link token → session
-GET    /api/v1/auth/google                     # begin OAuth (redirect)
-GET    /api/v1/auth/google/callback            # OAuth code exchange → session
+POST   /api/v1/auth/register                   # owner sign-up (pending approval)
+POST   /api/v1/auth/password/login             # owner: email or phone + password
+POST   /api/v1/auth/password/change            # signed in; revokes other sessions
+POST   /api/v1/auth/pin/login                  # caregiver: phone or username + PIN
+POST   /api/v1/auth/pin/forgot                 # caregiver asks owner for a PIN reset
+POST   /api/v1/admin/users/{id}/password-reset # super-admin: temporary password
+GET    /api/v1/auth/google                     # begin OAuth (redirect) — planned
+GET    /api/v1/auth/google/callback            # OAuth code exchange → session — planned
+POST   /api/v1/auth/magic-link                 # dev/E2E only (AUTH_MAGIC_LINK_ENABLED)
+GET    /api/v1/auth/verify                     # dev/E2E only
 POST   /api/v1/auth/refresh                    # rotate refresh token
 POST   /api/v1/auth/logout
 
@@ -1023,14 +1030,22 @@ Rejections return `429` with `Retry-After` and the standard error envelope (`{"e
 
 | Limit | Bucket | Window | Status |
 |---|---|---|---|
-| Magic link | 5 per IP | 15 min | **Shipped** |
+| Owner sign-up (`/auth/register`) | 5 per IP | 1 hour | **Shipped** |
+| Owner password sign-in | 20 per IP | 15 min | **Shipped** |
+| Caregiver PIN sign-in | 20 per IP | 15 min | **Shipped** |
+| Caregiver PIN sign-in, daily cap | 30 per IP | 24 hours | **Shipped** |
+| Forgot PIN | 3 per IP | 1 hour | **Shipped** |
+| Invite claim with PIN | 10 per IP | 1 hour | **Shipped** |
+| Username availability check | 120 per user | 1 hour | **Shipped** |
+| Magic link (dev/E2E only) | 5 per IP | 15 min | **Shipped** |
 | Token refresh | 60 per IP | 1 hour | **Shipped** |
 | Photo upload | 20 per user | 1 hour | **Shipped** |
 | Global (unauthenticated) | 30 req | 1 min | Planned |
 | Global (authenticated) | 120 req | 1 min | Planned |
 | Report submission | 10 per caregiver | 1 hour | Planned |
 | Invitation send | 10 per workspace | 1 hour | Planned |
-| PIN attempt | 5 per device, then backoff | 15 min | Planned (AUTH-005) |
+
+The per-IP sign-in limits sit **above** the per-account lockout (5 failures, §8.3) on purpose: if the IP limit fired first, the account lockout could never trigger from one IP. `TestPINLoginLimits_IPBudgetExceedsAccountLockout` and `TestPINLoginLimits_DailyCapExceedsWindow` guard both orderings. The IP limits blunt guessing across many accounts; the account lockout bounds guessing against one.
 
 The magic-link limit guards the **email send**, not the endpoint: when `AUTH_DEV_EXPOSE_LINK` is on (development only — the config refuses to boot otherwise) no mail goes out and the limit opts out, so the E2E suite can sign in many users from one IP. `scripts/e2e-rate-limit.cjs` boots a server with that flag **off** to prove the production-shaped limit still fires.
 
@@ -1133,45 +1148,50 @@ Supabase Auth is replaced by an auth subsystem inside the Go API (`internal/auth
 
 **Identity model (revised).** CareLog originally assumed email was every user's identity. That assumption fails for the primary caregiver persona: Indonesian domestic workers frequently have no working email account, and the invite already reaches them over the owner's own WhatsApp. Email is therefore **optional**, and users carry email, phone, or both — with a DB constraint guaranteeing at least one.
 
-| Persona | Primary identity | Mechanism |
+| Persona (UI label) | Identity | Mechanism |
 |---|---|---|
-| Owner | Email | Magic link (AUTH-001/002) or Google (AUTH-003) |
-| Caregiver | Phone (E.164) | Invite link → PIN enrolment → phone + PIN on a bound device (AUTH-005) |
-| Viewer | Email | Magic link |
+| Owner (**Pengelola**) | Email and/or phone | Password (AUTH-001); Google (AUTH-002) once the OAuth client exists |
+| Caregiver (**Pengasuh**) | Phone (E.164) and/or username | Invite link → PIN enrolment → phone or username + PIN, any device (AUTH-005) |
+| Viewer (**Keluarga**) | Phone and/or username | Same invite + PIN path as caregivers |
+
+The login screen asks "Siapa Anda?" first — **Saya Pengasuh** or **Saya Pengelola** — and remembers the answer per browser (`localStorage` `carelog.loginRole`).
 
 WhatsApp Business API was evaluated for OTP delivery and **rejected on cost**: it bills per delivered authentication message, and the invite channel we already use (the owner's own WhatsApp) is free. PIN enrolment therefore rides the existing invite link rather than a paid messaging channel.
 
 ### 8.1 User Story Mapping
 
-| Story | Flow | v3 implementation |
+| Story | Flow | Implementation |
 |---|---|---|
-| AUTH-001 | Sign up via magic link | `POST /api/v1/auth/magic-link` creates `users` row (unverified) + emails link via Resend |
-| AUTH-002 | Log in via magic link | Same endpoint; existing user gets a fresh single-use token |
-| AUTH-003 | Log in with Google | `GET /api/v1/auth/google` → consent → callback upserts user by `google_id`/email |
-| AUTH-004 | Stay logged in / log out | Rotating refresh token (90d, sliding) in HttpOnly cookie; `POST /auth/logout` revokes the token family |
-| AUTH-005 | Caregiver phone + PIN | Invite link enrols the device and sets a 6-digit PIN (argon2id); subsequent logins are phone + PIN **on that device**. PIN reset = owner re-issues the invite link over WhatsApp — free, and the owner personally knows the caregiver |
+| AUTH-001 | Owner sign-up | `POST /api/v1/auth/register` → user + `user_passwords` row in one transaction, `approval_status = 'pending'`; same response for a duplicate identifier |
+| AUTH-001 | Owner sign-in | `POST /api/v1/auth/password/login` `{identifier, password}` — `@` means email, otherwise phone; pending/rejected owners get a status and no session |
+| AUTH-001 | Change password | `POST /api/v1/auth/password/change` (signed in) — current password required unless none is set; revokes every other refresh family |
+| AUTH-001 | Forgotten password | `POST /api/v1/admin/users/{id}/password-reset` (super-admin) → one-time temporary password, `must_change = true`, all refresh families revoked. `RequirePasswordCurrent` middleware answers `403 password_change_required` until it is changed |
+| AUTH-002 | Google | **Planned.** `GET /api/v1/auth/google` → callback; matching rules in the login revamp spec §4.4 |
+| AUTH-005 | Caregiver sign-in | `POST /api/v1/auth/pin/login` `{identifier, pin}` from any device; unknown device → enrolled + owner alerted |
+| AUTH-005 | Forgotten PIN | `POST /api/v1/auth/pin/forgot` `{identifier}` → owner approves in-app → caregiver sets a new PIN from the same device |
+| — | Stay signed in / sign out | Rotating refresh token (30 d, `REFRESH_TOKEN_TTL`) in an HttpOnly cookie; `POST /auth/logout` revokes the family |
+| — | Magic link | `POST /auth/magic-link`, `GET /auth/verify` — 404 unless `AUTH_MAGIC_LINK_ENABLED` or the dev-only `AUTH_DEV_EXPOSE_LINK`; kept for the E2E sign-in helper |
 
-**Why PIN is device-bound.** A 6-digit PIN alone is 10⁶ combinations — a weak password if it were accepted from anywhere. Binding it to an enrolled device makes it genuinely two-factor: possession (the invite link that enrolled the device) plus knowledge (the PIN). A new device cannot be authenticated with the PIN alone; it needs a fresh invite link.
+**Why the PIN works on any device.** It used to be device-bound (possession + knowledge). That broke for caregivers who change phones or share a household tablet, and every new device needed a fresh invite. With the binding gone the identifier + PIN is the whole credential, so these controls are a **condition** of the change, not extras: per-account lockout doubling from 15 min to a 24 h cap (after the first few locks, about 5 guesses a day per account, however many IPs), per-IP limits including a daily cap, common-PIN and own-phone-digits rejection, owner alerts on a lock or a new device, and owner unlock so a malicious lockout can't keep a caregiver out of a shift. **Accepted risk:** someone who learns a PIN (shoulder-surfing) can sign in from anywhere; the new-device alert and owner revoke/unlock are the mitigation.
 
-**Why not passwords.** A caregiver who cannot navigate an email inbox will not manage a password either, and every reset becomes a support call to the paying owner — with email, the channel we are explicitly routing around, as the only recovery path. AUTH-001's passwordless principle stands.
+**Why owners now have passwords.** The magic link sent one email per sign-in, and there is no email budget at launch. Passwords need no sending at all. Resets are admin-assisted (the platform owner, over WhatsApp) until an email budget exists; caregivers keep the PIN, which suits them better than a password.
 
 ### 8.2 Auth Flow
 
 ```
-[Magic Link]                                  [Google OAuth]
-     │                                              │
-POST /api/v1/auth/magic-link          GET /api/v1/auth/google
-  → upsert users row (by email)         → redirect to Google (state + PKCE)
-  → token = 32 random bytes             → user approves consent
-  → store SHA-256(token), TTL 15 min    → GET /api/v1/auth/google/callback
-  → Resend email with link                 → verify state, exchange code
-     │                                     → verify id_token signature + aud
-User clicks link                           → upsert user by google_id / verified email
-     │                                              │
-GET /api/v1/auth/verify?token=...                   │
-  → hash lookup, unexpired, unconsumed              │
-  → mark consumed, set email_verified_at            │
-     └──────────────────┬───────────────────────────┘
+[Owner password]                          [Caregiver PIN]
+     │                                          │
+POST /api/v1/auth/password/login       POST /api/v1/auth/pin/login
+  → identifier: email (has @) or phone   → identifier: phone or username
+  → unknown → dummy argon2id verify      → unknown / no PIN → dummy verify
+  → locked? → 429 account_locked         → locked? → 429 pin_locked
+  → argon2id verify                      → argon2id verify
+     wrong → count failure, maybe lock      wrong → count failure; on lock,
+     right → clear failures                         alert owners
+  → pending/rejected → status, no session   right → clear failures
+     │                                   → device cookie known? touch it
+     │                                     else enrol device, alert owners
+     └──────────────────┬───────────────────────┘
                         ▼
         Issue session (Go API):
           access JWT  — 15 min, signed Ed25519, claims: sub, sid
@@ -1180,8 +1200,12 @@ GET /api/v1/auth/verify?token=...                   │
         (first-party: Caddy serves app + API from one origin)
                         │
                         ▼
-        First login → create workspace + owner membership (single tx)
+        Owner with no workspace → create workspace + owner membership (single tx)
+        Owner with must_change  → web sends them to /change-password;
+                                  API answers 403 password_change_required
 ```
+
+Google (AUTH-002, planned) will join the left branch: `state` + PKCE, `id_token` verification, `email_verified` required, then the matching rules in the spec.
 
 ### 8.3 Auth Tables
 
@@ -1200,7 +1224,7 @@ CREATE TABLE refresh_tokens (
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   family_id   UUID NOT NULL,                     -- rotation lineage
   token_hash  BYTEA NOT NULL UNIQUE,
-  expires_at  TIMESTAMPTZ NOT NULL,              -- NOW() + 90 days (REFRESH_TOKEN_TTL)
+  expires_at  TIMESTAMPTZ NOT NULL,              -- NOW() + 30 days (REFRESH_TOKEN_TTL)
   rotated_at  TIMESTAMPTZ,                       -- set when superseded
   revoked_at  TIMESTAMPTZ,                       -- logout or reuse detection
   user_agent  TEXT,
@@ -1214,30 +1238,46 @@ CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
 
 **Rotation & reuse detection:** `POST /auth/refresh` marks the presented token `rotated_at` and issues a new one in the same `family_id`. If a token that is already rotated is presented again (theft indicator), the entire family is revoked and the user must log in again.
 
-**Caregiver PIN & device binding (AUTH-005, planned).** Two further tables carry the PIN factor. They are listed here so the schema is reviewable before implementation:
+**Passwords, PINs and known devices (AUTH-001, AUTH-005).** `user_passwords` and `user_pins` share the lockout mechanics; `trusted_devices` now records *known* devices for the new-device alert and no longer gates sign-in:
 
 ```sql
+CREATE TABLE user_passwords (
+  user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,          -- argon2id PHC string, same parameters as PINs
+  must_change   BOOLEAN NOT NULL DEFAULT false,  -- set by an admin reset
+  failed_count  INT NOT NULL DEFAULT 0,
+  lock_level    INT NOT NULL DEFAULT 0,  -- consecutive locks; lock = 15 min * 2^level, max 24 h
+  locked_until  TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE user_pins (
   user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   pin_hash      TEXT NOT NULL,          -- argon2id, never recoverable
   failed_count  INT NOT NULL DEFAULT 0,
-  locked_until  TIMESTAMPTZ,            -- backoff after repeated failures
+  lock_level    INT NOT NULL DEFAULT 0, -- same doubling backoff as passwords
+  locked_until  TIMESTAMPTZ,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE trusted_devices (
+CREATE TABLE trusted_devices (          -- "known devices"
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash    BYTEA NOT NULL UNIQUE,  -- opaque device secret, httpOnly cookie
-  label         TEXT,                   -- user-agent derived, for the revoke UI
-  enrolled_via  UUID REFERENCES invitations(id) ON DELETE SET NULL,
+  token_hash    BYTEA NOT NULL UNIQUE,  -- opaque device secret, httpOnly cookie cl_device
+  label         TEXT,                   -- user-agent, summarised as "Chrome · Android" in alerts
   last_seen_at  TIMESTAMPTZ,
   revoked_at    TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- users.username: caregiver login name, lowercase, 3–30 of [a-z0-9._],
+-- at least one letter (never mistaken for a phone), unique on LOWER(username).
+-- users_identity_present: email OR phone OR username.
+-- invitations.invitee_username: the username an owner picks on the invite.
 ```
 
-The PIN is only ever accepted together with a valid, unrevoked `trusted_devices` token — that pairing is what makes a 6-digit secret acceptable (possession + knowledge). Revoking a caregiver revokes their devices and their refresh-token family together.
+A failure increments `failed_count`; the fifth sets `locked_until = now() + LEAST(cap, base << lock_level)`, raises `lock_level` and restarts the count — one `UPDATE`, so concurrent attempts can't race past the limit. A success resets all three. Owners unlock caregivers (`POST /workspace/members/{id}/pin-unlock`); an admin password reset clears an owner's lock. Revoking a caregiver revokes their devices and their refresh-token family together.
 
 ### 8.4 Access Token & Middleware
 
@@ -1291,11 +1331,11 @@ Server Components fetch from the Go API with the incoming cookies forwarded; a 4
 
 ### 8.6 Role Summary
 
-| Role | Who | Permissions |
-|---|---|---|
-| `owner` | Guardian / workspace creator | Full CRUD; can log own entries without shift |
-| `caregiver` | Assigned nanny, ART, nurse | Log entries for assigned recipients; read-only on others' entries |
-| `viewer` | Grandparent, family doctor | Read-only on reports and recipients (no `medical_notes`) |
+| Role | UI label (id / en) | Who | Permissions |
+|---|---|---|---|
+| `owner` | Pengelola / Care manager | Workspace creator: a parent, or an adult child arranging care for a parent | Full CRUD; can log own entries without shift |
+| `caregiver` | Pengasuh / Caregiver | Assigned nanny, ART, nurse | Log entries for assigned recipients; read-only on others' entries |
+| `viewer` | Keluarga / Family | Grandparent, family doctor | Read-only on reports and recipients (no `medical_notes`) |
 
 ---
 
