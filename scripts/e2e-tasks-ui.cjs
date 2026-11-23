@@ -66,7 +66,7 @@ async function main() {
     );
 
     // ── Caregiver opens the recipient page ──────────────────────────────
-    await cg.page.goto(`${WEB}/id/recipients/${R}`, { waitUntil: "networkidle" });
+    await cg.page.goto(`${WEB}/id/recipients/${R}?tab=tasks`, { waitUntil: "networkidle" });
     const body = await cg.page.innerText("body");
 
     check("U1. caregiver sees the task title", body.includes("Mandikan sore"),
@@ -122,7 +122,7 @@ async function main() {
     }
 
     // ── EN locale renders the English labels ────────────────────────────
-    await cg.page.goto(`${WEB}/en/recipients/${R}`, { waitUntil: "networkidle" });
+    await cg.page.goto(`${WEB}/en/recipients/${R}?tab=tasks`, { waitUntil: "networkidle" });
     const enBody = await cg.page.innerText("body");
     check("U8. EN locale renders English task labels",
       enBody.includes("Tasks for this profile") && /Mark as|Reopen/.test(enBody),

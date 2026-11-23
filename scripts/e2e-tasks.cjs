@@ -96,7 +96,7 @@ async function main() {
     const cg2Api = apiVia(cg2.page);
 
     // ── TSK-001: owner creates a task via the UI, assigns it to CG1 ──────
-    await owner.page.goto(`${WEB}/id/recipients/${R1}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${R1}?tab=tasks`, { waitUntil: "networkidle" });
     const panelText = await owner.page.innerText("body");
     check("T0. task panel renders", panelText.includes("Tugas untuk profil ini"),
       panelText.slice(0, 120));

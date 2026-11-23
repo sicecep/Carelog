@@ -20,6 +20,7 @@ import {
   type Task,
 } from "@/lib/api-client";
 import { PLAN_LIMITS } from "@/lib/constants.generated";
+import { RecipientTabs } from "./recipient-tabs";
 import { DetailActions } from "./detail-actions";
 import { DaySummaryTrigger, DetailHeader, TimelineList } from "./detail-sections";
 import { AppHeader } from "@/components/ui/AppHeader";
@@ -33,7 +34,7 @@ import { dayInTimezone, shiftDay } from "@/lib/day";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ date?: string; contributor?: string }>;
+  searchParams: Promise<{ date?: string; contributor?: string; tab?: string }>;
 }
 
 export default async function RecipientDetailPage({
@@ -41,7 +42,11 @@ export default async function RecipientDetailPage({
   searchParams,
 }: RecipientPageProps) {
   const { locale, id } = await params;
-  const { date: dateParam, contributor: contributorParam } = await searchParams;
+  const { date: dateParam, contributor: contributorParam, tab: tabParam } = await searchParams;
+  // Three sections behind a segmented control (UI revamp phase 3). Plain
+  // links, so each is a shareable URL and the back button works.
+  const tab: "timeline" | "profile" | "tasks" =
+    tabParam === "profile" || tabParam === "tasks" ? tabParam : "timeline";
   const t = await getTranslations({ locale, namespace: "recipients" });
   const tTimeline = await getTranslations({ locale, namespace: "timeline" });
 
@@ -240,37 +245,44 @@ export default async function RecipientDetailPage({
           </p>
         ) : recipient ? (
           <>
-            <DetailHeader
-              recipient={recipient}
-              today={today}
-              editWorkspaceId={isOwner && workspaceId ? workspaceId : undefined}
+            <RecipientTabs
+              locale={locale}
+              recipientId={recipient.id}
+              active={tab}
+              labels={{
+                nav: t("tabsLabel"),
+                timeline: t("tabTimeline"),
+                profile: t("tabProfile"),
+                tasks: t("tabTasks"),
+              }}
             />
 
-            {/* OWN-004 / OWN-005: standing instructions + today's note.
-                Rendered ABOVE the timeline so a caregiver reads the parent's
-                instructions before logging anything. Owners get the editor;
-                caregivers and viewers get a read-only panel. */}
-            {workspaceId && (
-              <div className="mt-6">
-                <ParentNotes
-                  recipientId={id}
-                  workspaceId={workspaceId}
-                  canEdit={isOwner}
+            {tab === "profile" && (
+              <div className="mt-6 space-y-6">
+                <DetailHeader
+                  recipient={recipient}
+                  today={today}
+                  editWorkspaceId={isOwner && workspaceId ? workspaceId : undefined}
                 />
-              </div>
-            )}
 
-            {/* OWN-008A/B/C/D: who cares for this child — owner can assign
-                and revoke per recipient; everyone sees the current team. */}
-            {workspaceId && (
-              <div className="mt-6">
-                <AssignmentManager
-                  recipientId={id}
-                  workspaceId={workspaceId}
-                  canManage={isOwner}
-                  assigned={assignments}
-                  members={members}
-                />
+                {/* OWN-004 / OWN-005: owners edit the standing instruction
+                    and today's note here; everyone else reads them on the
+                    Linimasa tab, before logging. */}
+                {workspaceId && isOwner && (
+                  <ParentNotes recipientId={id} workspaceId={workspaceId} canEdit />
+                )}
+
+                {/* OWN-008A/B/C/D: who cares for this child — owner can
+                    assign and revoke per recipient; everyone sees the team. */}
+                {workspaceId && (
+                  <AssignmentManager
+                    recipientId={id}
+                    workspaceId={workspaceId}
+                    canManage={isOwner}
+                    assigned={assignments}
+                    members={members}
+                  />
+                )}
               </div>
             )}
 
@@ -279,7 +291,7 @@ export default async function RecipientDetailPage({
                 profile can advance their own tasks. Assignable list is the
                 active care team, so a task can never be assigned to someone
                 who cannot open the profile. */}
-            {workspaceId && (
+            {tab === "tasks" && workspaceId && (
               <div className="mt-6">
                 <TaskManager
                   recipientId={id}
@@ -292,7 +304,17 @@ export default async function RecipientDetailPage({
               </div>
             )}
 
-            <section aria-labelledby="timeline-heading" className="mt-8">
+            {tab === "timeline" && (
+            <>
+            {/* Caregivers and viewers read the parent's instructions here,
+                above the timeline, before logging anything. */}
+            {workspaceId && !isOwner && (
+              <div className="mt-6">
+                <ParentNotes recipientId={id} workspaceId={workspaceId} canEdit={false} />
+              </div>
+            )}
+
+            <section aria-labelledby="timeline-heading" className="mt-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2
                   id="timeline-heading"
@@ -415,6 +437,8 @@ export default async function RecipientDetailPage({
                 />
               )}
             </section>
+            </>
+            )}
 
             {workspaceId && (
               <DetailActions

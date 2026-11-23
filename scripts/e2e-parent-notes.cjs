@@ -58,7 +58,7 @@ async function main() {
     const rec = sql(`SELECT id FROM care_recipients WHERE full_name='${child}'`)[0][0];
 
     // ── 1. Owner sees the editor ─────────────────────────────────────────
-    await owner.page.goto(`${WEB}/id/recipients/${rec}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${rec}?tab=profile`, { waitUntil: "networkidle" });
     const standingBox = owner.page.locator("#standing-note");
     const dailyBox = owner.page.locator("#daily-note");
     check("1a. owner sees standing-instruction field", await standingBox.isVisible().catch(() => false));
@@ -137,7 +137,7 @@ async function main() {
     check("4d. caregiver gets NO save button", cgHasSave === false);
 
     // ── 5. English locale renders English ────────────────────────────────
-    await owner.page.goto(`${WEB}/en/recipients/${rec}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/en/recipients/${rec}?tab=profile`, { waitUntil: "networkidle" });
     const enBody = await owner.page.innerText("body");
     check("5a. EN panel heading", enBody.includes("Instructions from the Care Manager"));
     check("5b. no raw key path", !/parentnotes\.[a-zA-Z]/.test(enBody));
