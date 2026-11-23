@@ -1,32 +1,53 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ForkKnife, Moon, Baby, Pill, Smiley, Heart, NotePencil } from "phosphor-react";
-import { type LogCategory } from "@/lib/constants.generated";
+import {
+  ForkKnife,
+  Moon,
+  Baby,
+  Pill,
+  Smiley,
+  Heart,
+  NotePencil,
+  PersonSimpleRun,
+  BookOpen,
+  FirstAid,
+} from "phosphor-react";
+import { type LogCategory, type Module } from "@/lib/constants.generated";
 
-// Icon + i18n key for each LOG-002.1 category button. Order matches the PRD
-// list: Meals, Vitamins/Meds, Activities, Sleep, Diaper, Mood, Health, Notes
-// (Activities intentionally omitted until its subcategory set is modeled).
+// Icon + i18n key for each LOG-002.1 category button, in PRD order: Meals,
+// Vitamins/Meds, Activities, Sleep, Diaper, Mood, Health, then Learning,
+// Therapy and Notes. Every module has a button; the recipient's enabled
+// modules decide which ones show.
 const CATEGORIES = [
   { id: "meal", icon: ForkKnife },
   { id: "medication", icon: Pill },
+  { id: "activity", icon: PersonSimpleRun },
   { id: "sleep", icon: Moon },
   { id: "diaper", icon: Baby },
   { id: "mood", icon: Smiley },
   { id: "health", icon: Heart },
+  { id: "learning", icon: BookOpen },
+  { id: "therapy", icon: FirstAid },
   { id: "note", icon: NotePencil },
-] as const satisfies ReadonlyArray<{ id: LogCategory; icon: typeof ForkKnife }>;
+] as const satisfies ReadonlyArray<{ id: Module & LogCategory; icon: typeof ForkKnife }>;
 
 interface CategoryGridProps {
   onSelect: (category: LogCategory) => void;
+  /** The recipient's enabled modules: only these categories are offered. */
+  modules: readonly Module[];
 }
 
-export function CategoryGrid({ onSelect }: CategoryGridProps) {
+export function CategoryGrid({ onSelect, modules }: CategoryGridProps) {
   const t = useTranslations("reports.categories");
+  // A recipient saved before modules existed has none; offer everything
+  // rather than an empty sheet.
+  const visible =
+    modules.length === 0 ? CATEGORIES : CATEGORIES.filter(({ id }) => modules.includes(id));
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4" role="group">
-      {CATEGORIES.map(({ id, icon: Icon }) => (
+      {visible.map(({ id, icon: Icon }) => (
         <button
           key={id}
           type="button"

@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { Clock } from "phosphor-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { type LogCategory, VITAL_SPECS } from "@/lib/constants.generated";
+import { type LogCategory, type Module, VITAL_SPECS } from "@/lib/constants.generated";
 import { LOG_SUBCATEGORIES, type LogSubcategory } from "@/lib/log-subcategories";
 import { recipientApi, APIError } from "@/lib/api-client";
 import { CategoryGrid } from "./CategoryGrid";
@@ -23,6 +23,8 @@ interface LoggingSheetProps {
   onClose: () => void;
   recipientId: string;
   workspaceId: string;
+  /** The recipient's enabled modules; the category grid offers only these. */
+  modules: readonly Module[];
   /** Called after a successful save so the parent can refresh a timeline, etc. */
   onLogged?: () => void;
 }
@@ -30,12 +32,20 @@ interface LoggingSheetProps {
 type Step = "category" | "subcategory" | "backfill" | "vital";
 
 const NOTE_MAX = 500;
+
+// Categories logged as free text rather than a subcategory button. A note
+// needs text; learning and therapy have no subcategory set, so a short
+// description is offered but optional.
+const TEXT_CATEGORIES = ["note", "learning", "therapy"] as const satisfies readonly LogCategory[];
+type TextCategory = (typeof TEXT_CATEGORIES)[number];
+const isTextCategory = (c: LogCategory | null): c is TextCategory =>
+  c !== null && (TEXT_CATEGORIES as readonly string[]).includes(c);
 // PHOTO_MAX, PendingPhoto, PhotoRow and the pending-photo state machinery
 // live in ./photo-attachments so incidents (CGR-015) share one
 // implementation — including the FileList live-view fix and the object-URL
 // cleanup, both of which were real bugs here.
 
-export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged }: LoggingSheetProps) {
+export function LoggingSheet({ open, onClose, recipientId, workspaceId, modules, onLogged }: LoggingSheetProps) {
   const t = useTranslations("logging");
   const tCategories = useTranslations("reports.categories");
   const tSubcategories = useTranslations("logging.subcategories");
@@ -119,7 +129,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     setCategory(cat);
     setError(null);
     const subs = LOG_SUBCATEGORIES[cat] ?? [];
-    if (cat === "note") {
+    if (isTextCategory(cat)) {
       setStep("subcategory");
     } else if (subs.length === 0) {
       if (backfillMode) {
@@ -158,7 +168,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
     void submitEntry(
       category,
       pendingSub,
-      category === "note" ? noteText : undefined,
+      isTextCategory(category) ? noteText.trim() || undefined : undefined,
       opt.date,
       vitals
     );
@@ -178,7 +188,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
       preventDismiss={hasUnsavedInput}
     >
       {step === "category" ? (
-        <CategoryGrid onSelect={handleCategorySelect} />
+        <CategoryGrid onSelect={handleCategorySelect} modules={modules} />
       ) : step === "backfill" ? (
         <div>
           <button
@@ -187,7 +197,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
               setStep(
                 pendingSub && VITAL_SPECS[pendingSub]
                   ? "vital"
-                  : category === "note" || subcategories.length > 0
+                  : isTextCategory(category) || subcategories.length > 0
                     ? "subcategory"
                     : "category"
               )
@@ -317,7 +327,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
             </button>
           </div>
         </div>
-      ) : category === "note" ? (
+      ) : isTextCategory(category) ? (
         <div>
           <button
             type="button"
@@ -333,7 +343,7 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
             maxLength={NOTE_MAX}
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
-            placeholder={t("notePlaceholder")}
+            placeholder={category === "note" ? t("notePlaceholder") : t(`textPlaceholders.${category}`)}
             className="input-base w-full resize-y py-3 text-base"
           />
           <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
@@ -363,17 +373,17 @@ export function LoggingSheet({ open, onClose, recipientId, workspaceId, onLogged
             </button>
             <button
               type="button"
-              disabled={submitting !== null || noteText.trim().length === 0}
+              disabled={submitting !== null || (category === "note" && noteText.trim().length === 0)}
               onClick={() => {
                 if (backfillMode) {
                   setStep("backfill");
                 } else {
-                  void submitEntry("note", undefined, noteText.trim());
+                  void submitEntry(category, undefined, noteText.trim() || undefined);
                 }
               }}
               className="btn-base btn-primary flex-[2] py-3 text-base disabled:opacity-50"
             >
-              {submitting !== null ? t("noteSaving") : t("noteSave")}
+              {submitting !== null ? t("noteSaving") : category === "note" ? t("noteSave") : t("textSave")}
             </button>
           </div>
         </div>

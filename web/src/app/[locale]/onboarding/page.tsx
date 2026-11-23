@@ -10,13 +10,13 @@ import { CareTypeChip } from "@/components/ui/Chip";
 import { ArrowLeft, CheckCircle, User } from "phosphor-react";
 import {
   CARE_TYPES,
-  MODULES,
   DEFAULT_MODULES_FOR_CARE_TYPE,
   CareType,
   Module,
 } from "@/lib/constants.generated";
 import { APIError, authApi, recipientApi, type AuthWorkspace } from "@/lib/api-client";
 import { RecipientDetailsFields } from "@/components/ui/RecipientDetailsFields";
+import { ModulePicker } from "@/components/ui/ModulePicker";
 import {
   EMPTY_RECIPIENT_DETAILS,
   parseRecipientDetails,
@@ -78,12 +78,6 @@ export default function OnboardingPage() {
     if (defaults) {
       setEnabledModules([...defaults]);
     }
-  }, []);
-
-  const handleModuleToggle = useCallback((module: Module) => {
-    setEnabledModules((prev) =>
-      prev.includes(module) ? prev.filter((m) => m !== module) : [...prev, module]
-    );
   }, []);
 
   const canSubmitStep2 = name.trim().length > 0 && careType !== null;
@@ -271,22 +265,7 @@ export default function OnboardingPage() {
                   <legend className="text-base font-medium text-[var(--color-text)]">
                     {t("modulesLabel")}
                   </legend>
-                  <div className="space-y-2 max-h-64 overflow-y-auto pr-2" role="group" aria-label={t("modulesLabel")}>
-                    {MODULES.map((module) => (
-                      <label
-                        key={module}
-                        className="flex items-center gap-3 p-3 rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] cursor-pointer transition-colors hover:bg-[var(--color-surface-hover)] touch-target"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={enabledModules.includes(module)}
-                          onChange={() => handleModuleToggle(module)}
-                          className="w-5 h-5 shrink-0 rounded border-[var(--color-border-control)] text-[var(--color-accent)]"
-                        />
-                        <span className="text-base text-[var(--color-text)]">{t(`modules.${module}`)}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <ModulePicker value={enabledModules} onChange={setEnabledModules} label={t("modulesLabel")} />
                 </fieldset>
 
                 <p className="text-xs text-[var(--color-text-muted)] text-center">{t("modulesCanChangeLater")}</p>

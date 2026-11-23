@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { recipientApi, APIError, Recipient } from "@/lib/api-client";
 import { BottomSheet } from "./BottomSheet";
 import { RecipientDetailsFields } from "./RecipientDetailsFields";
+import { ModulePicker } from "./ModulePicker";
+import { MODULES, type Module } from "@/lib/constants.generated";
 import {
   detailsDraftFrom,
   parseRecipientDetails,
@@ -26,9 +28,13 @@ interface EditRecipientSheetProps {
 // pasted paragraph out of headings and report bylines.
 const NAME_MAX = 100;
 
+// The saved modules in canonical order, so a reorder alone is not a change.
+const savedModulesOf = (recipient: Recipient): Module[] =>
+  MODULES.filter((m) => (recipient.enabled_modules ?? []).includes(m));
+
 /**
- * Owner edits a care recipient's name and optional profile details (gender,
- * date of birth, weight, height). Built on the shared
+ * Owner edits a care recipient's name, what gets logged (modules) and
+ * optional profile details (gender, date of birth, weight, height). Built on the shared
  * BottomSheet (DESIGN.md §8.5): focus trap, Escape, scroll lock and focus
  * return come from Radix.
  */
@@ -40,13 +46,18 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
   const [fullName, setFullName] = useState(recipient.full_name);
   const [displayName, setDisplayName] = useState(recipient.display_name || "");
   const [details, setDetails] = useState<RecipientDetailsDraft>(savedDetails);
+  const savedModules = savedModulesOf(recipient);
+  const [modules, setModules] = useState<Module[]>(savedModules);
   const [detailErrors, setDetailErrors] = useState<RecipientDetailsErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const original = { full: recipient.full_name, display: recipient.display_name || "" };
   const hasChanges =
-    fullName !== original.full || displayName !== original.display || !sameDetails(details, savedDetails);
+    fullName !== original.full ||
+    displayName !== original.display ||
+    !sameDetails(details, savedDetails) ||
+    modules.join() !== savedModules.join();
 
   // Closing without saving throws the edits away, so the next open starts
   // from the saved profile instead of a stale draft.
@@ -54,6 +65,7 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
     setFullName(recipient.full_name);
     setDisplayName(recipient.display_name || "");
     setDetails(detailsDraftFrom(recipient, locale));
+    setModules(savedModulesOf(recipient));
     setDetailErrors({});
     setError(null);
     onClose();
@@ -64,6 +76,12 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
       e.preventDefault();
       if (fullName.trim() === "") {
         setError(t("editNameRequired"));
+        return;
+      }
+      // Every recipient needs at least one module, or a caregiver has
+      // nothing to log.
+      if (modules.length === 0) {
+        setError(t("editModulesRequired"));
         return;
       }
       const { values, errors } = parseRecipientDetails(details);
@@ -79,6 +97,7 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
           full_name: fullName.trim(),
           // Always sent: "" clears the nickname (an absent field keeps it).
           display_name: displayName.trim(),
+          enabled_modules: modules,
           // Likewise for the optional details: "" / null clears a field the
           // owner emptied.
           gender: values.gender ?? "",
@@ -100,7 +119,7 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
         setSubmitting(false);
       }
     },
-    [workspaceId, recipient.id, fullName, displayName, details, onUpdated, onClose, t, tDetails]
+    [workspaceId, recipient.id, fullName, displayName, modules, details, onUpdated, onClose, t, tDetails]
   );
 
   return (
@@ -154,6 +173,12 @@ export function EditRecipientSheet({ open, onClose, recipient, workspaceId, onUp
             {t("editDisplayNameHint")}
           </p>
         </div>
+
+        <fieldset className="space-y-2">
+          <legend className="text-base font-semibold text-[var(--color-text)]">{t("editModules")}</legend>
+          <p className="text-sm text-[var(--color-text-muted)]">{t("editModulesHint")}</p>
+          <ModulePicker value={modules} onChange={setModules} label={t("editModules")} />
+        </fieldset>
 
         <RecipientDetailsFields
           idPrefix="edit-recipient-details"
