@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Heart, House, type Icon } from "phosphor-react";
+import { CaretRight, Heart, House, type Icon } from "phosphor-react";
 import {
   type LoginRole,
   readLoginRole,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/login-role";
 import { OwnerLoginForm } from "./owner-login-form";
 import { PinLoginForm } from "./pin-login-form";
+import { AuthCompact } from "@/components/ui/AuthShell";
 
 interface LoginRoleChoiceProps {
   // Digits-only SUPPORT_WHATSAPP for the owner's "Lupa kata sandi?".
@@ -43,28 +44,55 @@ export function LoginRoleChoice({ supportWhatsApp, initialRole }: LoginRoleChoic
 
   if (!role) {
     return (
-      <div className="space-y-4">
-        <h2 className="text-center text-xl font-semibold text-[var(--color-text)]">{t("whoAreYou")}</h2>
-        <RoleCard
-          icon={Heart}
-          label={t("roleCaregiver")}
-          hint={t("roleCaregiverHint")}
-          onSelect={() => writeLoginRole("caregiver")}
-        />
-        <RoleCard
-          icon={House}
-          label={t("roleOwner")}
-          hint={t("roleOwnerHint")}
-          onSelect={() => writeLoginRole("owner")}
-        />
+      <div className="flex flex-1 flex-col">
+        <h2 className="mb-4 text-2xl font-semibold text-[var(--color-text)]">{t("whoAreYou")}</h2>
+        <div className="space-y-3">
+          <RoleCard
+            icon={Heart}
+            tone="highlight"
+            label={t("roleCaregiver")}
+            hint={t("roleCaregiverHint")}
+            onSelect={() => writeLoginRole("caregiver")}
+          />
+          <RoleCard
+            icon={House}
+            tone="accent"
+            label={t("roleOwner")}
+            hint={t("roleOwnerHint")}
+            onSelect={() => writeLoginRole("owner")}
+          />
+        </div>
+        {/* Only families sign up; caregivers join through an invite. */}
+        <p className="mt-auto pt-8 text-center text-base text-[var(--color-text-muted)]">
+          {t("noAccount")}{" "}
+          <Link
+            href={`/${locale}/register`}
+            className="font-semibold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
+          >
+            {t("createAccount")}
+          </Link>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3 rounded-md bg-[var(--color-surface-hover)] px-4 py-1">
-        <p className="min-w-0 text-base font-medium text-[var(--color-text)]">
+    <div className="flex flex-1 flex-col gap-6">
+      <AuthCompact />
+      <div className="flex items-center justify-between gap-3">
+        {/* Which door you came in by: a kunyit chip, with the way back. */}
+        <p
+          className={`inline-flex min-w-0 items-center gap-2 rounded-full px-3 py-1.5 text-base font-semibold ${
+            role === "caregiver"
+              ? "bg-[var(--color-highlight-soft)] text-[var(--color-highlight-ink)]"
+              : "bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
+          }`}
+        >
+          {role === "caregiver" ? (
+            <Heart size={18} weight="fill" aria-hidden="true" />
+          ) : (
+            <House size={18} weight="fill" aria-hidden="true" />
+          )}
           {role === "caregiver" ? t("roleCaregiverShort") : t("roleOwnerShort")}
         </p>
         <button
@@ -86,7 +114,7 @@ export function LoginRoleChoice({ supportWhatsApp, initialRole }: LoginRoleChoic
       ) : (
         <>
           <OwnerLoginForm supportWhatsApp={supportWhatsApp} />
-          <p className="text-center text-base text-[var(--color-text-muted)]">
+          <p className="mt-auto text-center text-base text-[var(--color-text-muted)]">
             {t("noAccount")}{" "}
             <Link
               href={`/${locale}/register`}
@@ -103,26 +131,35 @@ export function LoginRoleChoice({ supportWhatsApp, initialRole }: LoginRoleChoic
 
 interface RoleCardProps {
   icon: Icon;
+  /** Caregiver = kunyit, owner = teal: the two doors read differently. */
+  tone: "highlight" | "accent";
   label: string;
   hint: string;
   onSelect: () => void;
 }
 
 /** One of the two role cards: ≥ 96px tall, icon + label (spec §7). */
-function RoleCard({ icon: IconComponent, label, hint, onSelect }: RoleCardProps) {
+function RoleCard({ icon: IconComponent, tone, label, hint, onSelect }: RoleCardProps) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className="flex min-h-24 w-full items-center gap-4 rounded-lg border border-[var(--color-border-control)] bg-[var(--color-surface)] px-5 py-4 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+      className="flex min-h-24 w-full items-center gap-4 rounded-xl border-[1.5px] border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 py-4 text-left transition-[transform,colors] duration-[120ms] hover:border-[var(--color-accent)] active:scale-[0.98]"
     >
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]">
-        <IconComponent size={30} weight="duotone" aria-hidden="true" />
+      <span
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${
+          tone === "highlight"
+            ? "bg-[var(--color-highlight-soft)] text-[var(--color-highlight-ink)]"
+            : "bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
+        }`}
+      >
+        <IconComponent size={28} weight="fill" aria-hidden="true" />
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-lg font-semibold text-[var(--color-text)]">{label}</span>
         <span className="mt-0.5 block text-base text-[var(--color-text-muted)]">{hint}</span>
       </span>
+      <CaretRight size={22} className="shrink-0 text-[var(--color-text-muted)]" aria-hidden="true" />
     </button>
   );
 }

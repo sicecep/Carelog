@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { invitationApi, authApi, APIError } from "@/lib/api-client";
 import { PinPad } from "@/components/ui/PinPad";
 import { hardNavigate } from "@/lib/hard-navigate";
+import { AuthCompact, AuthShell } from "@/components/ui/AuthShell";
 
 type Step = "loading" | "invalid" | "phone" | "pin" | "confirm";
 
@@ -24,6 +25,7 @@ type Step = "loading" | "invalid" | "phone" | "pin" | "confirm";
 export default function InviteClaimPage() {
   const t = useTranslations("invite");
   const tPin = useTranslations("pin");
+  const common = useTranslations("common");
   const locale = useLocale();
   const { token } = useParams<{ token: string }>();
 
@@ -113,26 +115,26 @@ export default function InviteClaimPage() {
 
   if (step === "loading") {
     return (
-      <div className="mx-auto mt-20 max-w-md px-4 text-center">
-        <p className="text-base text-[var(--color-text-muted)]">{t("loading")}</p>
-      </div>
+      <AuthShell appName={common("appName")}>
+        <p className="text-center text-base text-[var(--color-text-muted)]">{t("loading")}</p>
+      </AuthShell>
     );
   }
 
   if (step === "invalid") {
     return (
-      <div className="mx-auto mt-20 max-w-md px-4">
+      <AuthShell appName={common("appName")}>
         <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-soft)] px-4 py-4">
           <h1 className="text-lg font-semibold text-[var(--color-error-ink)]">{t("invalidTitle")}</h1>
           <p className="mt-2 text-base text-[var(--color-error-ink)]">{t("invalidBody")}</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="mx-auto mt-12 max-w-md px-4 pb-16">
-      <h1 className="text-center text-xl font-bold text-[var(--color-text)]">
+    <AuthShell appName={common("appName")}>
+      <h1 className="text-center text-2xl font-semibold text-[var(--color-text)]">
         {workspaceName ? t("titleNamed", { workspace: workspaceName }) : t("title")}
       </h1>
 
@@ -187,6 +189,7 @@ export default function InviteClaimPage() {
 
       {step === "pin" && (
         <div className="mt-8 space-y-6">
+          <AuthCompact />
           <div className="text-center">
             <h2 className="text-lg font-semibold text-[var(--color-text)]">{tPin("choosePin")}</h2>
             <p className="mt-1 text-base text-[var(--color-text-muted)]">{tPin("choosePinHint")}</p>
@@ -197,6 +200,7 @@ export default function InviteClaimPage() {
 
       {step === "confirm" && (
         <div className="mt-8 space-y-6">
+          <AuthCompact />
           <div className="text-center">
             <h2 className="text-lg font-semibold text-[var(--color-text)]">{tPin("confirmPin")}</h2>
             <p className="mt-1 text-base text-[var(--color-text-muted)]">{tPin("confirmPinHint")}</p>
@@ -204,6 +208,6 @@ export default function InviteClaimPage() {
           <PinPad onComplete={confirmPin} disabled={busy} error={error} />
         </div>
       )}
-    </div>
+    </AuthShell>
   );
 }

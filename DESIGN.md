@@ -474,6 +474,22 @@ The Beranda tab (`/dashboard`) opens on today, not on a list.
 - The sheets and the shift nudge are shared with the recipient page through
   `components/ui/LogFlow.tsx`.
 
+
+### 8.14 Sign-in screens
+
+Login, register, pending approval, invite claim and change password share `AuthShell`
+(`components/ui/AuthShell.tsx`):
+
+- A teal hero (`--color-hero`) with the app mark (white tile, teal heart, kunyit dot) and the
+  name; the login choice adds the tagline. A cream sheet with 28px top corners holds the content.
+- Phones: full screen, the sheet fills the rest, so the main button or the PIN pad sits at the
+  bottom (`mt-auto`, thumb zone). md+: one centred card.
+- Once a step is under way the page renders `<AuthCompact />`, and the hero shrinks to one row
+  (mark + name, no tagline) so the PIN pad and its links fit a 360×780 screen.
+- Role choice: "Saya Pengasuh" in kunyit (`highlight-soft` circle), "Saya Pengelola" in teal; after
+  choosing, a chip of the same colour shows which door you came in by, next to "Bukan Anda? Ganti".
+- Buttons stay teal; kunyit is only an accent here, as everywhere else.
+
 ---
 
 ## 9. Icons
