@@ -16,7 +16,7 @@
 //   8. EN locale renders English; 56px touch targets in the open sheet;
 //      no pageerror events
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");
@@ -118,7 +118,7 @@ async function main() {
 
     // ── 2. Sheet: steppers, disabled states ───────────────────────────────
     await cg.page.locator("button", { hasText: "Ringkasan Akhir Hari" }).click();
-    const sheetTitle = await cg.page.locator("#day-summary-title").innerText().catch(() => "");
+    const sheetTitle = await cg.page.locator("[role='dialog'] h2").innerText().catch(() => "");
     check("2a. sheet title (Ringkasan Akhir Hari)", sheetTitle === "Ringkasan Akhir Hari", sheetTitle);
 
     const rows = cg.page.locator("[role='dialog'] ul li");
@@ -228,7 +228,7 @@ async function main() {
       .catch(() => false);
     check("8a. EN trigger label", enTrigger);
     await owner.page.locator("button", { hasText: "Day-End Summary" }).click();
-    const enTitle = await owner.page.locator("#day-summary-title").innerText().catch(() => "");
+    const enTitle = await owner.page.locator("[role='dialog'] h2").innerText().catch(() => "");
     check("8b. EN sheet title", enTitle === "Day-End Summary", enTitle);
 
     // ── 9. No pageerror events ────────────────────────────────────────────

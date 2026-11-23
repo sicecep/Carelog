@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-WEB = Path("/home/dev/project/carelog/web/src")
+WEB = Path(__file__).resolve().parent.parent / "web" / "src"
 MSGS = {loc: json.loads((WEB / "messages" / f"{loc}.json").read_text()) for loc in ("en", "id")}
 
 # const t = useTranslations("ns")   |  const x = useTranslations("ns")

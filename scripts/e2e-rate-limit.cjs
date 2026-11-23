@@ -7,6 +7,7 @@
 // the dev stack is checked separately for the fail-open and header behaviour.
 
 const { execFileSync, spawn } = require("child_process");
+const { redisCli, serverBinary, REPO_ROOT } = require("./lib/e2e-env.cjs");
 const http = require("http");
 
 const results = [];
@@ -58,12 +59,10 @@ function waitForHealth(timeoutMs = 20000) {
 async function main() {
   // Flush any leftover buckets so counts are deterministic.
   try {
-    const keys = execFileSync("docker", ["exec", "redis", "redis-cli", "--scan", "--pattern", "rl:*"], {
-      encoding: "utf8",
-    })
+    const keys = redisCli(["--scan", "--pattern", "rl:*"])
       .split("\n")
       .filter(Boolean);
-    if (keys.length) execFileSync("docker", ["exec", "redis", "redis-cli", "del", ...keys]);
+    if (keys.length) redisCli(["del", ...keys]);
   } catch {
     /* redis-cli unavailable — counts may be warm, checks below still hold */
   }
@@ -72,8 +71,18 @@ async function main() {
   // (production-shaped) limit applies. Keep APP_ENV=development because the
   // config guard refuses to boot the flag outside it — we are turning the
   // flag OFF, which is always allowed.
-  const env = { ...process.env, AUTH_DEV_EXPOSE_LINK: "false", HTTP_PORT: String(PORT) };
-  const server = spawn("/tmp/carelog-server", [], { env, stdio: "ignore" });
+  // AUTH_MAGIC_LINK_ENABLED: since the login revamp the magic link is off
+  // (404) unless enabled; this test needs it on to exercise its email limit.
+  const env = {
+    ...process.env,
+    AUTH_DEV_EXPOSE_LINK: "false",
+    AUTH_MAGIC_LINK_ENABLED: "true",
+    HTTP_PORT: String(PORT),
+    // Same Redis the script clears; a dead REDIS_URL would make the limiter
+    // fail open and every request pass.
+    ...(process.env.E2E_REDIS_URL ? { REDIS_URL: process.env.E2E_REDIS_URL } : {}),
+  };
+  const server = spawn(serverBinary(), [], { env, stdio: "ignore", cwd: REPO_ROOT });
   let exited = false;
   server.on("exit", () => (exited = true));
 

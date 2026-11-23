@@ -11,7 +11,7 @@
 //   4. CAREGIVER sees both as READ-ONLY (no textareas, no save button)
 //   5. Daily note is scoped to today's date (OWN-005: "today only")
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");
@@ -70,8 +70,13 @@ async function main() {
     await standingBox.fill(STANDING);
     await dailyBox.fill(DAILY);
     await owner.page.locator("button", { hasText: "Simpan catatan" }).click();
-    await owner.page.waitForSelector("[role='status']", { timeout: 10000 }).catch(() => {});
-    const savedMsg = await owner.page.innerText("[role='status']").catch(() => "");
+    // The page has other role=status regions ("Belum ada catatan hari ini"),
+    // so wait for the confirmation text itself.
+    const savedMsg = await owner.page
+      .locator("[role='status']", { hasText: "tersimpan" })
+      .first()
+      .innerText({ timeout: 10000 })
+      .catch(() => "");
     check("2a. save confirmation shown", savedMsg.includes("tersimpan"), savedMsg.slice(0, 60));
 
     const dbNotes = sql(
@@ -134,7 +139,7 @@ async function main() {
     // ── 5. English locale renders English ────────────────────────────────
     await owner.page.goto(`${WEB}/en/recipients/${rec}`, { waitUntil: "networkidle" });
     const enBody = await owner.page.innerText("body");
-    check("5a. EN panel heading", enBody.includes("Instructions from Parent"));
+    check("5a. EN panel heading", enBody.includes("Instructions from the Care Manager"));
     check("5b. no raw key path", !/parentnotes\.[a-zA-Z]/.test(enBody));
 
     await browser.close();

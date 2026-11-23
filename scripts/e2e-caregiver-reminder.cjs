@@ -18,7 +18,7 @@
 //
 // Run: node scripts/e2e-caregiver-reminder.cjs
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, signIn } = require("./lib/e2e-auth.cjs");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";

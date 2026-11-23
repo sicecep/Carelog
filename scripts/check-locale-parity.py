@@ -5,9 +5,10 @@ time in next-intl — a runtime crash, not a build failure. So `pnpm build`
 passing proves nothing here. This walks both trees and diffs the key sets.
 """
 import json
+import os
 import sys
 
-BASE = "/home/dev/project/carelog/web/src/messages"
+BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web", "src", "messages")
 
 
 def flatten(obj, prefix=""):
