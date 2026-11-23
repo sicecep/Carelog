@@ -576,8 +576,13 @@
     "titleRejected": "Account not approved",
     "bodyRejected": "An administrator did not approve this account.",
     "reasonLabel": "Reason",
-    "emailVerified": "Your email address has been verified.",
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "nextPending": "We don't send an email or text when your account is approved. Try signing in again later, or message the CareLog admin on WhatsApp.",
+    "nextRejected": "If you think this is a mistake, message the CareLog admin on WhatsApp.",
+    "nextNoContact": "We don't send an email or text when your account is approved. Try signing in again later, or contact the CareLog admin.",
+    "whatsAppButton": "WhatsApp the admin",
+    "whatsAppMessagePending": "Hi CareLog admin, I just signed up and my account is waiting for approval.",
+    "whatsAppMessageRejected": "Hi CareLog admin, my account sign-up wasn't approved. Could you tell me why?"
   },
   "admin": {
     "title": "Administration",

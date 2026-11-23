@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { WhatsappLogo } from "phosphor-react";
 import { authApi, APIError } from "@/lib/api-client";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { SupportWhatsAppLink } from "@/components/ui/SupportWhatsAppLink";
 import { hardNavigate } from "@/lib/hard-navigate";
 
 interface OwnerLoginFormProps {
@@ -68,11 +68,6 @@ export function OwnerLoginForm({ supportWhatsApp }: OwnerLoginFormProps) {
     return t("errGeneric");
   }
 
-  const waHref = supportWhatsApp
-    ? `https://wa.me/${supportWhatsApp}?text=${encodeURIComponent(
-        t("forgotPasswordMessage", { identifier: identifier.trim() || "-" })
-      )}`
-    : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -133,18 +128,14 @@ export function OwnerLoginForm({ supportWhatsApp }: OwnerLoginFormProps) {
         {showForgot && (
           <div className="mt-2 space-y-3 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface-hover)] p-4 text-left">
             <p className="text-base text-[var(--color-text)]">
-              {waHref ? t("forgotPasswordHelp") : t("forgotPasswordNoContact")}
+              {supportWhatsApp ? t("forgotPasswordHelp") : t("forgotPasswordNoContact")}
             </p>
-            {waHref && (
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-whatsapp)] font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
-              >
-                <WhatsappLogo size={22} weight="fill" aria-hidden="true" />
-                {t("forgotPasswordWhatsApp")}
-              </a>
+            {supportWhatsApp && (
+              <SupportWhatsAppLink
+                phone={supportWhatsApp}
+                message={t("forgotPasswordMessage", { identifier: identifier.trim() || "-" })}
+                label={t("forgotPasswordWhatsApp")}
+              />
             )}
           </div>
         )}
