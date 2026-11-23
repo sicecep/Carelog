@@ -185,7 +185,19 @@
     "planLimitBody": "Paket {plan} Anda mencakup {max} profil perawatan. Tingkatkan paket untuk menambah.",
     "planLimitCta": "Lihat paket",
     "planLimitAria": "Tambah profil perawatan — tidak tersedia, batas paket tercapai",
-    "planCountLabel": "{used} dari {max} profil terpakai"
+    "planCountLabel": "{used} dari {max} profil terpakai",
+    "editTitle": "Ubah profil",
+    "editClose": "Tutup",
+    "editFullName": "Nama lengkap",
+    "editDisplayName": "Nama panggilan",
+    "editOptional": "opsional",
+    "editDisplayNameHint": "Nama yang dipakai sehari-hari, misalnya \"Adek\" atau \"Eyang\". Dipakai di laporan dan beranda.",
+    "editSave": "Simpan",
+    "editSaving": "Menyimpan…",
+    "editSaved": "Profil disimpan",
+    "editNameRequired": "Nama lengkap wajib diisi.",
+    "editError": "Gagal menyimpan. Coba lagi.",
+    "editOpen": "Ubah profil"
   },
   "reports": {
     "title": "Laporan Harian",

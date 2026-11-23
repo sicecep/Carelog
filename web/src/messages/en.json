@@ -185,7 +185,19 @@
     "planLimitBody": "Your {plan} plan includes {max} care profiles. Upgrade to add more.",
     "planLimitCta": "See plans",
     "planLimitAria": "Add care profile — unavailable, plan limit reached",
-    "planCountLabel": "{used} of {max} profiles used"
+    "planCountLabel": "{used} of {max} profiles used",
+    "editTitle": "Edit profile",
+    "editClose": "Close",
+    "editFullName": "Full name",
+    "editDisplayName": "Nickname",
+    "editOptional": "optional",
+    "editDisplayNameHint": "The name you use every day, like \"Adek\" or \"Grandma\". Shown in reports and on the home screen.",
+    "editSave": "Save",
+    "editSaving": "Saving…",
+    "editSaved": "Profile saved",
+    "editNameRequired": "Full name is required.",
+    "editError": "Could not save. Please try again.",
+    "editOpen": "Edit profile"
   },
   "reports": {
     "title": "Daily Reports",

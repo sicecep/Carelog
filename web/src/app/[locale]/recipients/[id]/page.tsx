@@ -262,7 +262,10 @@ export default async function RecipientDetailPage({
           </p>
         ) : recipient ? (
           <>
-            <DetailHeader recipient={recipient} />
+            <DetailHeader
+              recipient={recipient}
+              editWorkspaceId={isOwner && workspaceId ? workspaceId : undefined}
+            />
 
             {/* OWN-004 / OWN-005: standing instructions + today's note.
                 Rendered ABOVE the timeline so a caregiver reads the parent's
@@ -437,7 +440,6 @@ export default async function RecipientDetailPage({
               <DetailActions
                 recipientId={recipient.id}
                 workspaceId={workspaceId}
-                recipient={recipient}
                 // SFT-001 #4: only caregivers get the soft-block. `shifts`
                 // holds the caller's own active shift for that role, so an
                 // empty array means "off shift".

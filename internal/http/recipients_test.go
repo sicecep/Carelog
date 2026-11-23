@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 
 	"github.com/sicecep/carelog/internal/http/middleware"
@@ -87,6 +88,61 @@ func TestDeleteRecipient_Guards(t *testing.T) {
 			err := h.handleDeleteRecipient(httptest.NewRecorder(), r)
 
 			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+// An owner must be able to clear a nickname: before display_name was a
+// pointer, "" meant "keep", so the edit sheet reported "saved" while the
+// old nickname stayed.
+func TestMergeDisplayName(t *testing.T) {
+	str := func(s string) *string { return &s }
+	current := pgtype.Text{String: "Adek", Valid: true}
+
+	tests := []struct {
+		name      string
+		requested *string
+		current   pgtype.Text
+		want      string
+	}{
+		{name: "absent keeps current", requested: nil, current: current, want: "Adek"},
+		{name: "absent with none set", requested: nil, current: pgtype.Text{}, want: ""},
+		{name: "empty clears", requested: str(""), current: current, want: ""},
+		{name: "whitespace clears", requested: str("   "), current: current, want: ""},
+		{name: "new value replaces", requested: str("  Eyang "), current: current, want: "Eyang"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, mergeDisplayName(tc.requested, tc.current))
+		})
+	}
+}
+
+// TestUpdateRecipient_Guards: editing a profile (including medical_notes)
+// is owner-only. Caregivers pass the writer middleware, so the handler
+// itself must refuse them before any DB call.
+func TestUpdateRecipient_Guards(t *testing.T) {
+	h := &RecipientHandlers{Queries: nil}
+
+	tests := []struct {
+		name    string
+		role    string
+		wsID    uuid.UUID
+		wantErr string
+	}{
+		{"caregiver_rejected", "caregiver", uuid.New(), "only owners can edit recipients"},
+		{"viewer_rejected", "viewer", uuid.New(), "only owners can edit recipients"},
+		{"empty_role_rejected", "", uuid.New(), "only owners can edit recipients"},
+		{"missing_workspace_rejected", "owner", uuid.Nil, "missing workspace context"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := withRecipientCtx(t, http.MethodPatch, tc.role, tc.wsID)
+			err := h.handleUpdateRecipient(httptest.NewRecorder(), r)
+
+			require.Error(t, err, "guard must reject before touching the DB")
 			require.Contains(t, err.Error(), tc.wantErr)
 		})
 	}
