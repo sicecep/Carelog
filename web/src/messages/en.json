@@ -56,7 +56,7 @@
     "forgotPasswordNoContact": "Contact the CareLog admin to reset your password.",
     "whoAreYou": "Who are you?",
     "roleCaregiver": "I'm a caregiver",
-    "roleCaregiverHint": "Logs the daily care.",
+    "roleCaregiverHint": "Logs the daily care. Also for invited family members.",
     "roleOwner": "I manage the care",
     "roleOwnerHint": "Invites caregivers and follows the reports.",
     "notYou": "Not you? Switch",
