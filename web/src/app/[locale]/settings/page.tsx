@@ -56,6 +56,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   // Owners sign in with a password (or should set one); caregivers use a
   // PIN, so the section only shows when it applies.
   const showPassword = Boolean(me?.auth?.has_password || active?.role === "owner");
+  const isOwner = active?.role === "owner";
 
   if (active && !mustChangePassword) {
     try {
@@ -97,7 +98,9 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       <AppHeader locale={locale} />
 
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="mb-6 text-2xl font-medium text-[var(--color-text)]">{t("title")}</h1>
+        <h1 className="mb-6 text-2xl font-semibold text-[var(--color-text)]">
+          {isOwner ? t("title") : tAccount("title")}
+        </h1>
 
         {loadFailed || !workspace ? (
           <p role="alert" className="card p-6 text-base text-[var(--color-error-ink)]">
@@ -105,7 +108,11 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           </p>
         ) : (
           <>
-            <WorkspaceSettingsForm workspace={workspace} locale={locale} />
+            {/* Only owners can change workspace settings. A caregiver used to
+                see the whole form greyed out behind a "read-only" note: a
+                screen of controls they could not use. They now see only
+                their own settings (reminders, password). */}
+            {isOwner && <WorkspaceSettingsForm workspace={workspace} locale={locale} />}
             {reminderPrefs && active && (
               <ReminderSettings workspaceId={active.id} initial={reminderPrefs} />
             )}

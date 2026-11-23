@@ -114,7 +114,7 @@ async function main() {
     check("A2. four tabs", tabCount === 4, `got ${tabCount}`);
 
     const mobNavText = await bottomNav.innerText();
-    check("A3. Indonesian tab labels", mobNavText.includes("Tim Perawat") && mobNavText.includes("Terawat"), mobNavText.replace(/\n/g, " | "));
+    check("A3. Indonesian tab labels", ["Beranda", "Terawat", "Tim", "Pengaturan"].every((l) => mobNavText.split("\n").includes(l)), mobNavText.replace(/\n/g, " | "));
 
     // A3b. Every label must fit on ONE line. "Penerima Perawatan" wrapped to
     // two, so that tab sat taller than its three neighbours and the row was
@@ -194,7 +194,7 @@ async function main() {
 
     // Tab click navigates. waitForURL, not waitForLoadState: Next Link does a
     // client-side transition, and networkidle can resolve before it starts.
-    await deskHeaderNav.locator("a", { hasText: "Tim Perawat" }).click();
+    await deskHeaderNav.locator("a", { hasText: /^Tim$/ }).click();
     await deskPage.waitForURL("**/id/careteam", { timeout: 5000 }).then(
       () => check("C3. clicking tab navigates to /careteam", true, deskPage.url()),
       () => check("C3. clicking tab navigates to /careteam", false, deskPage.url())
@@ -208,7 +208,7 @@ async function main() {
       .first()
       .innerText()
       .catch(() => "");
-    check("D1. EN nav labels are English", enNav.includes("Care Team") && enNav.includes("Settings") && enNav.includes("Dashboard"), enNav.replace(/\n/g, " | "));
+    check("D1. EN nav labels are English", enNav.includes("Team") && enNav.includes("Settings") && enNav.includes("Home"), enNav.replace(/\n/g, " | "));
     await deskPage.goto(`${WEB}/en/careteam`, { waitUntil: "networkidle" });
     const enCT = await deskPage.innerText("body");
     check("D2. EN careteam shows Invite", enCT.includes("Invite Caregiver"));

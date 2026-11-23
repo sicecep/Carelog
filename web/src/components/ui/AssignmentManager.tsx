@@ -98,10 +98,14 @@ export function AssignmentManager({
               className="flex items-center justify-between gap-3 rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-[var(--color-text)]">
+                <p className="text-base font-semibold wrap-anywhere text-[var(--color-text)]">
                   {displayName(c)}
                 </p>
-                <p className="truncate text-sm text-[var(--color-text-muted)]">{c.email}</p>
+                {/* Without a name the email is already the title line; don't
+                    print it twice. */}
+                {c.full_name?.trim() && (
+                  <p className="text-sm wrap-anywhere text-[var(--color-text-muted)]">{c.email}</p>
+                )}
               </div>
               {canManage && (
                 <button
