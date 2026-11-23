@@ -15,7 +15,7 @@ func TestAddEntryValidation_InvalidCategory(t *testing.T) {
 	input := AddEntryInput{
 		Category: domain.LogCategory("invalid"),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -28,43 +28,22 @@ func TestAddEntryValidation_InvalidSubcategoryForCategory(t *testing.T) {
 		Category:    domain.LogCategoryMeal,
 		Subcategory: &sub,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
 	require.Equal(t, "subcategory", valErr.Errors[0].Field)
 }
 
-func TestAddEntryValidation_DiaperForElderly_Fails(t *testing.T) {
-	input := AddEntryInput{
-		Category: domain.LogCategoryDiaper,
-	}
-	err := validateAddEntryInput(input, domain.CareTypeElderly)
-	require.Error(t, err)
-	var valErr ErrValidation
-	require.True(t, errors.As(err, &valErr))
-	require.Equal(t, "category", valErr.Errors[0].Field)
-	require.Contains(t, valErr.Errors[0].Message, "diaper")
-}
-
-func TestAddEntryValidation_DiaperForInfant_Succeeds(t *testing.T) {
+// Diapers are loggable for every care type: the recipient's enabled modules,
+// not the care type, decide which tiles a caregiver sees.
+func TestAddEntryValidation_DiaperForAnyCareType_Succeeds(t *testing.T) {
 	sub := domain.SubcategoryDiaperWet
 	input := AddEntryInput{
 		Category:    domain.LogCategoryDiaper,
 		Subcategory: &sub,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeInfant)
-	require.NoError(t, err)
-}
-
-func TestAddEntryValidation_DiaperForChild_Succeeds(t *testing.T) {
-	sub := domain.SubcategoryDiaperWet
-	input := AddEntryInput{
-		Category:    domain.LogCategoryDiaper,
-		Subcategory: &sub,
-	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
-	require.NoError(t, err)
+	require.NoError(t, validateAddEntryInput(input))
 }
 
 func TestAddEntryValidation_NoteTooLong_Fails(t *testing.T) {
@@ -73,7 +52,7 @@ func TestAddEntryValidation_NoteTooLong_Fails(t *testing.T) {
 		Category:  domain.LogCategoryNote,
 		ValueText: &longNote,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -86,7 +65,7 @@ func TestAddEntryValidation_OccurredAtFuture_Fails(t *testing.T) {
 		Category:   domain.LogCategoryMeal,
 		OccurredAt: &future,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -99,7 +78,7 @@ func TestAddEntryValidation_OccurredAtDifferentDay_Fails(t *testing.T) {
 		Category:   domain.LogCategoryMeal,
 		OccurredAt: &yesterday,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -113,7 +92,7 @@ func TestAddEntryValidation_ValidInput_Passes(t *testing.T) {
 		Subcategory: &sub,
 		ValueText:   stringPtr("Had breakfast"),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.NoError(t, err)
 }
 
@@ -134,7 +113,7 @@ func TestAddEntryValidation_VitalMissingPayload_Fails(t *testing.T) {
 		Category:    domain.LogCategoryHealth,
 		Subcategory: &sub,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -149,7 +128,7 @@ func TestAddEntryValidation_VitalInvalidJSON_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": "thirty-seven"}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -164,7 +143,7 @@ func TestAddEntryValidation_VitalMissingField_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -179,7 +158,7 @@ func TestAddEntryValidation_TemperatureOutOfRange_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": 43.5}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -194,7 +173,7 @@ func TestAddEntryValidation_TemperatureInRange_Passes(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": 36.8}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.NoError(t, err)
 }
 
@@ -205,7 +184,7 @@ func TestAddEntryValidation_BloodPressureSwapped_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"systolic": 70, "diastolic": 120}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeElderly)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -225,7 +204,7 @@ func TestAddEntryValidation_BloodPressureValid_Passes(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"systolic": 120, "diastolic": 80}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeElderly)
+	err := validateAddEntryInput(input)
 	require.NoError(t, err)
 }
 
@@ -236,7 +215,7 @@ func TestAddEntryValidation_SpO2OutOfRange_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": 65}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -250,7 +229,7 @@ func TestAddEntryValidation_WeightOutOfRange_Fails(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": 350}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -264,7 +243,7 @@ func TestAddEntryValidation_WeightValid_Passes(t *testing.T) {
 		Subcategory: &sub,
 		ValueJson:   []byte(`{"value": 12.5}`),
 	}
-	err := validateAddEntryInput(input, domain.CareTypeInfant)
+	err := validateAddEntryInput(input)
 	require.NoError(t, err)
 }
 
@@ -275,7 +254,7 @@ func TestAddEntryValidation_SymptomNotVital_NoJSONRequired(t *testing.T) {
 		Category:    domain.LogCategoryHealth,
 		Subcategory: &sub,
 	}
-	err := validateAddEntryInput(input, domain.CareTypeChild)
+	err := validateAddEntryInput(input)
 	require.NoError(t, err)
 }
 
@@ -335,12 +314,12 @@ func TestValidateSummaryCounts_Valid_Passes(t *testing.T) {
 		},
 		Note: stringPtr("Hari yang panjang"),
 	}
-	err := validateSummaryCounts(input, domain.CareTypeInfant)
+	err := validateSummaryCounts(input)
 	require.NoError(t, err)
 }
 
 func TestValidateSummaryCounts_Empty_Fails(t *testing.T) {
-	err := validateSummaryCounts(SubmitDaySummaryInput{}, domain.CareTypeChild)
+	err := validateSummaryCounts(SubmitDaySummaryInput{})
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -351,7 +330,7 @@ func TestValidateSummaryCounts_ZeroCountsOnly_Fails(t *testing.T) {
 	input := SubmitDaySummaryInput{
 		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 0},
 	}
-	err := validateSummaryCounts(input, domain.CareTypeChild)
+	err := validateSummaryCounts(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -362,7 +341,7 @@ func TestValidateSummaryCounts_CountTooHigh_Fails(t *testing.T) {
 	input := SubmitDaySummaryInput{
 		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 150},
 	}
-	err := validateSummaryCounts(input, domain.CareTypeChild)
+	err := validateSummaryCounts(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -373,7 +352,7 @@ func TestValidateSummaryCounts_UnknownCategory_Fails(t *testing.T) {
 	input := SubmitDaySummaryInput{
 		Counts: map[domain.LogCategory]int{domain.LogCategory("yoga"): 1},
 	}
-	err := validateSummaryCounts(input, domain.CareTypeChild)
+	err := validateSummaryCounts(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
@@ -384,22 +363,11 @@ func TestValidateSummaryCounts_NoteIsNotCountable_Fails(t *testing.T) {
 	input := SubmitDaySummaryInput{
 		Counts: map[domain.LogCategory]int{domain.LogCategoryNote: 3},
 	}
-	err := validateSummaryCounts(input, domain.CareTypeChild)
+	err := validateSummaryCounts(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))
 	require.Contains(t, valErr.Errors[0].Message, "not countable")
-}
-
-func TestValidateSummaryCounts_DiaperForElderly_Fails(t *testing.T) {
-	input := SubmitDaySummaryInput{
-		Counts: map[domain.LogCategory]int{domain.LogCategoryDiaper: 2},
-	}
-	err := validateSummaryCounts(input, domain.CareTypeElderly)
-	require.Error(t, err)
-	var valErr ErrValidation
-	require.True(t, errors.As(err, &valErr))
-	require.Contains(t, valErr.Errors[0].Message, "diaper")
 }
 
 func TestValidateSummaryCounts_NoteTooLong_Fails(t *testing.T) {
@@ -408,7 +376,7 @@ func TestValidateSummaryCounts_NoteTooLong_Fails(t *testing.T) {
 		Counts: map[domain.LogCategory]int{domain.LogCategoryMeal: 1},
 		Note:   &longNote,
 	}
-	err := validateSummaryCounts(input, domain.CareTypeChild)
+	err := validateSummaryCounts(input)
 	require.Error(t, err)
 	var valErr ErrValidation
 	require.True(t, errors.As(err, &valErr))

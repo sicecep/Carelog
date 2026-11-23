@@ -11,103 +11,146 @@ import (
 	"github.com/sicecep/carelog/internal/domain"
 )
 
-func TestCreateRecipientInputValidation(t *testing.T) {
+// fixedNow pins "today" so date-of-birth checks are deterministic.
+var fixedNow = time.Date(2026, 11, 23, 3, 0, 0, 0, time.UTC)
+
+func date(y int, m time.Month, d int) *pgtype.Date {
+	return &pgtype.Date{Time: time.Date(y, m, d, 0, 0, 0, 0, time.UTC), Valid: true}
+}
+
+func ptrTo[T any](v T) *T { return &v }
+
+func errFields(errs []RecipientError) []string {
+	var fields []string
+	for _, e := range errs {
+		fields = append(fields, e.Field)
+	}
+	return fields
+}
+
+func TestValidateCreateRecipientInput(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       CreateRecipientInput
-		wantErrCode string
-		wantFields  []string
+		name       string
+		input      CreateRecipientInput
+		wantFields []string
 	}{
 		{
-			name: "empty name fails",
-			input: CreateRecipientInput{
-				FullName:       "",
-				CareType:       domain.CareTypeChild,
-				EnabledModules: []domain.Module{domain.ModuleMeal, domain.ModuleSleep},
-			},
-			wantErrCode: "validation_error",
-			wantFields:  []string{"full_name"},
+			name:       "empty name fails",
+			input:      CreateRecipientInput{CareType: domain.CareTypeChild, EnabledModules: []domain.Module{domain.ModuleMeal}},
+			wantFields: []string{"full_name"},
 		},
 		{
-			name: "invalid care type fails",
-			input: CreateRecipientInput{
-				FullName:       "Test",
-				CareType:       domain.CareType("alien"),
-				EnabledModules: []domain.Module{domain.ModuleMeal},
-			},
-			wantErrCode: "validation_error",
-			wantFields:  []string{"care_type"},
+			name:       "invalid care type fails",
+			input:      CreateRecipientInput{FullName: "Test", CareType: domain.CareType("alien")},
+			wantFields: []string{"care_type"},
 		},
 		{
-			name: "module not in care type defaults fails",
-			input: CreateRecipientInput{
-				FullName:       "Test",
-				CareType:       domain.CareTypeInfant, // infant has no therapy
-				EnabledModules: []domain.Module{domain.ModuleTherapy},
-			},
-			wantErrCode: "validation_error",
-			wantFields:  []string{"enabled_modules"},
+			name:       "unknown module fails",
+			input:      CreateRecipientInput{FullName: "Test", CareType: domain.CareTypeChild, EnabledModules: []domain.Module{"other"}},
+			wantFields: []string{"enabled_modules"},
 		},
 		{
-			name: "valid infant input passes validation",
-			input: CreateRecipientInput{
-				FullName:       "Baby",
-				CareType:       domain.CareTypeInfant,
-				EnabledModules: []domain.Module{domain.ModuleMeal, domain.ModuleSleep, domain.ModuleDiaper},
-			},
-			wantErrCode: "",
-			wantFields:  nil,
+			name:  "medication for a child passes",
+			input: CreateRecipientInput{FullName: "Anak", CareType: domain.CareTypeChild, EnabledModules: []domain.Module{domain.ModuleMedication}},
 		},
 		{
-			name: "valid child input passes validation",
-			input: CreateRecipientInput{
-				FullName:       "Child",
-				CareType:       domain.CareTypeChild,
-				EnabledModules: []domain.Module{domain.ModuleMeal, domain.ModuleActivity, domain.ModuleLearning},
-			},
-			wantErrCode: "",
-			wantFields:  nil,
+			name:  "diaper and therapy for elderly pass",
+			input: CreateRecipientInput{FullName: "Eyang", CareType: domain.CareTypeElderly, EnabledModules: []domain.Module{domain.ModuleDiaper, domain.ModuleTherapy}},
 		},
 		{
-			name: "valid elderly input passes validation",
-			input: CreateRecipientInput{
-				FullName:       "Grandparent",
-				CareType:       domain.CareTypeElderly,
-				EnabledModules: []domain.Module{domain.ModuleMedication, domain.ModuleHealth, domain.ModuleMood},
-			},
-			wantErrCode: "",
-			wantFields:  nil,
+			name:  "every module for an infant passes",
+			input: CreateRecipientInput{FullName: "Bayi", CareType: domain.CareTypeInfant, EnabledModules: domain.Modules},
 		},
 		{
-			name: "valid patient input passes validation",
-			input: CreateRecipientInput{
-				FullName:       "Patient",
-				CareType:       domain.CareTypePatient,
-				EnabledModules: []domain.Module{domain.ModuleMedication, domain.ModuleTherapy, domain.ModuleHealth},
-			},
-			wantErrCode: "",
-			wantFields:  nil,
+			name:  "no optional details passes",
+			input: CreateRecipientInput{FullName: "Test", CareType: domain.CareTypePatient, EnabledModules: []domain.Module{domain.ModuleHealth}},
 		},
 		{
-			name: "optional date of birth accepted",
+			name: "all optional details pass",
 			input: CreateRecipientInput{
-				FullName:       "Test",
-				CareType:       domain.CareTypeChild,
-				EnabledModules: []domain.Module{domain.ModuleMeal},
-				DateOfBirth:    &pgtype.Date{Time: timeNow(), Valid: true},
+				FullName: "Test", CareType: domain.CareTypeElderly, EnabledModules: []domain.Module{domain.ModuleMeal},
+				Gender: ptrTo("female"), DateOfBirth: date(1950, 3, 14), WeightKg: ptrTo(52.5), HeightCm: ptrTo(150.5),
 			},
-			wantErrCode: "",
-			wantFields:  nil,
+		},
+		{
+			name: "bad optional details are each reported",
+			input: CreateRecipientInput{
+				FullName: "Test", CareType: domain.CareTypeChild,
+				Gender: ptrTo("unknown"), DateOfBirth: date(2030, 1, 1), WeightKg: ptrTo(0.0), HeightCm: ptrTo(400.0),
+			},
+			wantFields: []string{"gender", "date_of_birth", "weight_kg", "height_cm"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// We test the validation logic by calling the validation helper directly.
-			// Since CreateRecipient needs DB, we extract the validation to a testable function
-			// or just test the full function with a mock in a separate test file.
-			// For now, we verify the validation rules are complete.
-			_ = tc
+			require.Equal(t, tc.wantFields, errFields(validateCreateRecipientInput(tc.input, fixedNow)))
+		})
+	}
+}
+
+func TestValidateProfileDetails(t *testing.T) {
+	tests := []struct {
+		name      string
+		details   ProfileDetails
+		wantField string // "" means valid
+	}{
+		{name: "all nil is valid", details: ProfileDetails{}},
+		{name: "male", details: ProfileDetails{Gender: ptrTo("male")}},
+		{name: "female", details: ProfileDetails{Gender: ptrTo("female")}},
+		{name: "other", details: ProfileDetails{Gender: ptrTo("other")}},
+		{name: "capitalised gender", details: ProfileDetails{Gender: ptrTo("Male")}, wantField: "gender"},
+		{name: "empty gender string", details: ProfileDetails{Gender: ptrTo("")}, wantField: "gender"},
+		{name: "null date is valid", details: ProfileDetails{DateOfBirth: &pgtype.Date{}}},
+		{name: "born today", details: ProfileDetails{DateOfBirth: date(2026, 11, 23)}},
+		{name: "born tomorrow in UTC, today in WIT", details: ProfileDetails{DateOfBirth: date(2026, 11, 24)}},
+		{name: "born next week", details: ProfileDetails{DateOfBirth: date(2026, 11, 30)}, wantField: "date_of_birth"},
+		{name: "born in 1900", details: ProfileDetails{DateOfBirth: date(1900, 1, 1)}},
+		{name: "year typo", details: ProfileDetails{DateOfBirth: date(195, 1, 1)}, wantField: "date_of_birth"},
+		{name: "weight at min", details: ProfileDetails{WeightKg: ptrTo(0.5)}},
+		{name: "weight at max", details: ProfileDetails{WeightKg: ptrTo(300.0)}},
+		{name: "weight below min", details: ProfileDetails{WeightKg: ptrTo(0.4)}, wantField: "weight_kg"},
+		{name: "weight above max", details: ProfileDetails{WeightKg: ptrTo(300.5)}, wantField: "weight_kg"},
+		{name: "negative weight", details: ProfileDetails{WeightKg: ptrTo(-3.0)}, wantField: "weight_kg"},
+		{name: "height at min", details: ProfileDetails{HeightCm: ptrTo(20.0)}},
+		{name: "height at max", details: ProfileDetails{HeightCm: ptrTo(250.0)}},
+		{name: "height below min", details: ProfileDetails{HeightCm: ptrTo(19.9)}, wantField: "height_cm"},
+		{name: "height in metres by mistake", details: ProfileDetails{HeightCm: ptrTo(1.6)}, wantField: "height_cm"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := ValidateProfileDetails(tc.details, fixedNow)
+			if tc.wantField == "" {
+				require.Empty(t, errs)
+				return
+			}
+			require.Equal(t, []string{tc.wantField}, errFields(errs))
+		})
+	}
+}
+
+func TestNumericFromFloat(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *float64
+		want *float64
+	}{
+		{name: "nil is NULL", in: nil, want: nil},
+		{name: "whole number", in: ptrTo(70.0), want: ptrTo(70.0)},
+		{name: "decimal", in: ptrTo(3.25), want: ptrTo(3.25)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			n, err := NumericFromFloat(tc.in)
+			require.NoError(t, err)
+			if tc.want == nil {
+				require.False(t, n.Valid)
+				return
+			}
+			f, err := n.Float64Value()
+			require.NoError(t, err)
+			require.InDelta(t, *tc.want, f.Float64, 1e-9)
 		})
 	}
 }
@@ -118,47 +161,6 @@ func TestEveryCareTypeHasAtLeastOneModule(t *testing.T) {
 		require.True(t, ok, "care type %q has no defaults", ct)
 		require.NotEmpty(t, mods, "care type %q has empty defaults", ct)
 	}
-}
-
-func TestModuleSubsetValidation(t *testing.T) {
-	// Helper to check if a module is allowed for a care type
-	isAllowed := func(careType domain.CareType, module domain.Module) bool {
-		mods, ok := domain.DefaultModulesForCareType(careType)
-		if !ok {
-			return false
-		}
-		for _, m := range mods {
-			if m == module {
-				return true
-			}
-		}
-		return false
-	}
-
-	// Infant: meal, sleep, diaper, health, mood, note
-	require.True(t, isAllowed(domain.CareTypeInfant, domain.ModuleMeal))
-	require.True(t, isAllowed(domain.CareTypeInfant, domain.ModuleDiaper))
-	require.False(t, isAllowed(domain.CareTypeInfant, domain.ModuleTherapy)) // infant no therapy
-	require.False(t, isAllowed(domain.CareTypeInfant, domain.ModuleLearning)) // infant no learning
-
-	// Child: meal, sleep, activity, learning, mood, health, note
-	require.True(t, isAllowed(domain.CareTypeChild, domain.ModuleActivity))
-	require.True(t, isAllowed(domain.CareTypeChild, domain.ModuleLearning))
-	require.False(t, isAllowed(domain.CareTypeChild, domain.ModuleDiaper)) // child no diaper
-	require.False(t, isAllowed(domain.CareTypeChild, domain.ModuleTherapy)) // child no therapy
-
-	// Elderly: meal, medication, health, mood, activity, note
-	require.True(t, isAllowed(domain.CareTypeElderly, domain.ModuleMedication))
-	require.True(t, isAllowed(domain.CareTypeElderly, domain.ModuleActivity))
-	require.False(t, isAllowed(domain.CareTypeElderly, domain.ModuleDiaper))
-	require.False(t, isAllowed(domain.CareTypeElderly, domain.ModuleTherapy))
-
-	// Patient: medication, health, therapy, note, meal, mood
-	require.True(t, isAllowed(domain.CareTypePatient, domain.ModuleTherapy))
-	require.True(t, isAllowed(domain.CareTypePatient, domain.ModuleMedication))
-	require.False(t, isAllowed(domain.CareTypePatient, domain.ModuleDiaper))
-	require.False(t, isAllowed(domain.CareTypePatient, domain.ModuleLearning))
-	require.False(t, isAllowed(domain.CareTypePatient, domain.ModuleActivity)) // patient no activity in spec
 }
 
 func TestModuleConstants(t *testing.T) {
@@ -173,9 +175,4 @@ func TestModuleConstants(t *testing.T) {
 	// Case sensitivity
 	require.False(t, domain.IsValidModule("Meal"))
 	require.False(t, domain.IsValidModule("MEAL"))
-}
-
-// timeNow returns the current time for test helpers.
-func timeNow() time.Time {
-	return time.Now()
 }

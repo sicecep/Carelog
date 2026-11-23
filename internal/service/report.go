@@ -25,20 +25,13 @@ var (
 
 // validateAddEntryInput validates the AddEntryInput without database calls.
 // This is a pure function that can be tested in isolation.
-func validateAddEntryInput(input AddEntryInput, careType domain.CareType) error {
+func validateAddEntryInput(input AddEntryInput) error {
 	var valErrs []RecipientError
 	if !domain.IsValidLogCategory(input.Category.String()) {
 		valErrs = append(valErrs, RecipientError{Field: "category", Message: "invalid category"})
 	}
 	if input.Subcategory != nil && !domain.IsValidLogSubcategoryFor(input.Category, input.Subcategory.String()) {
 		valErrs = append(valErrs, RecipientError{Field: "subcategory", Message: "invalid subcategory for category"})
-	}
-
-	// Diaper rule (LOG-002.1)
-	if input.Category == domain.LogCategoryDiaper {
-		if !domain.IsDiaperAllowedFor(careType) {
-			valErrs = append(valErrs, RecipientError{Field: "category", Message: "diaper logs only for infants/children"})
-		}
 	}
 
 	// Note length (LOG-005)
@@ -184,9 +177,8 @@ type SubmitDaySummaryInput struct {
 //     no-op button mash, not a record.
 //   - Counts are 1..99. A caregiver summarizing "100+ meals" has mistyped.
 //   - note and other are not countable categories.
-//   - The diaper care-type rule (LOG-002.1) applies to summaries too.
 //   - Note length obeys LOG-005.
-func validateSummaryCounts(input SubmitDaySummaryInput, careType domain.CareType) error {
+func validateSummaryCounts(input SubmitDaySummaryInput) error {
 	var valErrs []RecipientError
 
 	nonZero := 0
@@ -197,10 +189,6 @@ func validateSummaryCounts(input SubmitDaySummaryInput, careType domain.CareType
 		}
 		if cat == domain.LogCategoryNote || cat == domain.LogCategoryOther {
 			valErrs = append(valErrs, RecipientError{Field: "counts", Message: fmt.Sprintf("category %q is not countable", cat)})
-			continue
-		}
-		if cat == domain.LogCategoryDiaper && !domain.IsDiaperAllowedFor(careType) {
-			valErrs = append(valErrs, RecipientError{Field: "counts", Message: "diaper counts only for infants/children"})
 			continue
 		}
 		// A zero count is a no-op stepper, not an error — only a summary
@@ -242,7 +230,7 @@ func SubmitDaySummary(
 	input SubmitDaySummaryInput,
 ) ([]store.ReportEntry, error) {
 	// Validation — workspace-scoped lookup prevents cross-tenant writes.
-	recipient, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
+	_, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
 		ID:          recipientID,
 		WorkspaceID: workspaceID,
 	})
@@ -253,7 +241,7 @@ func SubmitDaySummary(
 		return nil, fmt.Errorf("get recipient: %w", err)
 	}
 
-	if err := validateSummaryCounts(input, domain.CareType(recipient.CareType)); err != nil {
+	if err := validateSummaryCounts(input); err != nil {
 		return nil, err
 	}
 
@@ -435,7 +423,7 @@ func AddEntry(
 	photoBaseURL string,
 ) (store.ReportEntry, error) {
 	// 1. Validation — workspace-scoped lookup prevents cross-tenant writes.
-	recipient, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
+	_, err := queries.GetCareRecipient(ctx, store.GetCareRecipientParams{
 		ID:          recipientID,
 		WorkspaceID: workspaceID,
 	})
@@ -446,7 +434,7 @@ func AddEntry(
 		return store.ReportEntry{}, fmt.Errorf("get recipient: %w", err)
 	}
 
-	if err := validateAddEntryInput(input, domain.CareType(recipient.CareType)); err != nil {
+	if err := validateAddEntryInput(input); err != nil {
 		return store.ReportEntry{}, err
 	}
 	if photoErrs := validatePhotoURLs(input.PhotoUrls, photoBaseURL); len(photoErrs) > 0 {

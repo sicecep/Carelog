@@ -199,6 +199,29 @@
     "editError": "Could not save. Please try again.",
     "editOpen": "Edit profile"
   },
+  "recipientDetails": {
+    "heading": "Profile details",
+    "optional": "optional",
+    "hint": "You can leave these empty and fill them in later.",
+    "gender": "Gender",
+    "genders": {
+      "male": "Male",
+      "female": "Female",
+      "other": "Other"
+    },
+    "genderClearHint": "Tap again to clear your choice.",
+    "dateOfBirth": "Date of birth",
+    "weight": "Weight",
+    "height": "Height",
+    "invalidNumber": "Enter a number, for example 52.5.",
+    "outOfRange": "Must be between {min, number} and {max, number} {unit}.",
+    "invalidDate": "This date is not valid.",
+    "futureDate": "Date of birth cannot be in the future.",
+    "fixErrors": "Please check the profile details.",
+    "ageYears": "{count, plural, one {# year} other {# years}} old",
+    "ageMonths": "{count, plural, one {# month} other {# months}} old",
+    "detailsLabel": "Profile details"
+  },
   "reports": {
     "title": "Daily Reports",
     "newReport": "New report",

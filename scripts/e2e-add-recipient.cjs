@@ -99,9 +99,21 @@ async function main() {
       .filter({ hasText: "Bayi" })
       .first()
       .click();
+    // Optional profile details: an out-of-range weight blocks the step,
+    // then valid values (comma decimal, as Indonesian keyboards type it).
+    await page.locator("[role='radio']", { hasText: "Perempuan" }).click();
+    await page.locator("#onboarding-details-dob").fill("2026-01-15");
+    await page.locator("#onboarding-details-weight").fill("900");
+    await page.locator("button", { hasText: "Lanjut" }).click();
+    check("3-pre. out-of-range weight shows an error",
+      await page.getByText("Harus antara 0,5 dan 300 kg.").isVisible());
+    await page.locator("#onboarding-details-weight").fill("7,25");
+    await page.locator("#onboarding-details-height").fill("66");
     await page.locator("button", { hasText: "Lanjut" }).click();
     await page.waitForURL("**/onboarding?new=1", { timeout: 1000 }).catch(() => {});
-    // Step 3: modules. Defaults are auto-selected, so submit is enabled.
+    // Step 3: modules. Defaults are auto-selected; medication is not an
+    // infant default, but any module may be enabled for any care type.
+    await page.locator("label", { hasText: "Obat" }).click();
     await page.locator("button", { hasText: "Buat profil" }).click();
     await page.waitForURL("**/id/recipients", { timeout: 10000 }).then(
       () => check("3a. submit returns to /recipients", true, page.url()),
@@ -115,6 +127,13 @@ async function main() {
       `SELECT is_active FROM care_recipients WHERE full_name='${CHILD}'`
     );
     check("3c. DB row created and active", rows.length === 1 && rows[0][0] === "t", JSON.stringify(rows));
+    const details = sql(
+      `SELECT gender, date_of_birth, weight_kg, height_cm, enabled_modules ? 'medication'
+       FROM care_recipients WHERE full_name='${CHILD}'`
+    );
+    check("3d. optional details and a non-default module are saved",
+      JSON.stringify(details[0]) === JSON.stringify(["female", "2026-01-15", "7.25", "66.0", "t"]),
+      JSON.stringify(details));
 
     // ── 4. Plain /onboarding keeps the intro for first-time users ─────────
     await page.goto(`${WEB}/id/onboarding`, { waitUntil: "networkidle" });

@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -101,6 +103,98 @@ type CreateRecipientInput struct {
 	Notes          *string
 	MedicalNotes   *string
 	EnabledModules []domain.Module
+	WeightKg       *float64
+	HeightCm       *float64
+}
+
+// MinBirthYear is the earliest accepted birth year. It exists to catch typos
+// such as "0195" for "1995", not to judge anyone's age.
+const MinBirthYear = 1900
+
+// birthDateTolerance lets a date of birth be "today" in any timezone: the
+// server clock runs in UTC while Indonesian households are up to UTC+9.
+const birthDateTolerance = 24 * time.Hour
+
+// ProfileDetails are the optional fields of a care recipient's profile. A nil
+// field is "not provided" and is always valid.
+type ProfileDetails struct {
+	Gender      *string
+	DateOfBirth *pgtype.Date
+	WeightKg    *float64
+	HeightCm    *float64
+}
+
+// ValidateProfileDetails checks the optional profile fields against the
+// domain rules. now is injected so tests are deterministic.
+func ValidateProfileDetails(d ProfileDetails, now time.Time) []RecipientError {
+	var errs []RecipientError
+	if d.Gender != nil && !domain.IsValidGender(*d.Gender) {
+		errs = append(errs, RecipientError{Field: "gender", Message: "invalid gender"})
+	}
+	if d.DateOfBirth != nil && d.DateOfBirth.Valid {
+		dob := d.DateOfBirth.Time
+		switch {
+		case dob.Year() < MinBirthYear:
+			errs = append(errs, RecipientError{Field: "date_of_birth", Message: fmt.Sprintf("date of birth must be in %d or later", MinBirthYear)})
+		case dob.After(now.Add(birthDateTolerance)):
+			errs = append(errs, RecipientError{Field: "date_of_birth", Message: "date of birth cannot be in the future"})
+		}
+	}
+	if d.WeightKg != nil && !domain.RecipientWeight.Contains(*d.WeightKg) {
+		errs = append(errs, RecipientError{Field: "weight_kg", Message: rangeMessage(domain.RecipientWeight)})
+	}
+	if d.HeightCm != nil && !domain.RecipientHeight.Contains(*d.HeightCm) {
+		errs = append(errs, RecipientError{Field: "height_cm", Message: rangeMessage(domain.RecipientHeight)})
+	}
+	return errs
+}
+
+func rangeMessage(r domain.MeasurementRange) string {
+	return fmt.Sprintf("must be between %g and %g %s", r.Min, r.Max, r.Unit)
+}
+
+// ValidateModules checks that every module is a known one. Any module may be
+// enabled for any care type; the care type's defaults are only a suggestion.
+func ValidateModules(mods []domain.Module) []RecipientError {
+	var errs []RecipientError
+	for _, m := range mods {
+		if !domain.IsValidModule(m.String()) {
+			errs = append(errs, RecipientError{Field: "enabled_modules", Message: fmt.Sprintf("unknown module %q", m)})
+		}
+	}
+	return errs
+}
+
+// NumericFromFloat converts an optional measurement to a NUMERIC parameter;
+// nil becomes SQL NULL.
+func NumericFromFloat(v *float64) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	if v == nil {
+		return n, nil
+	}
+	if err := n.Scan(strconv.FormatFloat(*v, 'f', -1, 64)); err != nil {
+		return n, fmt.Errorf("convert %v to numeric: %w", *v, err)
+	}
+	return n, nil
+}
+
+// validateCreateRecipientInput runs every database-free check on a create.
+func validateCreateRecipientInput(input CreateRecipientInput, now time.Time) []RecipientError {
+	var errs []RecipientError
+	if input.FullName == "" {
+		errs = append(errs, RecipientError{Field: "full_name", Message: "name is required"})
+	}
+	if !domain.IsValidCareType(input.CareType.String()) {
+		errs = append(errs, RecipientError{Field: "care_type", Message: "invalid care type"})
+	}
+	errs = append(errs, ValidateModules(input.EnabledModules)...)
+	errs = append(errs, ValidateProfileDetails(ProfileDetails{
+		Gender:      input.Gender,
+		DateOfBirth: input.DateOfBirth,
+		WeightKg:    input.WeightKg,
+		HeightCm:    input.HeightCm,
+	}, now)...)
+	return errs
 }
 
 // CreateRecipient creates a care recipient and marks the creator's onboarding as
@@ -109,7 +203,9 @@ type CreateRecipientInput struct {
 // Validation:
 //   - FullName must be non-empty.
 //   - CareType must be a known value (checked via domain.IsValidCareType).
-//   - EnabledModules must be a subset of the care type's default modules.
+//   - EnabledModules must be known modules; any module fits any care type.
+//   - Optional profile details (gender, date of birth, weight, height) must
+//     be in range when present.
 //   - Workspace must not exceed its plan's max_recipients (free = 2, pro = unlimited).
 func CreateRecipient(
 	ctx context.Context,
@@ -119,33 +215,7 @@ func CreateRecipient(
 	userID uuid.UUID,
 	input CreateRecipientInput,
 ) (uuid.UUID, error) {
-	var valErrs []RecipientError
-
-	if input.FullName == "" {
-		valErrs = append(valErrs, RecipientError{Field: "full_name", Message: "name is required"})
-	}
-	if !domain.IsValidCareType(input.CareType.String()) {
-		valErrs = append(valErrs, RecipientError{Field: "care_type", Message: "invalid care type"})
-	}
-
-	defaultMods, ok := domain.DefaultModulesForCareType(input.CareType)
-	if !ok {
-		valErrs = append(valErrs, RecipientError{Field: "care_type", Message: "unknown care type"})
-	} else {
-		allowed := make(map[domain.Module]struct{}, len(defaultMods))
-		for _, m := range defaultMods {
-			allowed[m] = struct{}{}
-		}
-		for _, m := range input.EnabledModules {
-			if _, ok := allowed[m]; !ok {
-				valErrs = append(valErrs, RecipientError{
-					Field:   "enabled_modules",
-					Message: fmt.Sprintf("module %q is not available for care type %q", m, input.CareType),
-				})
-			}
-		}
-	}
-
+	valErrs := validateCreateRecipientInput(input, time.Now())
 	if len(valErrs) > 0 {
 		return uuid.Nil, ErrValidation{Errors: valErrs}
 	}
@@ -197,6 +267,14 @@ func CreateRecipient(
 	if input.DateOfBirth != nil {
 		dateOfBirth = *input.DateOfBirth
 	}
+	weightKg, err := NumericFromFloat(input.WeightKg)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("weight_kg: %w", err)
+	}
+	heightCm, err := NumericFromFloat(input.HeightCm)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("height_cm: %w", err)
+	}
 
 	var recipientID uuid.UUID
 	err = func() error {
@@ -222,6 +300,8 @@ func CreateRecipient(
 			MedicalNotes:   medicalNotes,
 			EnabledModules: enabledModulesJSON,
 			CreatedBy:      pgtype.UUID{Bytes: userID, Valid: true},
+			WeightKg:       weightKg,
+			HeightCm:       heightCm,
 		})
 		if err != nil {
 			// The profile quota is enforced by the enforce_profile_limit

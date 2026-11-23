@@ -89,7 +89,9 @@ CREATE TABLE care_recipients (
     created_by      UUID REFERENCES users(id),
     enabled_modules JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    weight_kg       NUMERIC(5, 2) CHECK (weight_kg BETWEEN 0.5 AND 300),
+    height_cm       NUMERIC(4, 1) CHECK (height_cm BETWEEN 20 AND 250)
 );
 
 CREATE INDEX idx_care_recipients_workspace_id ON care_recipients(workspace_id);

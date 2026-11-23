@@ -10,7 +10,8 @@
 //      (value_number) + a note entry to the DB, contributor = caregiver
 //   4. Timeline renders "×3" / "×2" + the note; OWNER sees them too
 //   5. Server rejects: empty counts, count>99, note-as-category, unknown
-//      category, diaper-for-elderly → 400 validation_error
+//      category → 400 validation_error; diaper for elderly is accepted
+//      (any module may be enabled for any care type)
 //   6. Viewer POST → 403
 //   7. GET /summary read side reflects the submitted counts (total=3 meal)
 //   8. EN locale renders English; 56px touch targets in the open sheet;
@@ -82,7 +83,7 @@ async function main() {
     sql(`INSERT INTO workspace_members (workspace_id, user_id, role, joined_at) VALUES ('${ws}', '${viewId}', 'viewer', now())`);
 
     // Assign the caregiver to BOTH recipients (OWN-008C scoping) via the
-    // real API — the elder one is used for the diaper-rule check, and the
+    // real API — the elder one is used for the diaper-for-elderly check, and the
     // scoping middleware fires before validation would.
     await owner.page.goto(`${WEB}/id/dashboard`, { waitUntil: "domcontentloaded" });
     for (const target of [rec, recElder]) {
@@ -199,7 +200,7 @@ async function main() {
     const unknown = await cgPost(rec, { counts: { hokkaido: 1 } });
     check("5d. unknown category → 400", unknown.status === 400, JSON.stringify(unknown));
     const diaperElderly = await cgPost(recElder, { counts: { diaper: 2 } });
-    check("5e. diaper for elderly → 400", diaperElderly.status === 400, JSON.stringify(diaperElderly));
+    check("5e. diaper for elderly is accepted", diaperElderly.status === 201, JSON.stringify(diaperElderly));
 
     // ── 6. Viewer POST → 403 (role symmetry on the API) ───────────────────
     await viewer.page.goto(`${WEB}/id/dashboard`, { waitUntil: "domcontentloaded" });

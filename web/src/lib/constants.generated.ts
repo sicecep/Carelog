@@ -12,6 +12,9 @@ export type CareType = (typeof CARE_TYPES)[number];
 export const MODULES = ["meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note"] as const;
 export type Module = (typeof MODULES)[number];
 
+export const GENDERS = ["male", "female", "other"] as const;
+export type Gender = (typeof GENDERS)[number];
+
 export const LOG_CATEGORIES = ["meal", "sleep", "diaper", "medication", "activity", "mood", "health", "learning", "therapy", "note", "other"] as const;
 export type LogCategory = (typeof LOG_CATEGORIES)[number];
 
@@ -105,5 +108,10 @@ export const VITAL_SPECS: Record<string, VitalSpec> = {
     unit: "kg",
   },
 } satisfies Record<string, VitalSpec>;
+
+export const RECIPIENT_MEASUREMENTS = {
+  weight_kg: { min: 0.5, max: 300, unit: "kg" },
+  height_cm: { min: 20, max: 250, unit: "cm" },
+} as const;
 
 export const DEFAULT_LOCALE: Locale = "id";

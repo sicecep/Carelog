@@ -264,6 +264,7 @@ export default async function RecipientDetailPage({
           <>
             <DetailHeader
               recipient={recipient}
+              today={today}
               editWorkspaceId={isOwner && workspaceId ? workspaceId : undefined}
             />
 
