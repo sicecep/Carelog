@@ -86,7 +86,7 @@ async function main() {
       JSON.stringify(before) === JSON.stringify(["Makanan", "Catatan"]), JSON.stringify(before));
 
     // ── 2. Owner edits the activities ─────────────────────────────────────
-    await owner.page.goto(`${WEB}/id/recipients/${rec}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${rec}?tab=profile`, { waitUntil: "networkidle" });
     await owner.page.locator("button", { hasText: "Ubah profil" }).click();
     const sheet = owner.page.locator("[role='dialog']");
     await sheet.locator("label", { hasText: "Makanan" }).click();

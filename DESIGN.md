@@ -490,6 +490,21 @@ Login, register, pending approval, invite claim and change password share `AuthS
   choosing, a chip of the same colour shows which door you came in by, next to "Bukan Anda? Ganti".
 - Buttons stay teal; kunyit is only an accent here, as everywhere else.
 
+
+### 8.15 Recipient page: Linimasa / Profil / Tugas
+
+The recipient page (`/recipients/[id]`) is split by a segmented control (`recipient-tabs.tsx`):
+
+- **Linimasa** (default): for caregivers and viewers, the owner's instructions (read-only) first,
+  then the day's timeline with date navigation, contributor chips and shift cards.
+- **Profil** (`?tab=profile`): the profile card with "Ubah profil", the instruction editor
+  (owners) and the care team for this recipient.
+- **Tugas** (`?tab=tasks`): the recipient's tasks.
+- Segments are links, not ARIA tabs: each section is its own server-rendered URL, so back,
+  reload and shared links land on the same section. 56px segments; the active one is a raised
+  surface with bold text (`aria-current="page"`). The fixed "Catat kegiatan / Catat insiden"
+  bar stays on every section.
+
 ---
 
 ## 9. Icons

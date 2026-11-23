@@ -88,7 +88,7 @@ async function main() {
       );
 
     // ── OWN-008D + A: owner assigns CG1 and CG2 to R1 via the UI ────────
-    await owner.page.goto(`${WEB}/id/recipients/${R1}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${R1}?tab=profile`, { waitUntil: "networkidle" });
     const heading = await owner.page.innerText("body");
     check("D0. assignment panel renders", heading.includes("Pengasuh untuk profil ini"));
 
@@ -109,7 +109,7 @@ async function main() {
     check("D1. both caregivers listed after assign", teamLis.includes(CG1) && teamLis.includes(CG2), teamLis.replace(/\n/g, " | ").slice(0, 120));
 
     // ── OWN-008B: assign CG1 to R2 as well (one caregiver, two children) ─
-    await owner.page.goto(`${WEB}/id/recipients/${R2}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${R2}?tab=profile`, { waitUntil: "networkidle" });
     await assignViaUI(owner.page, cg1.id);
     const dbBoth = sql(
       `SELECT COUNT(*) FROM caregiver_assignments
@@ -130,7 +130,7 @@ async function main() {
     );
 
     // ── OWN-008C: revoke CG1 from R1 ────────────────────────────────────
-    await owner.page.goto(`${WEB}/id/recipients/${R1}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/id/recipients/${R1}?tab=profile`, { waitUntil: "networkidle" });
     const revokeBtn = owner.page.locator(`button[aria-label*="${CG1}"]`);
     check("C0. revoke button labeled with caregiver email", (await revokeBtn.count()) === 1);
     await revokeBtn.click();
@@ -184,7 +184,7 @@ async function main() {
     check("G2. caregiver cannot revoke (owner-only)", selfRevoke.status === 403, `status=${selfRevoke.status}`);
 
     // ── EN locale ───────────────────────────────────────────────────────
-    await owner.page.goto(`${WEB}/en/recipients/${R1}`, { waitUntil: "networkidle" });
+    await owner.page.goto(`${WEB}/en/recipients/${R1}?tab=profile`, { waitUntil: "networkidle" });
     const enBody = await owner.page.innerText("body");
     check("L1. EN assignment panel heading", enBody.includes("Caregivers for this profile"));
     check("L2. no raw key path", !/assignments\.[a-zA-Z]/.test(enBody));
