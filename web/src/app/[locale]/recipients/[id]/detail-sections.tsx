@@ -476,7 +476,7 @@ export function TimelineList({
                   </ul>
                 )}
                 {entry.contributor_name && (
-                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                  <p className="mt-1 text-sm wrap-anywhere text-[var(--color-text-muted)]">
                     {entry.contributor_name}
                   </p>
                 )}

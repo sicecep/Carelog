@@ -329,7 +329,7 @@ export function TaskManager({
                         {task.description}
                       </p>
                     )}
-                    <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                    <p className="mt-1 text-sm wrap-anywhere text-[var(--color-text-muted)]">
                       {task.due_date}
                       {task.due_time ? ` · ${task.due_time}` : ""}
                       {" · "}

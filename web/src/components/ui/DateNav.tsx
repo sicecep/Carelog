@@ -65,25 +65,28 @@ export function DateNav({
         // Disabled rather than hidden: the boundary is information. A Free
         // owner should see that older days exist and are simply out of reach.
         <span
+          role="link"
           aria-disabled="true"
+          aria-label={t("prevDay")}
           data-testid="date-prev-disabled"
-          className="touch-target inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-[var(--color-border)] px-3 text-sm text-[var(--color-text-muted)] opacity-50"
+          className="touch-target inline-flex shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] opacity-50"
         >
-          <CaretLeft size={18} weight="bold" aria-hidden="true" />
-          <span>{t("prevDay")}</span>
+          <CaretLeft size={24} weight="bold" aria-hidden="true" />
         </span>
       ) : (
         <Link
           href={hrefFor(prev)}
+          aria-label={t("prevDay")}
           data-testid="date-prev"
-          className="touch-target inline-flex items-center gap-1 rounded-md border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+          className="touch-target inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--color-border-control)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
         >
-          <CaretLeft size={18} weight="bold" aria-hidden="true" />
-          <span>{t("prevDay")}</span>
+          <CaretLeft size={24} weight="bold" aria-hidden="true" />
         </Link>
       )}
 
-      <div className="flex items-center gap-2">
+      {/* Prev/next are 56px icon buttons (labelled for screen readers): the
+          text labels were clipped to "Sebelumny…" at 360px. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <label htmlFor="timeline-date" className="sr-only">
           {t("dateLabel")}
         </label>
@@ -98,13 +101,13 @@ export function DateNav({
             if (v) router.push(hrefFor(v));
           }}
           data-testid="date-input"
-          className="input-base px-3 text-sm"
+          className="input-base min-w-0 flex-1 px-3 text-base"
         />
         {date !== today && (
           <Link
             href={hrefFor(today)}
             data-testid="date-today"
-            className="touch-target inline-flex items-center rounded-md border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+            className="touch-target inline-flex shrink-0 items-center rounded-md border border-[var(--color-border-control)] px-3 text-base text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
           >
             {t("today")}
           </Link>
@@ -113,21 +116,22 @@ export function DateNav({
 
       {atNewest ? (
         <span
+          role="link"
           aria-disabled="true"
+          aria-label={t("nextDay")}
           data-testid="date-next-disabled"
-          className="touch-target inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-[var(--color-border)] px-3 text-sm text-[var(--color-text-muted)] opacity-50"
+          className="touch-target inline-flex shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] opacity-50"
         >
-          <span>{t("nextDay")}</span>
-          <CaretRight size={18} weight="bold" aria-hidden="true" />
+          <CaretRight size={24} weight="bold" aria-hidden="true" />
         </span>
       ) : (
         <Link
           href={hrefFor(next)}
+          aria-label={t("nextDay")}
           data-testid="date-next"
-          className="touch-target inline-flex items-center gap-1 rounded-md border border-[var(--color-border-control)] px-3 text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+          className="touch-target inline-flex shrink-0 items-center justify-center rounded-md border border-[var(--color-border-control)] text-[var(--color-text)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
         >
-          <span>{t("nextDay")}</span>
-          <CaretRight size={18} weight="bold" aria-hidden="true" />
+          <CaretRight size={24} weight="bold" aria-hidden="true" />
         </Link>
       )}
     </nav>
