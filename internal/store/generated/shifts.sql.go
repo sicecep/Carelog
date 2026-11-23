@@ -112,7 +112,7 @@ func (q *Queries) GetActiveShift(ctx context.Context, arg GetActiveShiftParams) 
 }
 
 const getLastCompletedShiftForWorkspace = `-- name: GetLastCompletedShiftForWorkspace :one
-SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
+SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.username, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1 AND s.checked_out_at IS NOT NULL
@@ -154,7 +154,7 @@ func (q *Queries) GetLastCompletedShiftForWorkspace(ctx context.Context, workspa
 }
 
 const listShiftsForWorkspace = `-- name: ListShiftsForWorkspace :many
-SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
+SELECT s.id, s.workspace_id, s.caregiver_id, s.checked_in_at, s.checked_out_at, s.handoff_note, s.created_at, s.updated_at, COALESCE(u.full_name, u.username, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1

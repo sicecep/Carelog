@@ -256,7 +256,7 @@ func (q *Queries) GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, er
 }
 
 const listPendingPINResets = `-- name: ListPendingPINResets :many
-SELECT r.id, r.user_id, r.workspace_id, r.device_hash, r.device_label, r.requested_ip, r.status, r.reset_hash, r.approved_by, r.approved_at, r.expires_at, r.consumed_at, r.created_at, COALESCE(u.full_name, u.phone, u.email, 'Unknown') AS requester_name,
+SELECT r.id, r.user_id, r.workspace_id, r.device_hash, r.device_label, r.requested_ip, r.status, r.reset_hash, r.approved_by, r.approved_at, r.expires_at, r.consumed_at, r.created_at, COALESCE(u.full_name, u.username, u.phone, u.email, 'Unknown') AS requester_name,
        u.phone AS requester_phone
 FROM pin_reset_requests r
 JOIN users u ON u.id = r.user_id

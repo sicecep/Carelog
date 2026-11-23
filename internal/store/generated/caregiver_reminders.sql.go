@@ -44,7 +44,7 @@ const listReminderCandidates = `-- name: ListReminderCandidates :many
 SELECT
     u.id,
     u.email,
-    COALESCE(u.full_name, u.email) AS full_name,
+    COALESCE(u.full_name, u.username, u.email) AS full_name,
     u.locale,
     wm.workspace_id,
     w.name AS workspace_name,

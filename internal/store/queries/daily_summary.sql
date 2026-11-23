@@ -53,7 +53,7 @@ SELECT
     -- render as an empty string in the digest. COALESCE over all three
     -- keeps the column NOT NULL for sqlc and always shows something a
     -- human can recognise.
-    COALESCE(u.full_name, u.email, u.phone, 'Unknown') AS contributor_name,
+    COALESCE(u.full_name, u.username, u.email, u.phone, 'Unknown') AS contributor_name,
     r.report_type,
     r.status,
     r.submitted_at,
@@ -64,7 +64,7 @@ FROM daily_reports r
 JOIN users u ON u.id = r.contributor_id
 LEFT JOIN report_entries e ON e.report_id = r.id
 WHERE r.workspace_id = $1 AND r.recipient_id = $2 AND r.report_date = $3::date
-GROUP BY r.id, r.contributor_id, r.contributor_role, COALESCE(u.full_name, u.email), r.report_type, r.status, r.submitted_at
+GROUP BY r.id, r.contributor_id, r.contributor_role, COALESCE(u.full_name, u.username, u.email, u.phone, 'Unknown'), r.report_type, r.status, r.submitted_at
 ORDER BY MIN(e.occurred_at) NULLS LAST, r.contributor_role;
 
 -- name: SumEntryNumbersByRecipientAndDate :many
