@@ -23,6 +23,7 @@
     "reports": "Daily Reports",
     "incidents": "Incidents",
     "settings": "Settings",
+    "account": "Account",
     "logout": "Log out"
   },
   "auth": {
@@ -819,5 +820,12 @@
     "errLocked": "Too many failed attempts. Try again later.",
     "errGeneric": "Couldn't save the password. Please try again.",
     "back": "Back"
+  },
+  "account": {
+    "title": "Account",
+    "profileHeading": "My account",
+    "signedInAs": "Signed in as {identity}",
+    "logoutHint": "Sign out of CareLog on this device.",
+    "workspaceHeading": "Workspace settings"
   }
 }

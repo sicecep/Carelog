@@ -14,17 +14,20 @@ import {
 import { WorkspaceSettingsForm } from "@/components/ui/WorkspaceSettingsForm";
 import { ReminderSettings } from "@/components/ui/ReminderSettings";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { LogoutButton } from "@/components/ui/LogoutButton";
 
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
 }
 
-// Workspace settings. Readable by any member; the form renders read-only for
-// non-owners, mirroring the API's owner-only guard on PATCH and DELETE.
+// The "Akun" tab: the signed-in person's own account (who they are, password,
+// sign out, caregiver reminders), then workspace settings for owners only —
+// the API guards PATCH and DELETE on the workspace to owners.
 export default async function SettingsPage({ params }: SettingsPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "workspaceSettings" });
   const tAccount = await getTranslations({ locale, namespace: "settings" });
+  const tMe = await getTranslations({ locale, namespace: "account" });
 
   // A server fetch has no cookie jar, so the incoming Cookie header is
   // forwarded explicitly. See authApi.me for the full reasoning.
@@ -98,35 +101,63 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       <AppHeader locale={locale} />
 
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="mb-6 text-2xl font-semibold text-[var(--color-text)]">
-          {isOwner ? t("title") : tAccount("title")}
-        </h1>
+        <h1 className="mb-6 text-2xl font-semibold text-[var(--color-text)]">{tMe("title")}</h1>
+
+        {/* Outside the load-failed branch: signing out must work even when
+            the workspace can't be loaded. */}
+        <section className="card" aria-labelledby="account-heading">
+          <h2 id="account-heading" className="text-lg font-semibold text-[var(--color-text)]">
+            {tMe("profileHeading")}
+          </h2>
+          {me?.user.full_name?.trim() && (
+            <p className="mt-3 text-lg font-medium wrap-anywhere text-[var(--color-text)]">
+              {me.user.full_name.trim()}
+            </p>
+          )}
+          {me?.user.email && (
+            <p className="mt-1 text-base wrap-anywhere text-[var(--color-text-muted)]">
+              {tMe("signedInAs", { identity: me.user.email })}
+            </p>
+          )}
+          {showPassword && (
+            <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+              <h3 className="text-base font-semibold text-[var(--color-text)]">
+                {tAccount("passwordSection")}
+              </h3>
+              <Link
+                href={`/${locale}/change-password`}
+                className="btn-base btn-secondary touch-target mt-3 w-full sm:w-auto"
+              >
+                {me?.auth?.has_password ? tAccount("passwordChange") : tAccount("passwordSet")}
+              </Link>
+            </div>
+          )}
+          <div className="mt-6 border-t border-[var(--color-border)] pt-5">
+            <p className="mb-3 text-base text-[var(--color-text-muted)]">{tMe("logoutHint")}</p>
+            <LogoutButton />
+          </div>
+        </section>
 
         {loadFailed || !workspace ? (
-          <p role="alert" className="card p-6 text-base text-[var(--color-error-ink)]">
+          <p role="alert" className="card mt-6 p-6 text-base text-[var(--color-error-ink)]">
             {t("errorGeneric")}
           </p>
         ) : (
           <>
-            {/* Only owners can change workspace settings. A caregiver used to
-                see the whole form greyed out behind a "read-only" note: a
-                screen of controls they could not use. They now see only
-                their own settings (reminders, password). */}
-            {isOwner && <WorkspaceSettingsForm workspace={workspace} locale={locale} />}
             {reminderPrefs && active && (
               <ReminderSettings workspaceId={active.id} initial={reminderPrefs} />
             )}
-            {showPassword && (
-              <section className="card mt-6" aria-labelledby="password-section-title">
-                <h2 id="password-section-title" className="text-lg font-semibold text-[var(--color-text)]">
-                  {tAccount("passwordSection")}
-                </h2>
-                <Link
-                  href={`/${locale}/change-password`}
-                  className="btn-base btn-secondary touch-target mt-4 w-full sm:w-auto"
+            {/* Only owners can change workspace settings. A caregiver used to
+                see the whole form greyed out behind a "read-only" note. */}
+            {isOwner && (
+              <section aria-labelledby="workspace-settings-heading" className="mt-10">
+                <h2
+                  id="workspace-settings-heading"
+                  className="mb-4 text-xl font-semibold text-[var(--color-text)]"
                 >
-                  {me?.auth?.has_password ? tAccount("passwordChange") : tAccount("passwordSet")}
-                </Link>
+                  {tMe("workspaceHeading")}
+                </h2>
+                <WorkspaceSettingsForm workspace={workspace} locale={locale} />
               </section>
             )}
           </>

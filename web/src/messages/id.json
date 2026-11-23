@@ -23,6 +23,7 @@
     "reports": "Laporan Harian",
     "incidents": "Insiden",
     "settings": "Pengaturan",
+    "account": "Akun",
     "logout": "Keluar"
   },
   "auth": {
@@ -819,5 +820,12 @@
     "errLocked": "Terlalu banyak percobaan gagal. Coba lagi nanti.",
     "errGeneric": "Gagal menyimpan kata sandi. Silakan coba lagi.",
     "back": "Kembali"
+  },
+  "account": {
+    "title": "Akun",
+    "profileHeading": "Akun saya",
+    "signedInAs": "Masuk sebagai {identity}",
+    "logoutHint": "Keluar dari CareLog di perangkat ini.",
+    "workspaceHeading": "Pengaturan workspace"
   }
 }

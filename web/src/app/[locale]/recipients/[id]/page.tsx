@@ -244,6 +244,7 @@ export default async function RecipientDetailPage({
         locale={locale}
         backHref={`/${locale}/dashboard`}
         backLabel={t("detailBack")}
+        title={recipient ? recipient.display_name?.trim() || recipient.full_name : undefined}
       />
 
       <main className="mx-auto max-w-5xl px-4 py-8 pb-28 sm:px-6">

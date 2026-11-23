@@ -424,7 +424,15 @@ plain text.
 ### 8.11 Navigation
 
 - **Mobile:** a bottom tab bar, 64px plus the safe area. At most 4 tabs. Each tab shows an icon
-  *and* a label, and the active tab gets an `accent-soft` pill behind its icon.
+  *and* a 16px label on one line, and the active tab gets an `accent-soft` pill behind its icon.
+  Today's tabs: **Beranda · Terawat · Tim · Akun**.
+- **App bar (mobile):** `AppHeader`. Top-level pages show the wordmark; detail pages show a
+  56px back arrow (labelled) and the page title. No sign-out button in the app bar: sign out
+  lives in the **Akun** tab (`/settings`), together with password, caregiver reminders and,
+  for owners, workspace settings.
+- **Installable (PWA):** `app/manifest.ts` + `public/icons/` (192, 512, maskable 512,
+  apple-touch-icon). `display: standalone`; the system bar takes the surface colour
+  (`viewport.themeColor`, light/dark) so it reads as part of the app bar.
 - **Desktop (≥ 768px):** header nav. The owner gets an optional **⌘K palette (cmdk)** to jump
   to a recipient, date, or settings. Never on caregiver screens.
 - The notification bell (NOT-002) sits top-right with an unread badge (`error` fill, white

@@ -35,9 +35,9 @@ export function LogoutButton() {
       onClick={handleLogout}
       disabled={pending}
       aria-busy={pending}
-      className="btn-base btn-ghost touch-target text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+      className="btn-base btn-secondary touch-target w-full sm:w-auto"
     >
-      <SignOut size={20} weight="thin" aria-hidden="true" />
+      <SignOut size={20} aria-hidden="true" />
       <span>{pending ? t("loggingOut") : nav("logout")}</span>
     </button>
   );

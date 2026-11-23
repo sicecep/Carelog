@@ -114,7 +114,7 @@ async function main() {
     check("A2. four tabs", tabCount === 4, `got ${tabCount}`);
 
     const mobNavText = await bottomNav.innerText();
-    check("A3. Indonesian tab labels", ["Beranda", "Terawat", "Tim", "Pengaturan"].every((l) => mobNavText.split("\n").includes(l)), mobNavText.replace(/\n/g, " | "));
+    check("A3. Indonesian tab labels", ["Beranda", "Terawat", "Tim", "Akun"].every((l) => mobNavText.split("\n").includes(l)), mobNavText.replace(/\n/g, " | "));
 
     // A3b. Every label must fit on ONE line. "Penerima Perawatan" wrapped to
     // two, so that tab sat taller than its three neighbours and the row was
@@ -208,7 +208,7 @@ async function main() {
       .first()
       .innerText()
       .catch(() => "");
-    check("D1. EN nav labels are English", enNav.includes("Team") && enNav.includes("Settings") && enNav.includes("Home"), enNav.replace(/\n/g, " | "));
+    check("D1. EN nav labels are English", enNav.includes("Team") && enNav.includes("Account") && enNav.includes("Home"), enNav.replace(/\n/g, " | "));
     await deskPage.goto(`${WEB}/en/careteam`, { waitUntil: "networkidle" });
     const enCT = await deskPage.innerText("body");
     check("D2. EN careteam shows Invite", enCT.includes("Invite Caregiver"));
