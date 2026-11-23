@@ -56,12 +56,12 @@
     "forgotPasswordNoContact": "Contact the CareLog admin to reset your password.",
     "whoAreYou": "Who are you?",
     "roleCaregiver": "I'm a caregiver",
-    "roleCaregiverHint": "Sign in with your phone number or username and PIN.",
-    "roleOwner": "I'm a parent / family",
-    "roleOwnerHint": "Sign in with your email or phone number and password.",
+    "roleCaregiverHint": "Logs the daily care.",
+    "roleOwner": "I manage the care",
+    "roleOwnerHint": "Invites caregivers and follows the reports.",
     "notYou": "Not you? Switch",
     "roleCaregiverShort": "Caregiver",
-    "roleOwnerShort": "Parent / family"
+    "roleOwnerShort": "Care manager"
   },
   "landing": {
     "tagline": "Daily care for your family, recorded and shared clearly.",
@@ -335,7 +335,7 @@
     "ackErrorGeneric": "Could not acknowledge this incident. Please try again."
   },
   "parentnotes": {
-    "title": "Instructions from Parent",
+    "title": "Instructions from the Care Manager",
     "standingLabel": "Standing instructions",
     "standingPlaceholder": "e.g. Peanut allergy. Afternoon milk at 4. No going out after sunset.",
     "dailyLabel": "Today's note",
@@ -374,7 +374,7 @@
     "submit": "Submit report",
     "submitted": "Submitted!",
     "urgentNotifyTitle": "URGENT INCIDENT",
-    "urgentNotifyBody": "High/emergency incident report submitted. Owner will receive push notification & email immediately.",
+    "urgentNotifyBody": "High/emergency incident report submitted. The care manager will receive a push notification & email immediately.",
     "severity": {
       "low": {
         "label": "Low",
@@ -527,7 +527,7 @@
     "you": "You",
     "inactive": "Inactive",
     "joined": "Joined",
-    "roleOwner": "Owner",
+    "roleOwner": "Care manager",
     "roleCaregiver": "Caregiver",
     "roleViewer": "Family",
     "roleViewerHint": "Can view reports and caregiver activity. Cannot make changes.",
@@ -610,7 +610,7 @@
     "save": "Save changes",
     "saving": "Saving...",
     "saved": "Settings saved.",
-    "readOnlyNotice": "Only the workspace owner can change these settings.",
+    "readOnlyNotice": "Only the care manager can change these settings.",
     "dangerHeading": "Danger zone",
     "deleteTitle": "Delete this workspace",
     "deleteWarning": "This permanently deletes the workspace and every recipient, report, and incident inside it. This cannot be undone.",
@@ -674,7 +674,7 @@
     "pinLockedBody": "There were failed sign-in attempts on {name}'s account. Unlock it from Manage Care Team if it was them.",
     "usernameChangedTitle": "Username changed",
     "usernameChangedBody": "Your username was changed to {username} by {owner}.",
-    "someone": "the owner"
+    "someone": "the care manager"
   },
   "pin": {
     "phoneLabel": "Phone number",

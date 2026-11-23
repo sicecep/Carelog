@@ -56,12 +56,12 @@
     "forgotPasswordNoContact": "Hubungi admin CareLog untuk mengatur ulang kata sandi Anda.",
     "whoAreYou": "Siapa Anda?",
     "roleCaregiver": "Saya Pengasuh",
-    "roleCaregiverHint": "Masuk dengan nomor HP atau nama pengguna dan PIN.",
-    "roleOwner": "Saya Orang Tua / Keluarga",
-    "roleOwnerHint": "Masuk dengan email atau nomor HP dan kata sandi.",
+    "roleCaregiverHint": "Yang mencatat kegiatan harian.",
+    "roleOwner": "Saya Pengelola",
+    "roleOwnerHint": "Yang mengundang pengasuh dan memantau laporan.",
     "notYou": "Bukan Anda? Ganti",
     "roleCaregiverShort": "Pengasuh",
-    "roleOwnerShort": "Orang tua / keluarga"
+    "roleOwnerShort": "Pengelola"
   },
   "landing": {
     "tagline": "Perawatan harian untuk keluarga Anda, tercatat dan terbagikan dengan jelas.",
@@ -335,7 +335,7 @@
     "ackErrorGeneric": "Gagal mengonfirmasi insiden ini. Silakan coba lagi."
   },
   "parentnotes": {
-    "title": "Instruksi dari Orang Tua",
+    "title": "Instruksi dari Pengelola",
     "standingLabel": "Instruksi tetap",
     "standingPlaceholder": "Contoh: Alergi kacang. Susu sore jam 4. Jangan keluar rumah setelah magrib.",
     "dailyLabel": "Catatan hari ini",
@@ -523,14 +523,14 @@
     "title": "Tim Perawat",
     "manage": "Kelola Tim Perawat",
     "loading": "Memuat...",
-    "empty": "Belum ada perawat.",
+    "empty": "Belum ada pengasuh.",
     "you": "Anda",
     "inactive": "Nonaktif",
     "joined": "Bergabung",
-    "roleOwner": "Pemilik",
-    "roleCaregiver": "Perawat",
+    "roleOwner": "Pengelola",
+    "roleCaregiver": "Pengasuh",
     "roleViewer": "Keluarga",
-    "roleViewerHint": "Dapat melihat laporan dan aktivitas perawat. Tidak dapat mengubah data.",
+    "roleViewerHint": "Dapat melihat laporan dan aktivitas pengasuh. Tidak dapat mengubah data.",
     "changeRole": "Ubah Peran",
     "changeRoleFor": "Ubah peran untuk {name}",
     "remove": "Hapus",
@@ -610,7 +610,7 @@
     "save": "Simpan perubahan",
     "saving": "Menyimpan...",
     "saved": "Pengaturan tersimpan.",
-    "readOnlyNotice": "Hanya pemilik workspace yang dapat mengubah pengaturan ini.",
+    "readOnlyNotice": "Hanya pengelola workspace yang dapat mengubah pengaturan ini.",
     "dangerHeading": "Zona berbahaya",
     "deleteTitle": "Hapus workspace ini",
     "deleteWarning": "Ini akan menghapus permanen workspace beserta semua penerima perawatan, laporan, dan insiden di dalamnya. Tindakan ini tidak dapat dibatalkan.",
@@ -674,7 +674,7 @@
     "pinLockedBody": "Ada percobaan masuk gagal ke akun {name}. Buka kunci dari Kelola Tim Perawat jika itu dia.",
     "usernameChangedTitle": "Nama pengguna diganti",
     "usernameChangedBody": "Nama pengguna Anda diganti menjadi {username} oleh {owner}.",
-    "someone": "pemilik"
+    "someone": "pengelola"
   },
   "pin": {
     "phoneLabel": "Nomor HP",
@@ -711,7 +711,7 @@
     "deny": "Tolak",
     "device": "Dari: {device}",
     "approvedTitle": "Disetujui",
-    "approvedBody": "Bacakan kode ini kepada perawat Anda agar dia bisa membuat PIN baru di HP-nya:",
+    "approvedBody": "Bacakan kode ini kepada pengasuh Anda agar dia bisa membuat PIN baru di HP-nya:",
     "approvedExpiry": "Kode ini berlaku 15 menit, hanya di HP dia.",
     "loadError": "Gagal memuat permintaan.",
     "approveError": "Gagal menyetujui permintaan.",
