@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { SupportWhatsAppLink } from "@/components/ui/SupportWhatsAppLink";
+import { AuthShell, authViewport } from "@/components/ui/AuthShell";
+
+export const viewport = authViewport;
 
 interface PendingPageProps {
   params: Promise<{ locale: string }>;
@@ -27,9 +30,9 @@ export default async function PendingPage({ params, searchParams }: PendingPageP
   const supportWhatsApp = process.env.SUPPORT_WHATSAPP?.replace(/\D/g, "") || undefined;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4 py-12">
-      <main className="w-full max-w-md">
-        <div className="card p-6 text-center">
+    <AuthShell appName={common("appName")}>
+      <div className="flex flex-1 flex-col text-center">
+        <div>
           <h1 className="mb-3 text-2xl font-medium text-[var(--color-text)]">
             {rejected ? t("titleRejected") : t("titlePending")}
           </h1>
@@ -56,18 +59,15 @@ export default async function PendingPage({ params, searchParams }: PendingPageP
             </div>
           )}
 
-          <Link
-            href={`/${locale}/login?role=owner`}
-            className="btn-base btn-secondary touch-target inline-flex items-center justify-center"
-          >
-            {t("backToLogin")}
-          </Link>
         </div>
 
-        <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
-          {common("appName")}
-        </p>
-      </main>
-    </div>
+        <Link
+          href={`/${locale}/login?role=owner`}
+          className="btn-base btn-secondary touch-target mt-auto inline-flex w-full items-center justify-center"
+        >
+          {t("backToLogin")}
+        </Link>
+      </div>
+    </AuthShell>
   );
 }

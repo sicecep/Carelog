@@ -95,15 +95,18 @@ export function PinLoginForm() {
 
   if (step === "pin") {
     return (
-      <div className="space-y-8">
+      // The keypad sits at the bottom of the screen, in thumb reach.
+      <div className="flex flex-1 flex-col gap-6">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-[var(--color-text)]">{t("enterPin")}</h2>
-          <p className="mt-1 text-base text-[var(--color-text-muted)]">{identifier.trim()}</p>
+          <h2 className="text-2xl font-semibold text-[var(--color-text)]">{t("enterPin")}</h2>
+          <p className="mt-1 text-base wrap-anywhere text-[var(--color-text-muted)]">{identifier.trim()}</p>
         </div>
 
-        <PinPad onComplete={submitPin} disabled={busy} error={error} />
+        <div className="mt-auto">
+          <PinPad onComplete={submitPin} disabled={busy} error={error} />
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-1">
           <button
             type="button"
             onClick={requestReset}
@@ -129,7 +132,7 @@ export function PinLoginForm() {
   }
 
   return (
-    <form onSubmit={submitIdentifier} className="space-y-6">
+    <form onSubmit={submitIdentifier} className="flex flex-1 flex-col gap-6">
       {error && (
         <p
           role="alert"
@@ -160,10 +163,11 @@ export function PinLoginForm() {
           placeholder={t("identifierPlaceholder")}
           className="input-base mt-2 w-full"
         />
-        <p className="mt-2 text-sm text-[var(--color-text-muted)]">{t("identifierHint")}</p>
+        <p className="mt-2 text-base text-[var(--color-text-muted)]">{t("identifierHint")}</p>
       </div>
 
-      <button type="submit" className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)]">
+      {/* Pinned to the bottom of the sheet: the thumb zone. */}
+      <button type="submit" className="btn-base btn-primary touch-target mt-auto w-full text-lg">
         {t("continue")}
       </button>
     </form>

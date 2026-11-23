@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { authApi, APIError } from "@/lib/api-client";
 import { RegisterForm } from "./register-form";
+import { AuthCompact, AuthShell, authViewport } from "@/components/ui/AuthShell";
+
+export const viewport = authViewport;
 
 interface RegisterPageProps {
   params: Promise<{ locale: string }>;
@@ -32,17 +35,17 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
   if (signedIn) redirect(`/${locale}/dashboard`);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-surface-hover)] px-4 py-8">
-      <div className="w-full max-w-md space-y-8 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 shadow-sm">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-[var(--color-text)]">CareLog</h1>
-          <h2 className="mt-6 text-2xl font-semibold text-[var(--color-text)]">{t("title")}</h2>
+    <AuthShell appName="CareLog">
+      <AuthCompact />
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--color-text)]">{t("title")}</h1>
           <p className="mt-2 text-base text-[var(--color-text-muted)]">{t("intro")}</p>
         </div>
 
         <RegisterForm />
 
-        <p className="text-center text-sm text-[var(--color-text-muted)]">
+        <p className="text-center text-base text-[var(--color-text-muted)]">
           {t("haveAccount")}{" "}
           <Link
             href={`/${locale}/login?role=owner`}
@@ -52,6 +55,6 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

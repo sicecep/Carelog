@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { authApi, APIError, type MeResponse } from "@/lib/api-client";
 import { ChangePasswordForm } from "./change-password-form";
+import { AuthCompact, AuthShell, authViewport } from "@/components/ui/AuthShell";
+
+export const viewport = authViewport;
 
 interface ChangePasswordPageProps {
   params: Promise<{ locale: string }>;
@@ -36,8 +39,9 @@ export default async function ChangePasswordPage({ params }: ChangePasswordPageP
   const intro = required ? t("introRequired") : hasPassword ? t("introChange") : t("introSet");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-surface-hover)] px-4 py-8">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 shadow-sm">
+    <AuthShell appName="CareLog">
+      <AuthCompact />
+      <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--color-text)]">{title}</h1>
           <p
@@ -66,6 +70,6 @@ export default async function ChangePasswordPage({ params }: ChangePasswordPageP
           </p>
         )}
       </div>
-    </div>
+    </AuthShell>
   );
 }
