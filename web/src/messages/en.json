@@ -16,8 +16,8 @@
     "toastRegion": "Notifications"
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "careteam": "Care Team",
+    "dashboard": "Home",
+    "careteam": "Team",
     "ariaNav": "Main navigation",
     "recipients": "Care",
     "reports": "Daily Reports",

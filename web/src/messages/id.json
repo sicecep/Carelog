@@ -16,8 +16,8 @@
     "toastRegion": "Notifikasi"
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "careteam": "Tim Perawat",
+    "dashboard": "Beranda",
+    "careteam": "Tim",
     "ariaNav": "Navigasi utama",
     "recipients": "Terawat",
     "reports": "Laporan Harian",

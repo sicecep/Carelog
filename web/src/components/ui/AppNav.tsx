@@ -59,7 +59,7 @@ export function AppNav({ locale }: AppNavProps) {
       {/* Mobile: bottom tab bar, in the thumb zone. */}
       <nav
         aria-label={t("ariaNav")}
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)] pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <ul className="mx-auto flex max-w-5xl">
           {tabs.map(({ href, label, Icon }) => (
@@ -67,14 +67,24 @@ export function AppNav({ locale }: AppNavProps) {
               <Link
                 href={href}
                 aria-current={isActive(href) ? "page" : undefined}
-                className={`flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 py-1 ${
+                className={`flex min-h-16 flex-col items-center justify-center gap-1 px-0.5 py-1.5 ${
                   isActive(href)
-                    ? "text-[var(--color-accent-ink)]"
+                    ? "font-semibold text-[var(--color-accent-ink)]"
                     : "text-[var(--color-text-muted)]"
                 }`}
               >
-                <Icon size={22} weight={isActive(href) ? "fill" : "regular"} aria-hidden="true" />
-                <span className="text-xs">{label}</span>
+                {/* DESIGN.md §8.11: the active tab gets an accent-soft pill
+                    behind its icon, so "where am I" doesn't rest on colour
+                    alone (fill weight + pill + bold label). */}
+                <span
+                  className={`flex h-8 w-14 items-center justify-center rounded-full ${
+                    isActive(href) ? "bg-[var(--color-accent-soft)]" : ""
+                  }`}
+                >
+                  <Icon size={24} weight={isActive(href) ? "fill" : "regular"} aria-hidden="true" />
+                </span>
+                {/* 16px floor (DESIGN.md §3); long labels wrap, never truncate. */}
+                <span className="text-center text-base leading-tight">{label}</span>
               </Link>
             </li>
           ))}

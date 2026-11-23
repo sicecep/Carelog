@@ -135,8 +135,11 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {me ? (
           <>
             <div className="mb-8 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-medium text-[var(--color-text)]">
+              {/* min-w-0 + wrap-anywhere: a name with no spaces (an email
+                  fallback, a long username) used to push the bell off a
+                  360px screen and widen the whole page. */}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-semibold wrap-anywhere text-[var(--color-text)]">
                   {t("welcome", { name: displayName })}
                 </h1>
                 {workspace && (
@@ -152,12 +155,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   AppHeader, which is a server component shared by every page
                   and has no workspace-scoped data to hand it. */}
               {workspace && (
-                <NotificationBell
-                  workspaceId={workspace.id}
-                  locale={locale}
-                  initial={notifications}
-                  initialUnread={unreadCount}
-                />
+                <div className="shrink-0">
+                  <NotificationBell
+                    workspaceId={workspace.id}
+                    locale={locale}
+                    initial={notifications}
+                    initialUnread={unreadCount}
+                  />
+                </div>
               )}
             </div>
 
