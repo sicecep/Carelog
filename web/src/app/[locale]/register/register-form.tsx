@@ -73,7 +73,7 @@ export function RegisterForm() {
       >
         <p className="text-lg font-semibold">{t("successTitle")}</p>
         <p className="text-base">{t("success")}</p>
-        <Link href={`/${locale}/login`} className="btn-base btn-primary touch-target w-full">
+        <Link href={`/${locale}/login?role=owner`} className="btn-base btn-primary touch-target w-full">
           {t("signIn")}
         </Link>
       </div>
