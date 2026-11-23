@@ -1,7 +1,7 @@
 # Login Revamp (Owners & Caregivers) — Design Spec
 
 **Date:** 2026-11-22
-**Status:** Approved 2026-11-22
+**Status:** Approved 2026-11-22 · PRs 1–4 and 6 built (#83–#87 and this docs PR); PR 5 (Google) waits for the OAuth client. Corrections from the build are marked *As built*.
 **Scope:** How owners/parents and caregivers sign in, recover access, and how the login screen works
 **Supersedes:** PRD AUTH-001 (passwordless magic link) and the device-binding part of AUTH-005; RFC §8.1–8.3 ("Why not passwords", "Why PIN is device-bound")
 
@@ -82,7 +82,7 @@ The response to a duplicate email or phone is the same as for a new one ("Jika e
   - generates a **random temporary password** (12 characters, readable alphabet), shown **once**;
   - sets `user_passwords.must_change = true`;
   - revokes all of the user's refresh-token families;
-  - writes an `audit_logs` row (`action = 'password.admin_reset'`).
+  - writes an `audit_logs` row (`action = 'password.admin_reset'`). *As built: there is no `audit_logs` table yet, so the event goes to the structured server log with user IDs only.*
 - The admin sends the temporary password to the owner over WhatsApp. On the next login the owner **must set a new password** (§4.2).
 - **Later (not in scope):** an emailed reset link that reuses the `auth_magic_links` token machinery (hashed single-use token, 15-minute TTL) to reach a "set new password" page. That's one email per forgotten password, not one per login.
 
@@ -110,7 +110,7 @@ They have no password. At launch (pilot scale), the super-admin issues each of t
 - When creating an invite (Care Team → Undang), the owner enters the caregiver's **phone (optional)** and **username (optional)**. At least one is required. The username field suggests a value from the caregiver's name (e.g. `sari.pengasuh`) and checks availability as the owner types.
 - The invite link carries neither as a secret. On claim (`POST /invites/{token}/claim-pin`), the caregiver confirms their phone if one was given and sets the PIN, and the account gets the invite's identifiers.
 - The owner can **change a caregiver's username** later from Care Team. Old sessions stay valid; only the login identifier changes.
-- **The caregiver is told (D6):** an in-app notification, shown on their next visit: "Nama pengguna Anda diganti menjadi `sari.pengasuh` oleh <owner name>." It's written to `notifications` like other in-app notices, and audit-logged as `member.username_changed`.
+- **The caregiver is told (D6):** an in-app notification, shown on their next visit: "Nama pengguna Anda diganti menjadi `sari.pengasuh` oleh <owner name>." It's written to `notifications` like other in-app notices, and audit-logged as `member.username_changed` (*as built: server log, as above*).
 
 ### 5.3 PIN works on any device (D4)
 - `POST /api/v1/auth/pin/login` becomes `{ identifier, pin }`. **No device token is required.**
@@ -133,15 +133,15 @@ With device binding removed, a caregiver identifier plus a 6-digit PIN is the wh
 
 | Control | Detail | Status |
 |---|---|---|
-| Per-IP limit on `/auth/pin/login` | 5 / 15 min | **Exists** |
+| Per-IP limit on `/auth/pin/login` | 20 / 15 min (*as built*: the code already used 20, not 5; it must stay above the 5-failure account lockout or the lockout can never fire from one IP) | **Exists** |
 | Per-IP daily cap on `/auth/pin/login` | 30 / 24 h | New |
 | Per-account lockout with **doubling backoff** | After 5 failures: 15 min → 30 min → 1 h → … capped at 24 h. A success resets the level. New `user_pins.lock_level` | New (replaces the fixed 15 min) |
-| **Owner unlock** | Care Team → caregiver → "Buka kunci" clears the lock and resets `lock_level` (`POST /workspaces/{ws}/members/{id}/pin-unlock`). Audit-logged | New |
+| **Owner unlock** | Care Team → caregiver → "Buka kunci" clears the lock and resets `lock_level` (`POST /workspace/members/{id}/pin-unlock`, workspace from the `X-Workspace-ID` header). Logged (server log, IDs only) | New |
 | **Owner alert on lock** | In-app notification when a caregiver account locks: "Ada percobaan masuk gagal ke akun Bu Sari." | New |
 | **New-device alert** | §5.3 | New |
 | Same response for unknown identifier and wrong PIN | Keeps the current behaviour, which doesn't reveal whether an account exists | Exists |
 | Common-PIN blocklist | §5.4 | New |
-| Owner password login | Per-IP 10 / 15 min, plus per-account lockout with the same doubling backoff, capped at 24 h (D7), on `user_passwords`. Unlock by super-admin, or a successful admin reset clears it. Applies whether the identifier was an email or a phone | New |
+| Owner password login | Per-IP 20 / 15 min (*as built*, matching PIN login), plus per-account lockout with the same doubling backoff, capped at 24 h (D7), on `user_passwords`. Unlock by super-admin, or a successful admin reset clears it. Applies whether the identifier was an email or a phone | New |
 
 **Why this is enough:** an attacker using many IPs is still held back by the **per-account** lock. With the doubling backoff, after the first few locks each account allows at most about 5 guesses a day. Guessing a random PIN with 50% odds would take on the order of **centuries**. The owner is alerted early either way, and the owner unlock prevents a malicious lockout from keeping a caregiver out of their shift.
 
@@ -153,8 +153,8 @@ With device binding removed, a caregiver identifier plus a 6-digit PIN is the wh
 
 - **`/[locale]/login` asks one question first**, with two large cards (≥ 96 px tall, icon + label):
   - **"Saya Pengasuh"**, for caregivers
-  - **"Saya Orang Tua / Keluarga"**, for owners
-- The last choice is remembered in `localStorage` (`carelog.loginRole`). On a return visit that form opens directly, with a "Bukan Anda? Ganti" link back to the choice.
+  - **"Saya Pengelola"**, for owners. *Changed 2026-11-23 from "Saya Orang Tua / Keluarga": "Orang tua" is wrong for elder care, and "Keluarga" is already the viewer role. The owner role is "Pengelola" (en "Care manager") everywhere in the UI, and caregivers are "Pengasuh" everywhere (#87).*
+- The last choice is remembered in `localStorage` (`carelog.loginRole`). On a return visit that form opens directly, with a "Bukan Anda? Ganti" link back to the choice. *As built:* `?role=caregiver|owner` opens a form without saving the choice (owner-only pages link to `?role=owner`); viewers (Keluarga) are invited by link and use the caregiver form.
 - **Caregiver form:** "Nomor HP atau nama pengguna" (one input, `autocomplete="username"`), then the existing `PinPad`, then **Masuk**. Below it: "Lupa PIN?", which runs the existing owner-approved flow.
 - **Owner form:** "Email atau nomor HP" (one input, `autocomplete="username"`, `inputmode` left as text so `@` stays easy to type), password (`autocomplete="current-password"`, with a show/hide toggle), then **Masuk**. Then **"Masuk dengan Google"**, shown only when configured. Then **"Lupa kata sandi?"** (§4.5) and **"Belum punya akun? Daftar"**.
 - **Bu Sari test:** a caregiver signs in with 1 tap (role, skipped when remembered) + identifier + PIN. 16px text, 56px targets, Bahasa Indonesia first. Error copy never reveals whether the account exists: "Nomor/nama pengguna atau PIN salah."
@@ -189,7 +189,7 @@ ALTER TABLE users ADD CONSTRAINT users_identity_present
     CHECK (email IS NOT NULL OR phone IS NOT NULL OR username IS NOT NULL);
 
 ALTER TABLE user_pins ADD COLUMN lock_level INT NOT NULL DEFAULT 0;
-ALTER TABLE invitations ADD COLUMN username TEXT;
+ALTER TABLE invitations ADD COLUMN invitee_username TEXT;  -- as built: named to match invitee_name / invitee_email
 ```
 
 The reserved-username list and the common-PIN and common-password lists live in Go (`internal/domain`), not in SQL.
@@ -206,22 +206,22 @@ The reserved-username list and the common-PIN and common-password lists live in 
 | `POST /api/v1/auth/google/link` | signed in | **New.** Link from Settings |
 | `POST /api/v1/auth/pin/login` | public | **Changed:** `{identifier, pin}`, no device token |
 | `POST /api/v1/auth/pin/forgot` | public | **Changed:** takes an identifier |
-| `POST /api/v1/workspaces/{ws}/members/{id}/pin-unlock` | owner | **New** |
-| `PATCH /api/v1/workspaces/{ws}/members/{id}` | owner | **Changed:** can set a caregiver's `username` |
-| `POST /api/v1/workspaces/{ws}/invitations` | owner | **Changed:** optional `username` |
-| `GET /api/v1/usernames/{name}/available` | owner | **New.** For the invite form; rate-limited |
+| `POST /api/v1/workspace/members/{id}/pin-unlock` | owner | **New** (*as built*: member routes are `/workspace/...` with `X-Workspace-ID`) |
+| `PATCH /api/v1/workspace/members/{id}` | owner | **Changed:** can set a caregiver's `username` |
+| `POST /api/v1/invitations` | owner | **Changed:** optional `username`; a phone or a username is required |
+| `GET /api/v1/usernames/{name}/available` | owner | **New.** For the invite form; rate-limited (120 / h per user) |
 | `POST /api/v1/auth/magic-link`, `GET /auth/verify` | public | **Gated** behind `AUTH_MAGIC_LINK_ENABLED` |
 
 Errors use the existing envelope and `apiError` codes. New codes: `invalid_credentials`, `account_locked`, `password_change_required`, `username_taken`, `username_invalid`, `pin_too_common`, `password_too_common`.
 
 ## 10. Rollout (one PR each, in order)
 
-1. **Migration:** the schema in §8. No behaviour change.
-2. **Owner password auth:** register, password login, password change, admin reset (API + `/admin` UI), `must_change` screen, `AUTH_MAGIC_LINK_ENABLED` gate. E2E helper moves to password sign-in.
-3. **Caregiver identifier + any-device PIN:** username on invite and Care Team, `{identifier, pin}` login, the §6 hardening (doubling backoff, daily IP cap, owner unlock, lock and new-device alerts), PIN blocklist.
-4. **Login screen revamp:** role choice and the two forms (§7).
-5. **Google sign-in:** after the OAuth client exists (§4.4).
-6. **Docs:** PRD AUTH-001/002/005 and §17.1, RFC §6.6 (limits table) and §8. These could also land with PR 2 if you'd rather keep docs in step.
+1. **Migration:** the schema in §8. No behaviour change. — **Done (#83).**
+2. **Owner password auth:** register, password login, password change, admin reset (API + `/admin` UI), `must_change` screen, `AUTH_MAGIC_LINK_ENABLED` gate. E2E helper moves to password sign-in. — **Done (#84)**, except the E2E helper: it still signs in by magic link through the dev-only `AUTH_DEV_EXPOSE_LINK` path.
+3. **Caregiver identifier + any-device PIN:** username on invite and Care Team, `{identifier, pin}` login, the §6 hardening (doubling backoff, daily IP cap, owner unlock, lock and new-device alerts), PIN blocklist. — **Done (#85).**
+4. **Login screen revamp:** role choice and the two forms (§7). — **Done (#86)**, plus the "Pengelola" rename (#87).
+5. **Google sign-in:** after the OAuth client exists (§4.4). — **Waiting** for the OAuth client.
+6. **Docs:** PRD AUTH-001/002/005 and §17.1, RFC §6.6 (limits table) and §8. — **This PR.**
 
 ## 11. Testing
 
@@ -242,3 +242,4 @@ Errors use the existing envelope and `apiError` codes. New codes: `invalid_crede
 3. **Username changes:** **yes**, the caregiver gets an in-app notification (D6, §5.2).
 4. **Owners logging in with a phone number:** **yes**. Owners use email **or** phone + password (D1, §4.1–4.2, §7).
 5. **24-hour backoff cap:** **yes** (D7).
+6. **Owner role name (2026-11-23):** **"Pengelola"** (en "Care manager") replaces "Orang Tua / Keluarga" on the login card and "Pemilik" in Care Team; caregivers are "Pengasuh" everywhere (§7).

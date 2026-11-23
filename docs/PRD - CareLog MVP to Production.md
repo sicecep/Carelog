@@ -6,7 +6,7 @@
 | **Document Status** | Draft — v1.0 |
 | **Product Manager** | Sepry (Product Manager) |
 | **Platform** | Web App (MVP); PWA + Native Mobile (Phase 2) |
-| **Last Updated** | June 26, 2026 |
+| **Last Updated** | November 23, 2026 (login revamp: AUTH-001, AUTH-002, AUTH-005, §17.1) |
 | **Relevant Docs** | [Original PRD](./PRD%20-%20CareLog%20Daily%20Report%20App.md), [RFC Technical Architecture](./RFC%20-%20CareLog%20Technical%20Architecture.md) |
 
 ---
@@ -68,7 +68,7 @@ CareLog gives caregivers a simple, low-friction daily logging interface (three U
 
 ### MVP Delivery Target
 
-An 8–12 week MVP delivering P0 features: care profile creation, three-mode daily logging, parent report viewing, WhatsApp-based caregiver invitation, multi-caregiver assignment & revocation, magic link + Google OAuth for owners, phone + PIN for caregivers, bilingual UI, daily email notifications, parent instruction notes, caregiver shift check-in/check-out, and incident reporting.
+An 8–12 week MVP delivering P0 features: care profile creation, three-mode daily logging, parent report viewing, WhatsApp-based caregiver invitation, multi-caregiver assignment & revocation, email-or-phone + password (and Google, once configured) for owners, phone-or-username + PIN for caregivers, bilingual UI, daily email notifications, parent instruction notes, caregiver shift check-in/check-out, and incident reporting.
 
 ---
 
@@ -273,11 +273,11 @@ Caregiving in Indonesian households sits at the intersection of intimate trust a
 
 | No. | Feature | Actor | Requirement | Note |
 |---|---|---|---|---|
-| AUTH-001 | **Magic link authentication** — *As a user, I want to sign up and log in via email magic link so that I don't need a password.* | All users | **Objective:** Reduce auth friction for email-capable users (owners and viewers); caregivers use phone + PIN instead (AUTH-005). **Acceptance Criteria:** (1) User enters email → receives magic link within 60 seconds. (2) Clicking link creates or resumes a session. (3) Link is single-use and expires after 15 minutes. (4) 90-day sliding session persistence on trusted devices. (5) Expired link shows clear error with resend option. | P0 |
-| AUTH-002 | **Google OAuth** — *As a user, I want to sign in with Google so that I can skip email verification.* | All users | **Acceptance Criteria:** (1) "Sign in with Google" button on auth screen. (2) OAuth 2.0 flow completes → account created or matched by email. (3) 90-day sliding session created. (4) If email already exists via magic link, accounts are linked. | P0 |
+| AUTH-001 | **Owner email or phone + password** — *As a care manager (Pengelola), I want to sign up and sign in with my email or phone number and a password so that signing in never depends on an email arriving.* | Owner | **Objective:** Owners sign in without the app sending email: there is no email budget at launch, and a magic link costs one email per sign-in. *Revised 2026-11-23 (login revamp spec, D1–D2); this replaces the magic-link requirement.* **Acceptance Criteria:** (1) Sign-up asks for full name, email and/or phone (at least one), and a password; the account waits for super-admin approval, which is the control against mistyped or squatted identifiers (neither is verified at sign-up). A duplicate identifier gets the same response as a new one. (2) Sign-in takes one field, "Email atau nomor HP": anything with `@` is an email, otherwise a phone number. (3) Passwords: 8–128 characters, no composition rules (NIST 800-63B), common passwords and the user's own email or phone rejected, stored as argon2id. (4) Wrong identifier and wrong password look identical, timing included. (5) 5 failures lock the account for 15 min, doubling per consecutive lock up to 24 h. (6) Forgotten password is admin-assisted: "Lupa kata sandi?" opens WhatsApp to the platform owner, who issues a one-time temporary password; the owner must set a new one before using the app (enforced by the API). Emailed reset links come later, when there is an email budget. (7) Changing the password needs the current one and signs out every other session. (8) The magic link is retired from the UI; it remains behind `AUTH_MAGIC_LINK_ENABLED` for development and E2E only. | P0 |
+| AUTH-002 | **Google OAuth** — *As a care manager, I want to sign in with Google so that I don't need another password.* | Owner | **Status:** not built yet; waits for the Google Cloud OAuth client. The button stays hidden until it is configured. **Acceptance Criteria:** (1) "Masuk dengan Google" on the owner form, shown only when configured. (2) OAuth 2.0 with `state` + PKCE; the `id_token` is verified and `email_verified` is required. (3) Matching: by `google_id`; else by an email that is already **verified**; an email that matches an **unverified** password sign-up is **not** linked automatically (that would hand the account to whoever registered the email first), and the user is told to sign in with the password and link Google from Settings; no match creates a new owner pending approval. (4) Settings → "Hubungkan Google" links an existing account. | P0 |
 | AUTH-003 | **WhatsApp-shareable invite link** — *As an owner, I want to share an invite via WhatsApp so that my caregiver can join without friction.* | Owner | **Acceptance Criteria:** (1) Owner generates invite link from workspace settings. (2) Link contains a signed cryptographic token. (3) Link valid for 72 hours, single-use. (4) Clicking opens CareLog → caregiver **sets a 6-digit PIN (AUTH-005)** → automatically added to workspace with Caregiver role. No email step. (5) Owner notified via email when invite is accepted. | P0 |
 | AUTH-004 | **Role-based access control** | System | **Acceptance Criteria:** (1) Owner: full CRUD on workspace, profiles, instructions, reports. (2) Caregiver: create/edit own logs within same-day window, view instructions, check in/out, file incidents. (3) Viewer: read-only on reports and timeline. (4) No role can access another workspace's data. (5) Enforcement is at the database RLS layer, not only at the application layer. | P0 |
-| AUTH-005 | **Caregiver phone + PIN login** — *As a caregiver, I want to log in with my phone number and a short PIN so that I never have to open an email inbox.* | Caregiver | **Objective:** Email is the wrong primary channel for this persona — many caregivers have no working email account, and the invite already reaches them on WhatsApp. **Acceptance Criteria:** (1) Enrolment happens inside the AUTH-003 invite link: caregiver confirms their phone and chooses a 6-digit PIN. (2) Phone is stored canonically (E.164) so the same number typed any way resolves to one account. (3) Login is phone + PIN, accepted **only on an enrolled device** — a new device requires a fresh invite link, making the PIN a second factor rather than a standalone password. (4) PIN re-entry after 30 minutes idle; otherwise the session persists (90-day sliding refresh). (5) 5 failed attempts trigger lockout with backoff. (6) Forgotten PIN is recovered by the owner re-issuing the invite link over their own WhatsApp — no paid messaging channel, and the owner personally knows the caregiver. (7) PIN stored as argon2id hash, never recoverable. | P0 |
+| AUTH-005 | **Caregiver phone or username + PIN** — *As a caregiver, I want to sign in with my phone number or username and a short PIN, on whatever phone or tablet I'm using, so that I never have to open an email inbox.* | Caregiver | **Objective:** Email is the wrong primary channel for this persona — many caregivers have no working email account, and the invite already reaches them on WhatsApp. *Revised 2026-11-23 (login revamp spec, D3–D4, D6): the PIN is no longer device-bound, so caregivers who switch phones or share a household tablet can still sign in.* **Acceptance Criteria:** (1) Enrolment happens inside the AUTH-003 invite link: the caregiver confirms their phone (optional when the invite carries a username) and chooses a 6-digit PIN. (2) The owner may give the caregiver a **username** on the invite (3–30 of `a-z 0-9 . _`, at least one letter, unique app-wide) and can change it later; the caregiver is told in-app. (3) Sign-in is one field, "Nomor HP atau nama pengguna", plus the PIN, **from any device**. A sign-in from a device not seen before alerts the owner in-app. (4) Phone is stored canonically (E.164) so the same number typed any way resolves to one account. (5) 5 failures lock the account for 15 min, doubling per consecutive lock up to 24 h; the owner is alerted and can unlock from Care Team. Per-IP limits apply on top (§17.1). (6) Common PINs and the last 6 digits of the caregiver's own phone are rejected. (7) Unknown account, account without a PIN, and wrong PIN all get the same response. (8) Forgotten PIN: the caregiver asks from their device, the owner approves in-app, and the caregiver sets a new PIN on that same device. (9) PIN stored as argon2id hash, never recoverable. (10) Viewers (Keluarga) are invited the same way and sign in the same way. | P0 |
 
 ---
 
@@ -513,7 +513,7 @@ Indonesian credit card penetration is approximately 6-7%. CareLog must support t
 | ID | Requirement | Standard |
 |---|---|---|
 | SEC-001 | Workspace data isolation | RLS at DB level + API layer |
-| SEC-002 | Authentication token security | Single-use magic links; argon2id device-bound PINs; httpOnly cookies; no tokens in localStorage |
+| SEC-002 | Authentication token security | argon2id passwords and PINs with per-account lockout; one-time temporary passwords for admin resets; httpOnly cookies; no tokens in localStorage |
 | SEC-003 | Invite link security | Cryptographic token, single-use, 72-hour expiry |
 | SEC-004 | Photo storage | Private buckets, signed URLs (1-hour TTL) |
 | SEC-005 | PII protection | No PII in logs; AES-256 at rest |
@@ -559,7 +559,7 @@ The MVP must answer: **"Will a caregiver in Indonesia log care data daily if we 
 
 | Area | Features | Weeks |
 |---|---|---|
-| Auth & Onboarding | Magic link, Google OAuth, WhatsApp invite, bilingual scaffolding | 1–2 |
+| Auth & Onboarding | Owner password + admin reset, Google OAuth, WhatsApp invite with caregiver PIN, bilingual scaffolding | 1–2 |
 | Workspace & Profiles | Workspace creation, care profile CRUD, free tier enforcement (1 profile), multi-caregiver assignment & revocation | 2–3 |
 | Shift Tracking | Check-in/check-out, shift history | 3 |
 | Daily Logging — Mode 1 | Quick tap, all P0 categories, bottom sheet UI | 4–5 |
@@ -1431,13 +1431,16 @@ Three enforcement layers:
 
 | Requirement | Implementation |
 |---|---|
-| Credential policy | **Passwordless.** Owners: magic link / Google. Caregivers: 6-digit PIN, device-bound (AUTH-005). No passwords anywhere |
-| PIN hashing | argon2id (memory-hard; a 6-digit space must not be cheaply brute-forced offline if the DB leaks) |
-| Session tokens | Short-lived JWT access (15m) + rotating refresh token (90 days, sliding) |
-| Magic link expiry | 15 minutes, single-use |
-| PIN re-entry | After 30 minutes idle on a trusted device; full re-auth only on a new device |
-| Session invalidation | On PIN change; manual revocation per device; owner revoking a caregiver kills their token family |
-| Brute force protection | Redis fixed-window limits (RFC §6.6): magic link 5/15m per IP, refresh 60/h per IP; PIN attempts 5 per device then backoff |
+| Credential policy | Owners: email or phone + password (AUTH-001), Google once configured (AUTH-002). Caregivers: phone or username + 6-digit PIN, any device (AUTH-005). Magic link: development/E2E only (`AUTH_MAGIC_LINK_ENABLED`) |
+| Password rules | 8–128 characters, no composition rules; common passwords and the user's own email/phone rejected |
+| Password & PIN hashing | argon2id (memory-hard; a 6-digit space must not be cheaply brute-forced offline if the DB leaks) |
+| Password reset | Admin-assisted: one-time 12-character temporary password, all sessions revoked, new password required before any other request (`403 password_change_required`) |
+| Session tokens | Short-lived JWT access (15 min) + rotating refresh token (30 days, `REFRESH_TOKEN_TTL`) |
+| PIN re-entry | After 30 minutes idle — **planned, not built** |
+| Session invalidation | Password change revokes every other session; admin reset revokes all; PIN reset revokes the caregiver's devices; owner revoking a caregiver kills their token family |
+| Account lockout | Passwords and PINs: 5 failures → 15 min, doubling per consecutive lock, capped at 24 h; a success resets it. Owner unlocks caregivers; an admin reset clears an owner's lock |
+| Brute force protection | Redis fixed-window limits per IP (RFC §6.6): password sign-in 20/15m, PIN sign-in 20/15m and 30/24h, sign-up 5/h, forgot-PIN 3/h, refresh 60/h |
+| Alerts | Owner is told in-app when a caregiver signs in from a new device or their account locks |
 | Bot detection on signup | Cloudflare Turnstile |
 
 ### 17.2 RLS Hardening Checklist
@@ -1475,7 +1478,9 @@ Access: All photos in private buckets. Signed URLs with 1-hour TTL, generated pe
 
 ### 17.5 Audit Logging
 
-Every state-changing action logged to `audit_logs` within the Edge Function (captures IP/user-agent from HTTP context). Audited actions include: member.invited, member.role_changed, member.removed, report.submitted, report.acknowledged, plan.upgraded, workspace.deleted.
+Every state-changing action logged to `audit_logs` within the Edge Function (captures IP/user-agent from HTTP context). Audited actions include: member.invited, member.role_changed, member.removed, report.submitted, report.acknowledged, plan.upgraded, workspace.deleted, password.admin_reset, member.pin_unlocked, member.username_changed.
+
+*As built (2026-11-23):* the `audit_logs` table does not exist yet. The three login-revamp actions are written to the structured server log instead, with user IDs only and no PII.
 
 ### 17.6 Rate Limiting & Abuse Prevention
 
@@ -1517,7 +1522,7 @@ All events carry base properties: `user_id`, `workspace_id`, `plan_tier`, `platf
 
 | Event | Properties |
 |---|---|
-| `user_signed_up` | `method` (magic_link/google), `referral_source` |
+| `user_signed_up` | `method` (password/google/invite_pin), `referral_source` |
 | `onboarding_step_completed` | `step` (welcome/create_profile/invite_caregiver) |
 | `onboarding_completed` | `time_to_complete_seconds` |
 
@@ -1577,7 +1582,7 @@ Phase 5: Scale            Months 7–12  (Native apps, AI, org accounts)
 - Supabase project init: DB schema, RLS policies, Auth config
 - Next.js scaffolding: App Router, TypeScript strict, Tailwind CSS
 - CI/CD: GitHub Actions → Vercel preview + production
-- Auth pages: magic link, Google OAuth, logout
+- Auth pages: role choice (Pengasuh / Pengelola), owner password sign-in and sign-up, caregiver PIN sign-in, change password, logout (Google OAuth once configured)
 - PostHog SDK integration
 
 **Week 2: Workspace & Profile Setup**
@@ -1844,7 +1849,7 @@ WHERE report_date = (NOW() AT TIME ZONE workspace.timezone)::DATE
 
 | Feature | Acceptance Criteria |
 |---|---|
-| **User Registration** | (1) Owner: email magic link creates account within 60s. (2) Caregiver: invite link enrols device + sets 6-digit PIN, no email required. (3) Duplicate identity resumes the existing account rather than erroring (no account enumeration). (4) No passwords — see §17.1. |
+| **User Registration** | (1) Owner: sign-up with name, email and/or phone, and password creates an account pending super-admin approval; no email is sent. (2) Caregiver: invite link sets a 6-digit PIN, with phone or the owner-picked username; no email required. (3) A duplicate identifier gets the same response as a new one (no account enumeration). (4) Credential rules — see §17.1. |
 | **User Login** | (1) Valid credentials return session and redirect to dashboard. (2) Invalid credentials show generic error (no field enumeration). (3) Session persists across refresh. (4) Logout clears session. (5) Caregiver PIN is accepted only on an enrolled device. |
 | **Workspace Creation** | (1) Owner creates workspace with name. (2) Owner auto-assigned Owner role. (3) Free tier: `plan = 'free'`. |
 | **Care Recipient Profile** | (1) Fields: name (required), DOB (required), care type (required), photo (optional), medical notes (optional). (2) Free tier: second profile blocked with upgrade modal. (3) Profile photo served from CDN. |
@@ -1906,9 +1911,13 @@ A feature is **done** when:
 
 | Feature | Test Case | Type | Expected |
 |---|---|---|---|
-| Auth | Sign up with valid email | Happy path | Account created, confirmation email sent |
-| Auth | Sign up with existing email | Edge case | `HTTP 400`, "Email already in use" |
-| Auth | Magic link expired (>15 min) | Edge case | Error with resend option |
+| Auth | Owner signs up with email or phone + password | Happy path | Account created, pending approval; no email sent |
+| Auth | Sign up with an existing email or phone | Edge case | Same response as a new sign-up (no enumeration) |
+| Auth | Owner signs in with email, then with phone | Happy path | Both reach the dashboard |
+| Auth | 5 wrong passwords, then the right one | Edge case | `HTTP 429 account_locked`; lock doubles on the next lock |
+| Auth | Admin reset → sign in with temporary password | Happy path | Forced to set a new password; other pages answer `403` until then |
+| Auth | Caregiver signs in by username from a second device | Happy path | Signed in; owner sees a new-device alert |
+| Auth | 5 wrong PINs → owner unlocks | Edge case | `pin_locked`, owner alerted; after unlock the right PIN works |
 | Report | Submit complete report | Happy path | Saved, confirmed, owner notified |
 | Report | Submit duplicate (same recipient, date, caregiver) | Edge case | `HTTP 409`, offer to edit |
 | Report | Submit offline → reconnect | Edge case | Draft synced, submitted automatically |
