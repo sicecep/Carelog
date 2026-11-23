@@ -103,7 +103,7 @@ function RecipientCard({ recipient }: { recipient: Recipient }) {
   );
 }
 
-function EmptyState() {
+export function EmptyState() {
   const t = useTranslations("dashboard");
   const locale = useLocale();
 

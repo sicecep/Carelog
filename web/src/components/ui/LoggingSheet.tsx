@@ -27,6 +27,12 @@ interface LoggingSheetProps {
   modules: readonly Module[];
   /** Called after a successful save so the parent can refresh a timeline, etc. */
   onLogged?: () => void;
+  /**
+   * Open straight on this category's options (a quick-log tile on the home
+   * screen) instead of the category grid. Read once on mount: the parent
+   * remounts the sheet (a new `key`) for each opening.
+   */
+  initialCategory?: LogCategory;
 }
 
 type Step = "category" | "subcategory" | "backfill" | "vital";
@@ -45,14 +51,33 @@ const isTextCategory = (c: LogCategory | null): c is TextCategory =>
 // implementation — including the FileList live-view fix and the object-URL
 // cleanup, both of which were real bugs here.
 
-export function LoggingSheet({ open, onClose, recipientId, workspaceId, modules, onLogged }: LoggingSheetProps) {
+// A category with options (or free text) opens on its option step; one with
+// neither would save on the first tap, so it starts on the grid instead —
+// a quick-log tile must never log something by itself.
+function startsOnOptions(c: LogCategory | undefined): c is LogCategory {
+  return c !== undefined && (isTextCategory(c) || (LOG_SUBCATEGORIES[c] ?? []).length > 0);
+}
+
+export function LoggingSheet({
+  open,
+  onClose,
+  recipientId,
+  workspaceId,
+  modules,
+  onLogged,
+  initialCategory,
+}: LoggingSheetProps) {
   const t = useTranslations("logging");
   const tCategories = useTranslations("reports.categories");
   const tSubcategories = useTranslations("logging.subcategories");
   const tVitalFields = useTranslations("logging.vitalFields");
 
-  const [step, setStep] = useState<Step>("category");
-  const [category, setCategory] = useState<LogCategory | null>(null);
+  const [step, setStep] = useState<Step>(() =>
+    startsOnOptions(initialCategory) ? "subcategory" : "category"
+  );
+  const [category, setCategory] = useState<LogCategory | null>(() =>
+    startsOnOptions(initialCategory) ? initialCategory : null
+  );
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");

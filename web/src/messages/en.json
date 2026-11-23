@@ -827,5 +827,30 @@
     "signedInAs": "Signed in as {identity}",
     "logoutHint": "Sign out of CareLog on this device.",
     "workspaceHeading": "Workspace settings"
+  },
+  "today": {
+    "title": "Today",
+    "greetingOwner": "Hi, {name}",
+    "switcherLabel": "Choose who you're caring for",
+    "quickLog": "Quick log",
+    "quickLogFor": "Quick log for {name}",
+    "tileLast": "last {time}",
+    "tileNone": "not yet",
+    "tileAria": "Log {category}, last at {time}",
+    "tileAriaNone": "Log {category}, nothing yet today",
+    "moreCategories": "Other categories",
+    "recentHeading": "Today's entries",
+    "seeAll": "See all",
+    "emptyToday": "Nothing logged today yet. Tap a button above to log.",
+    "standingNote": "Instructions from the owner",
+    "noRecipientsCaregiver": "No one has been assigned to you yet. Please contact the owner.",
+    "lastMeal": "Last meal",
+    "lastMedication": "Last medication",
+    "entriesToday": "Entries today",
+    "incidentsToday": "Incidents today",
+    "onDuty": "{names} on duty",
+    "nobodyOnDuty": "Nobody on duty yet",
+    "incidentAlert": "{count, plural, one {# incident today} other {# incidents today}} · highest: {severity}",
+    "openTimeline": "Open {name}'s timeline"
   }
 }
