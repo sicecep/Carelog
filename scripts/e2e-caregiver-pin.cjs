@@ -175,7 +175,7 @@ async function main() {
     // ── Login with phone + PIN on the enrolled device ──────────────────────
     await cgCtx.clearCookies({ name: "cl_access" });
     await cgCtx.clearCookies({ name: "cl_refresh" });
-    await cgPage.goto(`${WEB}/id/login`);
+    await cgPage.goto(`${WEB}/id/login?role=caregiver`);
 
     const loginBody = await cgPage.innerText("body");
     check("login page offers the PIN method", /HP|PIN/i.test(loginBody), loginBody.slice(0, 140));
@@ -199,7 +199,7 @@ async function main() {
     // USERNAME through the real form.
     const secondCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const secondPage = await secondCtx.newPage();
-    await secondPage.goto(`${WEB}/id/login`);
+    await secondPage.goto(`${WEB}/id/login?role=caregiver`);
     await secondPage.fill("#caregiver-identifier", username);
     await secondPage.click('button[type="submit"]');
     await secondPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });
@@ -365,7 +365,7 @@ async function main() {
       pageErrors.length === 0, pageErrors.join(" | ").slice(0, 200));
 
     // Touch targets on the PIN pad (56px standard, #52).
-    await cgPage.goto(`${WEB}/id/login`);
+    await cgPage.goto(`${WEB}/id/login?role=caregiver`);
     await cgPage.fill("#caregiver-identifier", phone);
     await cgPage.click('button[type="submit"]');
     await cgPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });

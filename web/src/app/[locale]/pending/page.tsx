@@ -36,7 +36,7 @@ export default async function PendingPage({ params, searchParams }: PendingPageP
           )}
 
           <Link
-            href={`/${locale}/login`}
+            href={`/${locale}/login?role=owner`}
             className="btn-base btn-secondary touch-target inline-flex items-center justify-center"
           >
             {t("backToLogin")}

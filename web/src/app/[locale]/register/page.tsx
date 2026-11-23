@@ -45,7 +45,7 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
         <p className="text-center text-sm text-[var(--color-text-muted)]">
           {t("haveAccount")}{" "}
           <Link
-            href={`/${locale}/login`}
+            href={`/${locale}/login?role=owner`}
             className="font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
           >
             {t("signIn")}
