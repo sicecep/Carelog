@@ -64,7 +64,7 @@ async function main() {
     check("1a. owner sees standing-instruction field", await standingBox.isVisible().catch(() => false));
     check("1b. owner sees today's-note field", await dailyBox.isVisible().catch(() => false));
     const heading = await owner.page.innerText("body");
-    check("1c. panel heading renders (no raw key)", heading.includes("Instruksi dari Orang Tua"));
+    check("1c. panel heading renders (no raw key)", heading.includes("Instruksi dari Pengelola"));
 
     // ── 2. Owner saves both notes ────────────────────────────────────────
     await standingBox.fill(STANDING);
