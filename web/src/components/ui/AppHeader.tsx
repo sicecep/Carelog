@@ -11,6 +11,11 @@ interface AppHeaderProps {
   backLabel?: string;
   /** Detail pages: the title shown next to the back button on phones. */
   title?: string;
+  /**
+   * "accent": on phones the bar is teal and flows into the page's teal hero
+   * band (the "Hari Ini" home). Desktop keeps the plain surface bar.
+   */
+  tone?: "surface" | "accent";
 }
 
 /**
@@ -25,12 +30,19 @@ interface AppHeaderProps {
  * Desktop (md+): wordmark, the back link as text, and the inline tab nav.
  * The mobile bottom tab bar is rendered by AppNav alongside this header.
  */
-export async function AppHeader({ locale, backHref, backLabel, title }: AppHeaderProps) {
+export async function AppHeader({ locale, backHref, backLabel, title, tone = "surface" }: AppHeaderProps) {
   const common = await getTranslations({ locale, namespace: "common" });
   const back = backLabel ?? common("back");
+  const accent = tone === "accent";
 
   return (
-    <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)] pt-[env(safe-area-inset-top)]">
+    <header
+      className={`sticky top-0 z-10 border-b pt-[env(safe-area-inset-top)] md:border-[var(--color-border)] md:bg-[var(--color-surface)] ${
+        accent
+          ? "border-transparent bg-[var(--color-hero)]"
+          : "border-[var(--color-border)] bg-[var(--color-surface)]"
+      }`}
+    >
       <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-2 px-2 sm:px-6">
         <div className="flex min-w-0 items-center gap-1 md:gap-3">
           {backHref && <AppBarBack href={backHref} label={back} />}
@@ -44,7 +56,11 @@ export async function AppHeader({ locale, backHref, backLabel, title }: AppHeade
               <Wordmark locale={locale} label={common("appName")} className="hidden md:inline-flex" />
             </>
           ) : (
-            <Wordmark locale={locale} label={common("appName")} className="inline-flex px-2 md:px-0" />
+            <Wordmark
+              locale={locale}
+              label={common("appName")}
+              className={`inline-flex px-2 md:px-0 ${accent ? "text-[var(--color-on-hero)] md:text-[var(--color-accent-ink)]" : ""}`}
+            />
           )}
         </div>
         <AppNav locale={locale} />
@@ -59,7 +75,9 @@ function Wordmark({ locale, label, className }: { locale: string; label: string;
   return (
     <Link
       href={`/${locale}/dashboard`}
-      className={`touch-target items-center text-lg font-semibold text-[var(--color-accent-ink)] ${className}`}
+      className={`touch-target items-center text-lg font-semibold ${
+        className.includes("text-[") ? "" : "text-[var(--color-accent-ink)]"
+      } ${className}`}
     >
       {label}
     </Link>

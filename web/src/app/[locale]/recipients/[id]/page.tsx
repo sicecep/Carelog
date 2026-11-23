@@ -29,34 +29,11 @@ import { ParentNotes } from "@/components/ui/ParentNotes";
 import { ShiftCard } from "@/components/ui/ShiftCard";
 import { AssignmentManager } from "@/components/ui/AssignmentManager";
 import { TaskManager } from "@/components/ui/TaskManager";
+import { dayInTimezone, shiftDay } from "@/lib/day";
 
 interface RecipientPageProps {
   params: Promise<{ locale: string; id: string }>;
   searchParams: Promise<{ date?: string; contributor?: string }>;
-}
-
-/** YYYY-MM-DD for `now` rendered in the given IANA timezone. */
-function dayInTimezone(now: Date, timezone: string): string {
-  try {
-    // en-CA formats as YYYY-MM-DD, which is exactly the wire format — and
-    // Intl does the zone conversion correctly, unlike hand-rolled offset math.
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
-  } catch {
-    return now.toISOString().slice(0, 10);
-  }
-}
-
-/** Shift a YYYY-MM-DD string by whole days without local-timezone drift. */
-function shiftDay(date: string, days: number): string {
-  const [y, m, d] = date.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d) + days * 86400000)
-    .toISOString()
-    .slice(0, 10);
 }
 
 export default async function RecipientDetailPage({

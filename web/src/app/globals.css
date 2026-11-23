@@ -39,6 +39,11 @@
   --color-highlight: #E9A23B;
   --color-highlight-soft: #FDF0DB;
   --color-highlight-ink: #7A4D00;
+  /* Hero band on the "Hari Ini" home and its app bar. Light: the accent with
+     white text (6.2:1). Dark: the deep accent-soft, so the top of the screen
+     isn't a bright slab at night; text 10.4:1. */
+  --color-hero: #0E6B73;
+  --color-on-hero: #FFFFFF;
 
   /* Category colours (DESIGN.md §9): a soft circle behind each category icon
      on the log grid, the quick-log tiles and the timeline, so a category is
@@ -176,6 +181,8 @@
     --color-highlight: #E9B453;
     --color-highlight-soft: #3A2C12;
     --color-highlight-ink: #F2CF85;      /* 9.1:1 on highlight-soft */
+    --color-hero: #123A3D;
+    --color-on-hero: #E8EDEA;
     /* Category colours: dark soft circles, light inks (8.2–9.3:1). */
     --color-cat-meal-soft: #3A2C12;
     --color-cat-meal-ink: #F2CF85;

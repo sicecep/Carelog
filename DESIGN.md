@@ -62,6 +62,7 @@ classes (`amber-500`, `red-600`, …). Every pairing below was checked against W
 | `--color-highlight` | `#E9A23B` | **New.** Kunyit (turmeric). Decoration only: selected-recipient ring, small dots. 2.2:1 on white, so never text or a control boundary |
 | `--color-highlight-soft` | `#FDF0DB` | "On duty" shift strip, last-logged time pills |
 | `--color-highlight-ink` | `#7A4D00` | Text/icons on `highlight-soft` (6.5:1) |
+| `--color-hero` / `--color-on-hero` | `#0E6B73` / `#FFFFFF` | **New.** "Hari Ini" hero band and its app bar (6.2:1). Dark: `#123A3D` / `#E8EDEA` (10.4:1) |
 
 **Why teal + kunyit (2026-11-23).** The old care green (`#2F7D5D`) sat in the same hue as the
 ride-hailing, chat and marketplace apps on the users' home screens, and health apps in
@@ -448,6 +449,30 @@ Every interactive feature defines all three.
 - **Loading content:** skeletons shaped like the real content (`.skeleton`). **Loading an
   action:** an inline spinner in the button.
 - **Error:** what happened, in plain language, plus a "Coba lagi" button. Never a raw error code.
+
+
+### 8.13 Home: "Hari Ini"
+
+The Beranda tab (`/dashboard`) opens on today, not on a list.
+
+- **Hero band:** `--color-hero` / `--color-on-hero` (teal with white text by day, deep teal with
+  light text at night), rounded bottom corners, flowing from an `AppHeader tone="accent"` app bar
+  on phones. The page sets `viewport.themeColor` to the same colour so the system bar matches.
+- **Caregiver:**
+  - The hero holds the date, the bell, a recipient switcher (avatars, 56px; `?r=<id>`; shown when
+    more than one recipient is assigned, the selected one with a kunyit ring) and the shift card.
+  - Below it: the owner's standing instruction as a banner.
+  - **Catat cepat:** one tile per enabled category (`CategoryIcon`, label, and today's last time in
+    a kunyit pill, or "belum"). A tile opens the logging sheet straight on that category's options
+    (`LoggingSheet initialCategory`), so a log is three taps. The shift nudge still applies.
+  - A full-width "Catat insiden" outline button, then today's latest three entries with
+    "Lihat semua" to the recipient timeline, then tasks.
+- **Owner:** the hero says who is on duty. One card per active recipient with last meal, last
+  medication, entries today, incidents today and, when there is one, an incident line (colour +
+  icon + text, most severe level). The card opens the recipient. Archive/restore lives on the
+  Terawat tab.
+- The sheets and the shift nudge are shared with the recipient page through
+  `components/ui/LogFlow.tsx`.
 
 ---
 

@@ -827,5 +827,30 @@
     "signedInAs": "Masuk sebagai {identity}",
     "logoutHint": "Keluar dari CareLog di perangkat ini.",
     "workspaceHeading": "Pengaturan workspace"
+  },
+  "today": {
+    "title": "Hari Ini",
+    "greetingOwner": "Halo, {name}",
+    "switcherLabel": "Pilih penerima perawatan",
+    "quickLog": "Catat cepat",
+    "quickLogFor": "Catat cepat untuk {name}",
+    "tileLast": "terakhir {time}",
+    "tileNone": "belum",
+    "tileAria": "Catat {category}, terakhir {time}",
+    "tileAriaNone": "Catat {category}, belum ada hari ini",
+    "moreCategories": "Kategori lain",
+    "recentHeading": "Catatan hari ini",
+    "seeAll": "Lihat semua",
+    "emptyToday": "Belum ada catatan hari ini. Ketuk salah satu tombol di atas untuk mencatat.",
+    "standingNote": "Instruksi dari pengelola",
+    "noRecipientsCaregiver": "Belum ada penerima perawatan yang ditugaskan ke Anda. Hubungi pengelola.",
+    "lastMeal": "Makan terakhir",
+    "lastMedication": "Obat terakhir",
+    "entriesToday": "Catatan hari ini",
+    "incidentsToday": "Insiden hari ini",
+    "onDuty": "{names} sedang bertugas",
+    "nobodyOnDuty": "Belum ada yang bertugas",
+    "incidentAlert": "{count, plural, other {# insiden hari ini}} · tertinggi: {severity}",
+    "openTimeline": "Buka linimasa {name}"
   }
 }
