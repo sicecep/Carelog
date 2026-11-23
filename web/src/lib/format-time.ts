@@ -32,3 +32,19 @@ export function formatClock(iso: string, locale: string, timezone: string = DEFA
     }).format(d);
   }
 }
+
+/**
+ * Short calendar date ("23 Nov 2026") for an instant, in a
+ * given IANA zone. Same rule as formatClock: explicit locale and zone, so the
+ * server render and the phone agree.
+ */
+export function formatShortDate(iso: string, locale: string, timezone: string = DEFAULT_TIMEZONE): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
+  try {
+    return new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-GB", { ...opts, timeZone: timezone }).format(d);
+  } catch {
+    return new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-GB", { ...opts, timeZone: DEFAULT_TIMEZONE }).format(d);
+  }
+}

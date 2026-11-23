@@ -505,6 +505,20 @@ The recipient page (`/recipients/[id]`) is split by a segmented control (`recipi
   surface with bold text (`aria-current="page"`). The fixed "Catat kegiatan / Catat insiden"
   bar stays on every section.
 
+
+### 8.16 Tim (care team)
+
+`/careteam` shows everything on the page instead of behind "Kelola …" buttons. The server page
+fetches the members and (owners) the open invitations and passes them in.
+
+- Order: **PIN reset requests** first, only when there is one (it is the thing someone waits
+  on), then **Anggota tim (n)**, then (owners) **Undangan tertunda** with an empty state.
+- Member cards: initial avatar (teal for owners, kunyit for caregivers), name (wraps, never
+  truncates), email only when it isn't already the title, role and joined date; owners get the
+  role select, remove, unlock and username controls.
+- Dates use the workspace timezone (`formatShortDate` / `formatClock`), never the runtime's,
+  so the server render and the phone agree.
+
 ---
 
 ## 9. Icons

@@ -4,10 +4,16 @@ import { getTranslations } from "next-intl/server";
 import {
   APIError,
   authApi,
+  invitationApi,
+  memberApi,
   pinResetApi,
+  workspaceApi,
+  type Invitation,
+  type Member,
   type MeResponse,
   type PendingPINReset,
 } from "@/lib/api-client";
+import { DEFAULT_TIMEZONE } from "@/lib/format-time";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { InviteCaregiver } from "@/components/ui/InviteCaregiver";
 import { PinResetApprovals } from "@/components/ui/PinResetApprovals";
@@ -63,13 +69,32 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
     }
   }
 
+  // The roster and (owners) the open invitations, fetched here so the page
+  // shows them straight away instead of behind "Kelola …" buttons. Each is
+  // non-fatal: an empty list still renders with its empty state.
+  let members: Member[] = [];
+  let invites: Invitation[] = [];
+  let timezone = DEFAULT_TIMEZONE;
+  if (workspace) {
+    const [membersRes, invitesRes, wsRes] = await Promise.all([
+      memberApi.list(workspace.id, forwarded).catch(() => null),
+      role === "owner"
+        ? invitationApi.list(workspace.id, forwarded).catch(() => null)
+        : Promise.resolve(null),
+      workspaceApi.get(workspace.id, forwarded).catch(() => null),
+    ]);
+    members = membersRes?.data ?? [];
+    invites = invitesRes?.data ?? [];
+    timezone = wsRes?.data?.timezone ?? DEFAULT_TIMEZONE;
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] pb-20 md:pb-0">
       <AppHeader locale={locale} />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-2xl font-medium text-[var(--color-text)]">
+          <h1 className="text-2xl font-semibold text-[var(--color-text)]">
             {t("title")}
           </h1>
           {/* Invite is owner-only: the API rejects non-owners (403), so the
@@ -80,21 +105,16 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
         </div>
 
         {workspace ? (
-          <>
-            <CareTeamList
-              workspaceId={workspace.id}
-              currentUserId={me!.user.id}
-              canManage={role === "owner"}
-            />
-
+          <div className="space-y-10">
             {/* AUTH-005: caregivers who forget their PIN need an owner to
-                approve a reset. Owner-only, hidden (not disabled) for other
-                roles — the API 403s them anyway. */}
-            {role === "owner" && (
-              <section aria-labelledby="pin-resets-heading" className="mt-8">
+                approve a reset. First on the page because it is the one
+                thing here that someone is waiting on; shown only when there
+                is a request (or the list failed to load). */}
+            {role === "owner" && (pendingResets.length > 0 || pendingResetsFailed) && (
+              <section aria-labelledby="pin-resets-heading">
                 <h2
                   id="pin-resets-heading"
-                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
+                  className="mb-4 text-xl font-semibold text-[var(--color-text)]"
                 >
                   {pinResets("heading")}
                 </h2>
@@ -106,18 +126,31 @@ export default async function CareTeamPage({ params }: CareTeamPageProps) {
               </section>
             )}
 
+            <section aria-labelledby="members-heading">
+              <h2 id="members-heading" className="mb-4 text-xl font-semibold text-[var(--color-text)]">
+                {t("membersHeading", { count: members.length })}
+              </h2>
+              <CareTeamList
+                workspaceId={workspace.id}
+                currentUserId={me!.user.id}
+                canManage={role === "owner"}
+                initialMembers={members}
+                timezone={timezone}
+              />
+            </section>
+
             {role === "owner" && (
-              <section aria-labelledby="invitations-heading" className="mt-8">
+              <section aria-labelledby="invitations-heading">
                 <h2
                   id="invitations-heading"
-                  className="mb-4 text-xl font-medium text-[var(--color-text)]"
+                  className="mb-4 text-xl font-semibold text-[var(--color-text)]"
                 >
                   {dashboard("invitationsHeading")}
                 </h2>
-                <InvitationList workspaceId={workspace.id} />
+                <InvitationList workspaceId={workspace.id} initialInvites={invites} timezone={timezone} />
               </section>
             )}
-          </>
+          </div>
         ) : (
           <p role="alert" className="card text-base text-[var(--color-error-ink)]">
             {dashboard("loadError")}

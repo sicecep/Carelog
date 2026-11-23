@@ -573,6 +573,7 @@
   },
   "careteam": {
     "title": "Care Team",
+    "membersHeading": "Team members ({count})",
     "manage": "Manage Care Team",
     "loading": "Loading...",
     "empty": "No caregivers yet.",
