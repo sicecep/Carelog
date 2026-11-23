@@ -10,7 +10,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Baby,
   User,
@@ -26,6 +26,7 @@ import { CARE_TYPES, MODULES, VITAL_SPECS, type CareType, type Module } from "@/
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 import { SummarySheet } from "@/components/ui/SummarySheet";
+import { formatClock } from "@/lib/format-time";
 import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
 
 // formatVitalMeasurement renders a stored vital for the timeline (CGR-009):
@@ -75,11 +76,6 @@ function isModule(value: string): value is Module {
   return (MODULES as readonly string[]).includes(value);
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 interface DetailHeaderProps {
   recipient: Recipient;
@@ -261,11 +257,15 @@ export function IncidentList({
   incidents,
   isOwner,
   workspaceId,
+  timezone,
 }: {
   incidents: Incident[];
   isOwner?: boolean;
   workspaceId?: string;
+  /** Workspace IANA zone: times are the household's wall clock. */
+  timezone?: string;
 }) {
+  const locale = useLocale();
   const tIncidents = useTranslations("incidents");
   const tSheet = useTranslations("incidentsheet");
   if (incidents.length === 0) return null;
@@ -295,7 +295,7 @@ export function IncidentList({
                   {tIncidents(`severities.${incident.severity}`)}
                 </span>
                 <span className="ml-auto text-sm text-[var(--color-text-muted)]">
-                  {formatTime(incident.occurred_at)}
+                  {formatClock(incident.occurred_at, locale, timezone)}
                 </span>
               </div>
               <p className="mt-1 text-base text-[var(--color-text)]">{incident.description}</p>
@@ -357,12 +357,16 @@ export function TimelineList({
   incidents,
   isOwner,
   workspaceId,
+  timezone,
 }: {
   entries: ReportEntry[];
   incidents: Incident[];
   isOwner?: boolean;
   workspaceId?: string;
+  /** Workspace IANA zone: times are the household's wall clock. */
+  timezone?: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("recipients");
   const tOnboarding = useTranslations("onboarding");
   const tLogging = useTranslations("logging");
@@ -378,14 +382,14 @@ export function TimelineList({
   return (
     <div className="space-y-6">
       {/* RPT-001.6: incidents pinned above the day's entries. */}
-      <IncidentList incidents={incidents} isOwner={isOwner} workspaceId={workspaceId} />
+      <IncidentList incidents={incidents} isOwner={isOwner} workspaceId={workspaceId} timezone={timezone} />
 
       {entries.length > 0 && (
         <ul className="space-y-3">
           {entries.map((entry) => (
             <li key={entry.id} className="card flex items-start gap-3">
               <span className="w-14 shrink-0 pt-0.5 text-sm text-[var(--color-text-muted)]">
-                {formatTime(entry.occurred_at)}
+                {formatClock(entry.occurred_at, locale, timezone)}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
