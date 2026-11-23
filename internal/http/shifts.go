@@ -3,11 +3,14 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -45,7 +48,7 @@ type CheckOutRequest struct {
 
 func (h *ShiftHandlers) handleCheckIn(w http.ResponseWriter, r *http.Request) error {
 	workspaceID := middleware.GetWorkspaceID(r.Context())
-	_, ok := middleware.UserIDFromContext(r.Context())
+	callerID, ok := middleware.UserIDFromContext(r.Context())
 	if workspaceID == uuid.Nil || !ok {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
@@ -55,9 +58,9 @@ func (h *ShiftHandlers) handleCheckIn(w http.ResponseWriter, r *http.Request) er
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
 
-	caregiverID, err := uuid.Parse(req.CaregiverID)
+	caregiverID, err := h.shiftCaregiver(r, workspaceID, callerID, req.CaregiverID)
 	if err != nil {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "caregiver_id", Message: "invalid caregiver UUID"}}}
+		return err
 	}
 
 	shift, err := service.CheckInShift(r.Context(), h.Queries, workspaceID, caregiverID)
@@ -71,7 +74,7 @@ func (h *ShiftHandlers) handleCheckIn(w http.ResponseWriter, r *http.Request) er
 
 func (h *ShiftHandlers) handleCheckOut(w http.ResponseWriter, r *http.Request) error {
 	workspaceID := middleware.GetWorkspaceID(r.Context())
-	_, ok := middleware.UserIDFromContext(r.Context())
+	callerID, ok := middleware.UserIDFromContext(r.Context())
 	if workspaceID == uuid.Nil || !ok {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
@@ -81,9 +84,9 @@ func (h *ShiftHandlers) handleCheckOut(w http.ResponseWriter, r *http.Request) e
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
 
-	caregiverID, err := uuid.Parse(req.CaregiverID)
+	caregiverID, err := h.shiftCaregiver(r, workspaceID, callerID, req.CaregiverID)
 	if err != nil {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "caregiver_id", Message: "invalid caregiver UUID"}}}
+		return err
 	}
 
 	shift, err := service.CheckOutShift(r.Context(), h.Queries, workspaceID, caregiverID, req.HandoffNote)
@@ -93,6 +96,50 @@ func (h *ShiftHandlers) handleCheckOut(w http.ResponseWriter, r *http.Request) e
 
 	OK(w, ptr(toShiftResponse(shift)))
 	return nil
+}
+
+// shiftCaregiver decides whose shift a check-in or check-out acts on. The
+// body names the caregiver, so without this any caregiver could open or
+// close a colleague's shift (or one for any user id at all):
+//   - a caregiver acts only on their own shift ("" means themself);
+//   - an owner may act for a caregiver who is a member of this workspace
+//     (SFT-001: "Owner can also start a shift for any caregiver they
+//     manage"), never for an owner or a stranger;
+//   - any other role is refused (viewers never reach here; RequireWriter).
+func (h *ShiftHandlers) shiftCaregiver(r *http.Request, workspaceID, callerID uuid.UUID, raw string) (uuid.UUID, error) {
+	target := callerID
+	if raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			return uuid.Nil, service.ErrValidation{Errors: []service.RecipientError{{Field: "caregiver_id", Message: "invalid caregiver UUID"}}}
+		}
+		target = parsed
+	}
+
+	switch domain.Role(middleware.GetWorkspaceRole(r.Context())) {
+	case domain.RoleCaregiver:
+		if target != callerID {
+			return uuid.Nil, service.ErrNotOwner{}
+		}
+		return target, nil
+	case domain.RoleOwner:
+		member, err := h.Queries.GetWorkspaceMember(r.Context(), store.GetWorkspaceMemberParams{
+			WorkspaceID: workspaceID,
+			UserID:      target,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return uuid.Nil, service.ErrNotFoundTyped{Resource: "caregiver"}
+			}
+			return uuid.Nil, fmt.Errorf("get shift caregiver: %w", err)
+		}
+		if domain.Role(member.Role) != domain.RoleCaregiver {
+			return uuid.Nil, service.ErrValidation{Errors: []service.RecipientError{{Field: "caregiver_id", Message: "only caregivers have shifts"}}}
+		}
+		return target, nil
+	default:
+		return uuid.Nil, service.ErrNotOwner{}
+	}
 }
 
 func (h *ShiftHandlers) handleGetActiveShift(w http.ResponseWriter, r *http.Request) error {

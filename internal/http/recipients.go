@@ -175,6 +175,11 @@ func (h *RecipientHandlers) handleCreateRecipient(w http.ResponseWriter, r *http
 	if workspaceID == uuid.Nil || !ok {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace or user context"}}}
 	}
+	// Care profiles are owner-managed (AUTH-004), and each one counts
+	// against the workspace's plan limit.
+	if err := requireOwner(r); err != nil {
+		return err
+	}
 
 	var req CreateRecipientRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

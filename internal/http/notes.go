@@ -52,6 +52,13 @@ func (h *NoteHandlers) handleUpsertNote(w http.ResponseWriter, r *http.Request) 
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
 
+	// OWN-004/005: standing and daily instructions are the owner's words to
+	// the caregiver. Assigned caregivers reach this route (writer middleware
+	// + assignment check), so the role is checked here.
+	if err := requireOwner(r); err != nil {
+		return err
+	}
+
 	recipientID, err := uuid.Parse(chi.URLParam(r, "recipientID"))
 	if err != nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "recipient_id", Message: "invalid UUID"}}}

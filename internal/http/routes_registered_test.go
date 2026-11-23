@@ -90,6 +90,17 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		// Login revamp §5.2, §6: caregiver usernames and the owner's unlock.
 		"PATCH /api/v1/workspace/members/{userID}",
 		"POST /api/v1/workspace/members/{userID}/pin-unlock",
+
+		// Owner-only writes that were missing from this list (2026-11-23
+		// write-endpoint role audit).
+		"DELETE /api/v1/workspace/members/{userID}",
+		"PATCH /api/v1/workspace",
+		"DELETE /api/v1/workspace",
+		"POST /api/v1/invitations",
+		"POST /api/v1/invitations/{inviteID}/revoke",
+		"POST /api/v1/recipients/{recipientID}/caregivers",
+		"DELETE /api/v1/recipients/{recipientID}/caregivers/{userID}",
+		"POST /api/v1/incidents/{incidentID}/acknowledge",
 		"GET /api/v1/usernames/{name}/available",
 
 		// Incidents
