@@ -167,7 +167,7 @@ SELECT
     i.id, i.workspace_id, i.recipient_id, i.reporter_id, i.type, i.severity, i.description, i.action_taken, i.occurred_at, i.acknowledged_by, i.acknowledged_at, i.ack_comment, i.photo_urls, i.created_at,
     -- COALESCE so an AUTH-005 phone-only caregiver still renders as an
     -- attributable reporter in RPT-002's contributor chips.
-    COALESCE(u.full_name, u.email, u.phone) as reporter_name,
+    COALESCE(u.full_name, u.username, u.email, u.phone) as reporter_name,
     r.full_name as recipient_name
 FROM incidents i
 JOIN users u ON u.id = i.reporter_id
@@ -242,7 +242,7 @@ func (q *Queries) ListIncidents(ctx context.Context, arg ListIncidentsParams) ([
 const listIncidentsByRecipient = `-- name: ListIncidentsByRecipient :many
 SELECT 
     i.id, i.workspace_id, i.recipient_id, i.reporter_id, i.type, i.severity, i.description, i.action_taken, i.occurred_at, i.acknowledged_by, i.acknowledged_at, i.ack_comment, i.photo_urls, i.created_at,
-    COALESCE(u.full_name, u.email, u.phone) as reporter_name
+    COALESCE(u.full_name, u.username, u.email, u.phone) as reporter_name
 FROM incidents i
 JOIN users u ON u.id = i.reporter_id
 WHERE i.workspace_id = $1 AND i.recipient_id = $2 AND i.occurred_at::date = $3::date

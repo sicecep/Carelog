@@ -58,7 +58,7 @@ SELECT
     -- COALESCE so an AUTH-005 phone-only caregiver (NULL full_name) still
     -- renders in RPT-002's contributor chips instead of appearing as an
     -- empty "" contributor. Mirrors the CGR-049 fix.
-    COALESCE(u.full_name, u.email, u.phone) AS contributor_name
+    COALESCE(u.full_name, u.username, u.email, u.phone) AS contributor_name
 FROM report_entries e
 JOIN daily_reports r ON r.id = e.report_id
 JOIN users u ON u.id = r.contributor_id

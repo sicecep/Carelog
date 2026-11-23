@@ -102,7 +102,7 @@ RETURNING *;
 
 -- name: ListPendingPINResets :many
 -- Backs the owner's approval UI.
-SELECT r.*, COALESCE(u.full_name, u.phone, u.email, 'Unknown') AS requester_name,
+SELECT r.*, COALESCE(u.full_name, u.username, u.phone, u.email, 'Unknown') AS requester_name,
        u.phone AS requester_phone
 FROM pin_reset_requests r
 JOIN users u ON u.id = r.user_id

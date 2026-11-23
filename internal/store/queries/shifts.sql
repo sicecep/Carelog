@@ -26,7 +26,7 @@ RETURNING *;
 -- used to build the "Handoff from [Name]" banner for the next check-in.
 -- COALESCE so an AUTH-005 phone-only caregiver (NULL full_name) renders as
 -- their phone number rather than an empty "Handoff from " banner.
-SELECT s.*, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
+SELECT s.*, COALESCE(u.full_name, u.username, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1 AND s.checked_out_at IS NOT NULL
@@ -38,7 +38,7 @@ LIMIT 1;
 -- sqlc.narg lets each filter be optional independently. Same COALESCE
 -- treatment as above — a phone-only caregiver must not appear as a nameless
 -- row in the owner's history list.
-SELECT s.*, COALESCE(u.full_name, u.email, u.phone) AS caregiver_name
+SELECT s.*, COALESCE(u.full_name, u.username, u.email, u.phone) AS caregiver_name
 FROM shifts s
 JOIN users u ON u.id = s.caregiver_id
 WHERE s.workspace_id = $1
