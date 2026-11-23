@@ -7,7 +7,7 @@
 // mislabeled while every gate stays green. This asserts rendered text and a
 // real click.
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");

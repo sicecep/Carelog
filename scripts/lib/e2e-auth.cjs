@@ -14,16 +14,13 @@
 //   const { ctx, page } = await signIn(browser, `user${Date.now()}@carelog.test`);
 
 const { execFileSync } = require("child_process");
+const { runPsql } = require("./e2e-env.cjs");
 const crypto = require("crypto");
 
 const API = process.env.E2E_API || "http://localhost:8080";
 
 function sql(q) {
-  return execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", q],
-    { encoding: "utf8" }
-  ).trim().split("\n").filter(Boolean).map((l) => l.split("\t"));
+  return runPsql(q).trim().split("\n").filter(Boolean).map((l) => l.split("\t"));
 }
 
 async function requestMagicLink(email) {

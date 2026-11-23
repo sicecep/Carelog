@@ -11,21 +11,18 @@
 //   3. Admin approves             -> user can now log in and reach the app
 //   4. Rejected user              -> stays blocked at /pending?status=rejected
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { execFileSync } = require("child_process");
+const { runPsql } = require("./lib/e2e-env.cjs");
 
-const WEB = process.env.E2E_WEB || "http://100.120.83.114:3000";
-const API = process.env.E2E_API || "http://100.120.83.114:8080";
+const WEB = process.env.E2E_WEB || "http://localhost:3000";
+const API = process.env.E2E_API || "http://localhost:8080";
 
 // Queries go through the running pg container rather than a node driver: the
 // web app has no `pg` dependency and adding one just for a test script would
 // be a production dependency for test-only value.
 function sql(query) {
-  const out = execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", query],
-    { encoding: "utf8" }
-  );
+  const out = runPsql(query);
   return out
     .trim()
     .split("\n")
@@ -33,7 +30,7 @@ function sql(query) {
     .map((l) => l.split("\t"));
 }
 
-const SUPER_ADMIN = "superadmin@carelog.test";
+const SUPER_ADMIN = require("./lib/e2e-env.cjs").SUPER_ADMIN_EMAIL;
 const stamp = Date.now();
 const NEW_OWNER = `owner${stamp}@carelog.test`;
 const REJECT_ME = `rejected${stamp}@carelog.test`;
@@ -80,7 +77,6 @@ function mintVerifyURL(email) {
 async function main() {
 
   const browser = await chromium.launch({
-    executablePath: require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core").chromium.executablePath(),
     headless: true,
     args: ["--no-sandbox"],
   });

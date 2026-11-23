@@ -6,19 +6,16 @@
 //   2. /en/recipients/{id}: "Log activity" + "Report incident"
 //   3. /id/admin as super-admin: rejected user shows "Alasan:" label
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { execFileSync } = require("child_process");
+const { runPsql } = require("./lib/e2e-env.cjs");
 const crypto = require("crypto");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";
 const API = process.env.E2E_API || "http://localhost:8080";
 
 function sql(query) {
-  return execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", query],
-    { encoding: "utf8" }
-  )
+  return runPsql(query)
     .trim()
     .split("\n")
     .filter((l) => l.length > 0)
@@ -248,7 +245,7 @@ async function main() {
     check("2b. EN danger button says 'Report incident'", enText.includes("Report incident"));
 
     // ── 3. Admin rejected-reason label ────────────────────────────────────
-    const SUPER = "superadmin@carelog.test";
+    const SUPER = require("./lib/e2e-env.cjs").SUPER_ADMIN_EMAIL;
     const REJ = `rejected${stamp}@carelog.test`;
     await requestMagicLink(REJ); // creates the user row (left pending)
     sql(

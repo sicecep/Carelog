@@ -164,6 +164,29 @@ make migrate     # Run DB migrations
 make clean       # Remove build artifacts
 ```
 
+### End-to-end browser tests
+
+`scripts/e2e-*.cjs` drive the real app in a headless browser. Start the API
+(with `AUTH_DEV_EXPOSE_LINK=true`) and the web app first, then:
+
+```bash
+cd web && pnpm install   # installs playwright-core (pinned dev dependency)
+cd .. && set -a && . ./.env && set +a
+node scripts/run-e2e.cjs            # whole suite, with a summary
+node scripts/run-e2e.cjs login pin  # only scripts whose names match
+```
+
+- **Browser:** Playwright's own Chromium if installed, otherwise your Google
+  Chrome. Override with `E2E_BROWSER_PATH` or `E2E_BROWSER_CHANNEL`. Pages
+  load in Indonesian (`E2E_LANG`, default `id-ID`).
+- **Database and Redis:** with `DATABASE_URL` set, scripts use `psql` and
+  `redis-cli` directly (`E2E_REDIS_URL`, default `redis://127.0.0.1:6379`).
+  Without it they use the Docker containers `pg` and `redis`.
+- **URLs:** `E2E_WEB` (default `http://localhost:3000`), `E2E_API`
+  (default `http://localhost:8080`).
+- `e2e-tasks-overdue` restarts the API on :8080, so it only runs with
+  `E2E_ALLOW_API_RESTART=1`.
+
 ---
 
 ## Environment Variables

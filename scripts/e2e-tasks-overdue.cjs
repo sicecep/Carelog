@@ -11,9 +11,10 @@
 // The sweep normally fires every 15 minutes; the test drives the same service
 // path directly through the API server's own job so it does not wait.
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
+const { serverBinary, REPO_ROOT } = require("./lib/e2e-env.cjs");
 const crypto = require("crypto");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";
@@ -165,19 +166,32 @@ async function main() {
     // API server executes service.NotifyOverdueTasks through the actual asynq
     // handler — not a SQL re-implementation of it. Running it three times is
     // what proves "sent once per overdue task" against a job that reruns.
+    // Replaces whatever API is listening on :8080 (the dev server too) with
+    // a fresh process, then waits for it. Portable: lsof works on macOS and
+    // Linux; the binary comes from serverBinary() and runs from the repo
+    // root with its .env loaded.
     const restartAPI = () => {
-      execFileSync("bash", ["-lc", `
-        PID=$(ss -ltnp 2>/dev/null | grep ':8080' | grep -oP 'pid=\\K[0-9]+' | head -1)
-        if [ -n "$PID" ]; then kill $PID; fi
+      execFileSync("bash", ["-c", `
+        PIDS=$(lsof -ti tcp:8080 -sTCP:LISTEN 2>/dev/null)
+        if [ -n "$PIDS" ]; then kill $PIDS; fi
         sleep 2
-        cd /home/dev/project/carelog
+        cd "$REPO_ROOT"
         set -a; . ./.env; set +a
-        nohup /tmp/carelog-server > /tmp/api-e2e.log 2>&1 &
+        if [ -n "$E2E_REDIS_URL" ]; then export REDIS_URL="$E2E_REDIS_URL"; fi
+        nohup "$SERVER_BIN" > "$LOG_FILE" 2>&1 &
         for i in $(seq 1 25); do
           if curl -sf localhost:8080/readyz > /dev/null; then break; fi
           sleep 1
         done
-      `], { encoding: "utf8" });
+      `], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          REPO_ROOT,
+          SERVER_BIN: serverBinary(),
+          LOG_FILE: require("node:path").join(require("node:os").tmpdir(), "carelog-api-e2e.log"),
+        },
+      });
     };
 
     // Waits for the asynq round-trip: /readyz returning does NOT mean the

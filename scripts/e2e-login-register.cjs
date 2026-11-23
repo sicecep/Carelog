@@ -10,7 +10,8 @@
 // Real browser, real API — the only verification that has ever caught the
 // inert-feature bugs in this repo (#29, #34, #37).
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
+const { sql } = require("./lib/e2e-auth.cjs");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";
 
@@ -62,14 +63,18 @@ async function main() {
       () => check("3a. login button -> /id/login", true, page.url()),
       () => check("3a. login button -> /id/login", false, page.url())
     );
+    // Login revamp §7: the login screen asks "Siapa Anda?" first.
     const loginText = await page.innerText("body");
-    check("3b. login page is sign-in framed", loginText.includes("tautan untuk masuk"));
+    check("3b. login page asks for the role", loginText.includes("Siapa Anda?"));
     check("3c. no raw key path on login", !/auth\.[a-zA-Z]/.test(loginText));
 
     // Someone arriving straight at /login must still be able to reach the
-    // register page without knowing its URL.
-    check("3d. login links to register", loginText.includes("Baru di CareLog?"));
-    await page.locator("a", { hasText: "Buat akun" }).click();
+    // register page without knowing its URL: through the Pengelola card,
+    // whose form links to sign-up (caregivers join by invite instead).
+    await page.locator("button", { hasText: "Saya Pengelola" }).click();
+    const ownerFormText = await page.innerText("body");
+    check("3d. owner form links to register", ownerFormText.includes("Belum punya akun?"));
+    await page.locator("a", { hasText: "Daftar" }).click();
     await page.waitForURL("**/id/register", { timeout: 5000 }).then(
       () => check("3e. login register-link navigates", true, page.url()),
       () => check("3e. login register-link navigates", false, page.url())
@@ -86,27 +91,27 @@ async function main() {
     check("4b. register page is register framed", regText.includes("Buat akun Anda"));
     check("4c. register has sign-in cross-link", regText.includes("Sudah punya akun?"));
 
-    // ── 5. Register form actually sends a magic link ──────────────────────
+    // ── 5. Register form creates a pending account (login revamp PR 2) ────
+    // Owners sign up with a password; no email is sent, and the account
+    // waits for super-admin approval.
     const email = `landing${Date.now()}@carelog.test`;
-    await page.locator("input[type='email']").fill(email);
-    await page.locator("button", { hasText: "Kirim Tautan Pendaftaran" }).click();
-    await page
-      .waitForSelector("[role='status']", { timeout: 10000 })
-      .then(
-        () => check("5a. register submit shows sent state", true),
-        () => check("5a. register submit shows sent state", false, "no [role=status]")
-      );
-    const sentText = await page.innerText("[role='status']").catch(() => "");
-    check(
-      "5b. sent message addresses the email",
-      sentText.includes(email),
-      sentText.slice(0, 80)
+    await page.locator("#reg-name").fill("Tes Pendaftaran");
+    await page.locator("#reg-email").fill(email);
+    await page.locator("input[name='new-password']").fill("kopi-tubruk-siang");
+    await page.locator("input[name='confirm-password']").fill("kopi-tubruk-siang");
+    await page.locator("form button[type='submit']").click();
+    const doneText = await page
+      .locator("[role='status']", { hasText: "Pendaftaran diterima" })
+      .innerText({ timeout: 10000 })
+      .catch(() => "");
+    check("5a. register submit shows the received state", doneText.includes("Pendaftaran diterima"), doneText.slice(0, 80));
+    const row = sql(
+      `SELECT u.approval_status, (p.user_id IS NOT NULL)
+       FROM users u LEFT JOIN user_passwords p ON p.user_id = u.id
+       WHERE LOWER(u.email) = LOWER('${email}')`
     );
-    check(
-      "5c. sent message covers existing accounts",
-      sentText.includes("tautan yang sama"),
-      ""
-    );
+    check("5b. account created pending approval", row[0]?.[0] === "pending", JSON.stringify(row));
+    check("5c. password stored", row[0]?.[1] === "t", JSON.stringify(row));
 
     // ── 6. English locale ─────────────────────────────────────────────────
     await page.goto(`${WEB}/en`, { waitUntil: "networkidle" });

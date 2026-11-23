@@ -13,13 +13,14 @@
 //
 // Run: node scripts/e2e-caregiver-pin.cjs
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { execFileSync } = require("node:child_process");
+const { runPsql, redisCli } = require("./lib/e2e-env.cjs");
 const crypto = require("node:crypto");
 const { signIn } = require("./lib/e2e-auth.cjs");
 
-const WEB = process.env.WEB_BASE || "http://localhost:3000";
-const API = process.env.API_BASE || "http://localhost:8080";
+const WEB = process.env.E2E_WEB || process.env.WEB_BASE || "http://localhost:3000";
+const API = process.env.E2E_API || process.env.API_BASE || "http://localhost:8080";
 
 let passed = 0;
 let failed = 0;
@@ -34,11 +35,7 @@ function check(name, ok, detail = "") {
 }
 
 function psql(sql) {
-  return execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", sql],
-    { encoding: "utf8" },
-  ).trim();
+  return runPsql(sql).trim();
 }
 
 // Unique per run: digits only, inside E.164 bounds (users_phone_e164).
@@ -55,16 +52,12 @@ function uniquePhone(suffix) {
 // themselves are verified by e2e-rate-limit.cjs, not here.
 function clearRateLimit(name) {
   try {
-    const keys = execFileSync(
-      "docker",
-      ["exec", "redis", "redis-cli", "--scan", "--pattern", `rl:${name}:*`],
-      { encoding: "utf8" },
-    )
+    const keys = redisCli(["--scan", "--pattern", `rl:${name}:*`])
       .split("\n")
       .map((k) => k.trim())
       .filter(Boolean);
     for (const k of keys) {
-      execFileSync("docker", ["exec", "redis", "redis-cli", "DEL", k]);
+      redisCli(["DEL", k]);
     }
     return true;
   } catch (e) {
@@ -344,8 +337,12 @@ async function main() {
     check("request marked approved",
       psql(`SELECT status FROM pin_reset_requests WHERE user_id='${cgUserId}' ORDER BY created_at DESC LIMIT 1`) === "approved");
 
-    // The token must NOT work from a different device.
-    const wrongDeviceReset = await attackerPage.evaluate(
+    // The token must NOT work from a different device: the reset stays bound
+    // to the device that asked, even though sign-in no longer is.
+    const otherDeviceCtx = await browser.newContext();
+    const otherDevicePage = await otherDeviceCtx.newPage();
+    await otherDevicePage.goto(`${WEB}/id/login`);
+    const wrongDeviceReset = await otherDevicePage.evaluate(
       async ([tok]) => {
         const res = await fetch("/api/v1/auth/pin/reset/complete", {
           method: "POST",
@@ -359,6 +356,7 @@ async function main() {
     );
     check("approved token is REJECTED on a different device",
       wrongDeviceReset.status >= 400, JSON.stringify(wrongDeviceReset));
+    await otherDeviceCtx.close();
 
     // ── Final: no console errors anywhere in the caregiver journey ─────────
     check("no uncaught page errors during the caregiver flow",

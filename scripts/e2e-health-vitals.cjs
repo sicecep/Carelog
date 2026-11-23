@@ -14,7 +14,7 @@
 //   8. EN locale renders English labels (the #34 class)
 //   9. Touch targets in the open sheet are ≥56px; no pageerror events
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { sql, requestMagicLink, signIn } = require("./lib/e2e-auth.cjs");
 const { execFileSync } = require("child_process");
 const crypto = require("crypto");

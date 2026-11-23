@@ -8,19 +8,16 @@
 // Real browser, real cookies, real DB — the only kind of verification that
 // has ever caught the inert-feature bugs here (#29, #34).
 
-const { chromium } = require("/home/dev/.hermes/hermes-agent/node_modules/playwright-core");
+const { chromium } = require("./lib/playwright.cjs");
 const { execFileSync } = require("child_process");
+const { runPsql } = require("./lib/e2e-env.cjs");
 const crypto = require("crypto");
 
 const WEB = process.env.E2E_WEB || "http://localhost:3000";
 const API = process.env.E2E_API || "http://localhost:8080";
 
 function sql(query) {
-  return execFileSync(
-    "docker",
-    ["exec", "pg", "psql", "-U", "dev", "-d", "carelog", "-t", "-A", "-F", "\t", "-c", query],
-    { encoding: "utf8" }
-  )
+  return runPsql(query)
     .trim()
     .split("\n")
     .filter((l) => l.length > 0)
