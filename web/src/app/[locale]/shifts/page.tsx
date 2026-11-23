@@ -99,6 +99,7 @@ export default async function ShiftsPage({ params, searchParams }: ShiftsPagePro
         locale={locale}
         backHref={`/${locale}/dashboard`}
         backLabel={t("backLabel")}
+        title={t("historyTitle")}
       />
 
       <main className="mx-auto max-w-4xl px-4 py-8 pb-28 sm:px-6">

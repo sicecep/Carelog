@@ -7,7 +7,7 @@ import {
   SquaresFour,
   UsersThree,
   UserCircleGear,
-  GearSix,
+  UserCircle,
 } from "phosphor-react";
 
 interface AppNavProps {
@@ -27,7 +27,9 @@ export function AppNav({ locale }: AppNavProps) {
     { href: `/${locale}/dashboard`, label: t("dashboard"), Icon: SquaresFour },
     { href: `/${locale}/recipients`, label: t("recipients"), Icon: UserCircleGear },
     { href: `/${locale}/careteam`, label: t("careteam"), Icon: UsersThree },
-    { href: `/${locale}/settings`, label: t("settings"), Icon: GearSix },
+    // "Akun": the person's own account (sign out, password, reminders),
+    // plus workspace settings for owners. The route stays /settings.
+    { href: `/${locale}/settings`, label: t("account"), Icon: UserCircle },
   ];
 
   const isActive = (href: string) => pathname === href;
