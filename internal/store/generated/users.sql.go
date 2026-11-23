@@ -117,6 +117,48 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createUserWithUsername = `-- name: CreateUserWithUsername :one
+INSERT INTO users (username, full_name, locale, approval_status)
+VALUES ($1, $2, $3, 'approved')
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
+`
+
+type CreateUserWithUsernameParams struct {
+	Username pgtype.Text `json:"username"`
+	FullName pgtype.Text `json:"full_name"`
+	Locale   string      `json:"locale"`
+}
+
+// Invite claim by a caregiver with no phone (§5.2). The invite is the
+// owner's approval, so the account starts approved. A taken username is a
+// unique violation the caller maps to username_taken.
+func (q *Queries) CreateUserWithUsername(ctx context.Context, arg CreateUserWithUsernameParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUserWithUsername, arg.Username, arg.FullName, arg.Locale)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Username,
+	)
+	return i, err
+}
+
 const demoteSuperAdminsNotIn = `-- name: DemoteSuperAdminsNotIn :exec
 UPDATE users
 SET is_super_admin = false, updated_at = now()
@@ -231,6 +273,41 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, 
 	return i, err
 }
 
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username FROM users
+WHERE LOWER(username) = LOWER($1::text)
+`
+
+// Caregiver login by username (login revamp §5.1). Usernames are stored
+// lowercase and the unique index is on LOWER(username), so callers pass the
+// normalized value and this matches the index expression.
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Username,
+	)
+	return i, err
+}
+
 const hasPendingInvitationForEmail = `-- name: HasPendingInvitationForEmail :one
 
 SELECT EXISTS (
@@ -254,6 +331,19 @@ func (q *Queries) HasPendingInvitationForEmail(ctx context.Context, lower string
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const isUsernameTaken = `-- name: IsUsernameTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE LOWER(username) = LOWER($1::text)
+) AS taken
+`
+
+func (q *Queries) IsUsernameTaken(ctx context.Context, username string) (bool, error) {
+	row := q.db.QueryRow(ctx, isUsernameTaken, username)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
 }
 
 const listUsersByApprovalStatus = `-- name: ListUsersByApprovalStatus :many
@@ -560,6 +650,47 @@ type SetUserPhoneParams struct {
 // their invite). The partial unique index rejects a number already in use.
 func (q *Queries) SetUserPhone(ctx context.Context, arg SetUserPhoneParams) (User, error) {
 	row := q.db.QueryRow(ctx, setUserPhone, arg.Phone, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.Phone,
+		&i.PhoneVerifiedAt,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.GoogleID,
+		&i.Locale,
+		&i.IsActive,
+		&i.OnboardingCompleted,
+		&i.ApprovalStatus,
+		&i.ApprovedAt,
+		&i.ApprovedBy,
+		&i.RejectionReason,
+		&i.IsSuperAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Username,
+	)
+	return i, err
+}
+
+const setUsername = `-- name: SetUsername :one
+UPDATE users
+SET username = $1, updated_at = now()
+WHERE id = $2
+RETURNING id, email, email_verified_at, phone, phone_verified_at, full_name, avatar_url, google_id, locale, is_active, onboarding_completed, approval_status, approved_at, approved_by, rejection_reason, is_super_admin, created_at, updated_at, username
+`
+
+type SetUsernameParams struct {
+	Username pgtype.Text `json:"username"`
+	ID       uuid.UUID   `json:"id"`
+}
+
+// Sets or changes a caregiver's username (invite claim, owner rename).
+// Sessions are untouched: only the login identifier changes.
+func (q *Queries) SetUsername(ctx context.Context, arg SetUsernameParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUsername, arg.Username, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -1,14 +1,16 @@
--- AUTH-005: caregiver phone + device-bound PIN.
+-- AUTH-005: caregiver phone or username + PIN (login revamp D3/D4: any
+-- device; trusted_devices now only drives the new-device alert).
 
 -- name: UpsertUserPIN :one
 -- Setting a PIN clears any lockout: the user has proven control through
 -- enrolment or an approved reset, so stale failure state must not follow
 -- them into the new PIN.
-INSERT INTO user_pins (user_id, pin_hash, failed_count, locked_until, updated_at)
-VALUES (sqlc.arg(user_id), sqlc.arg(pin_hash), 0, NULL, now())
+INSERT INTO user_pins (user_id, pin_hash, failed_count, lock_level, locked_until, updated_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(pin_hash), 0, 0, NULL, now())
 ON CONFLICT (user_id) DO UPDATE
     SET pin_hash     = EXCLUDED.pin_hash,
         failed_count = 0,
+        lock_level   = 0,
         locked_until = NULL,
         updated_at   = now()
 RETURNING *;
@@ -17,23 +19,39 @@ RETURNING *;
 SELECT * FROM user_pins WHERE user_id = $1;
 
 -- name: RecordPINFailure :one
--- Increments the counter and locks once the threshold is crossed. Doing both
--- in one statement keeps concurrent attempts from racing past the limit.
+-- Doubling backoff (spec §6), same shape as RecordPasswordFailure. One
+-- statement so concurrent attempts cannot race past the threshold; every SET
+-- expression reads the row as it was BEFORE this update, so the CASE arms
+-- agree on whether this failure is the one that locks. On the locking
+-- failure: lock for base_seconds * 2^lock_level (capped), raise lock_level,
+-- and restart the count for the next window. just_locked tells the caller to
+-- alert the owner.
 UPDATE user_pins
-SET failed_count = failed_count + 1,
+SET failed_count = CASE
+        WHEN failed_count + 1 >= sqlc.arg(max_attempts)::int THEN 0
+        ELSE failed_count + 1
+    END,
     locked_until = CASE
         WHEN failed_count + 1 >= sqlc.arg(max_attempts)::int
-        THEN now() + (sqlc.arg(lock_seconds)::int * interval '1 second')
+        THEN now() + LEAST(
+                sqlc.arg(cap_seconds)::bigint,
+                sqlc.arg(base_seconds)::bigint << LEAST(lock_level, 20)
+             ) * interval '1 second'
         ELSE locked_until
+    END,
+    lock_level = CASE
+        WHEN failed_count + 1 >= sqlc.arg(max_attempts)::int THEN lock_level + 1
+        ELSE lock_level
     END,
     updated_at = now()
 WHERE user_id = sqlc.arg(user_id)
-RETURNING *;
+RETURNING (failed_count = 0 AND locked_until > now())::boolean AS just_locked;
 
 -- name: ClearPINFailures :exec
--- Called after a successful verification.
+-- Called after a successful verification, and by the owner's unlock: the
+-- account is back in good standing, so the backoff level resets too.
 UPDATE user_pins
-SET failed_count = 0, locked_until = NULL, updated_at = now()
+SET failed_count = 0, lock_level = 0, locked_until = NULL, updated_at = now()
 WHERE user_id = $1;
 
 -- ─── Trusted devices ────────────────────────────────────────────────────────

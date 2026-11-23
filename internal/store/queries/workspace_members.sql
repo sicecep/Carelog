@@ -55,9 +55,13 @@ SELECT
     u.email,
     u.full_name,
     u.avatar_url,
-    u.is_active
+    u.is_active,
+    u.username,
+    -- Drives the owner's "Buka kunci" (unlock) button (spec §6).
+    COALESCE(p.locked_until > now(), false)::boolean AS pin_locked
 FROM workspace_members wm
 JOIN users u ON u.id = wm.user_id
+LEFT JOIN user_pins p ON p.user_id = wm.user_id
 WHERE wm.workspace_id = $1
 ORDER BY wm.joined_at;
 
@@ -66,3 +70,14 @@ ORDER BY wm.joined_at;
 -- strand the workspace with nobody able to manage it.
 SELECT COUNT(*) FROM workspace_members
 WHERE workspace_id = $1 AND role = 'owner';
+-- name: ListOwnersForMemberWorkspaces :many
+-- Who to alert about a caregiver's account (new-device sign-in, PIN lock;
+-- spec §5.3, §6): every owner of every workspace the caregiver belongs to,
+-- excluding the caregiver themself when they also own one.
+SELECT owner.workspace_id, owner.user_id AS owner_id
+FROM workspace_members member
+JOIN workspace_members owner
+  ON owner.workspace_id = member.workspace_id AND owner.role = 'owner'
+WHERE member.user_id = sqlc.arg(user_id)
+  AND owner.user_id <> sqlc.arg(user_id)
+ORDER BY owner.workspace_id, owner.user_id;

@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { X, UsersThree } from "phosphor-react";
+import { X, UsersThree, LockSimple } from "phosphor-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Member, memberApi, APIError } from "@/lib/api-client";
 
@@ -27,6 +28,10 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
   const [error, setError] = useState<string | null>(null);
   // Tracks the row currently mid-request so only that row shows a pending state.
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Inline username editor: the row being edited and its draft value.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   const loadMembers = useCallback(async () => {
     setLoading(true);
@@ -65,6 +70,51 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
       setError(err instanceof APIError ? err.message : t("errorGeneric"));
       // Re-sync so the <select> doesn't keep an optimistic value the API rejected.
       void loadMembers();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const displayName = (m: Member) => m.full_name?.trim() || m.username || m.email;
+
+  const startEditUsername = (m: Member) => {
+    setEditingId(m.user_id);
+    setUsernameDraft(m.username ?? "");
+    setUsernameError(null);
+  };
+
+  const handleSaveUsername = async (userId: string) => {
+    setBusyId(userId);
+    setUsernameError(null);
+    try {
+      const res = await memberApi.updateUsername(workspaceId, userId, usernameDraft.trim());
+      const saved = res.data?.username ?? usernameDraft.trim().toLowerCase();
+      setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, username: saved } : m)));
+      setEditingId(null);
+      toast.success(t("usernameSaved"));
+    } catch (err) {
+      const code = err instanceof APIError ? err.code : "";
+      setUsernameError(
+        code === "username_taken"
+          ? t("usernameTaken")
+          : code === "username_invalid"
+            ? t("usernameInvalid")
+            : t("errorGeneric")
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleUnlock = async (m: Member) => {
+    setBusyId(m.user_id);
+    setError(null);
+    try {
+      await memberApi.unlockPIN(workspaceId, m.user_id);
+      setMembers((prev) => prev.map((x) => (x.user_id === m.user_id ? { ...x, pin_locked: false } : x)));
+      toast.success(t("unlocked", { name: displayName(m) }));
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : t("errorGeneric"));
     } finally {
       setBusyId(null);
     }
@@ -148,9 +198,9 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                     key={m.user_id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3"
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                       <p className="truncate font-semibold text-[var(--color-text)]">
-                        {m.full_name?.trim() || m.email}
+                        {displayName(m)}
                         {isSelf && (
                           <span className="ml-2 rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-xs font-normal text-[var(--color-accent-ink)]">
                             {t("you")}
@@ -162,7 +212,20 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           </span>
                         )}
                       </p>
-                      <p className="truncate text-xs text-[var(--color-text-muted)]">{m.email}</p>
+                      {m.email && (
+                        <p className="truncate text-xs text-[var(--color-text-muted)]">{m.email}</p>
+                      )}
+                      {m.username && (
+                        <p className="truncate text-xs text-[var(--color-text-muted)]">
+                          {t("usernameLine", { username: m.username })}
+                        </p>
+                      )}
+                      {m.pin_locked && (
+                        <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--color-warning-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning-ink)]">
+                          <LockSimple size={14} weight="bold" aria-hidden="true" />
+                          {t("locked")}
+                        </p>
+                      )}
                       <p className="text-xs text-[var(--color-text-muted)]">
                         {roleLabel(m.role)} • {t("joined")} {formatDate(m.joined_at)}
                       </p>
@@ -171,7 +234,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                     {showControls && (
                       <div className="flex items-center gap-2">
                         <label className="sr-only" htmlFor={`role-${m.user_id}`}>
-                          {t("changeRoleFor", { name: m.full_name?.trim() || m.email })}
+                          {t("changeRoleFor", { name: displayName(m) })}
                         </label>
                         <select
                           id={`role-${m.user_id}`}
@@ -200,6 +263,86 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           {busy ? t("removing") : t("remove")}
                         </button>
                       </div>
+                    )}
+
+                    {/* Caregiver sign-in controls (login revamp §5.2, §6).
+                        Owners sign in with email or phone, so their rows
+                        get neither. */}
+                    {showControls && m.role !== "owner" && (
+                      <div className="flex w-full flex-wrap items-center gap-2">
+                        {m.pin_locked && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlock(m)}
+                            disabled={busy}
+                            className="btn-base btn-secondary touch-target px-3 text-sm disabled:opacity-50"
+                          >
+                            {busy ? t("unlocking") : t("unlock")}
+                          </button>
+                        )}
+                        {editingId !== m.user_id && (
+                          <button
+                            type="button"
+                            onClick={() => startEditUsername(m)}
+                            disabled={busy}
+                            className="btn-base btn-ghost touch-target px-3 text-sm text-[var(--color-accent)] disabled:opacity-50"
+                          >
+                            {m.username ? t("editUsername") : t("setUsername")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {editingId === m.user_id && (
+                      <form
+                        className="w-full space-y-2"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleSaveUsername(m.user_id);
+                        }}
+                      >
+                        <label
+                          htmlFor={`username-${m.user_id}`}
+                          className="block text-sm font-semibold text-[var(--color-text)]"
+                        >
+                          {t("usernameFor", { name: displayName(m) })}
+                        </label>
+                        <input
+                          id={`username-${m.user_id}`}
+                          type="text"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          maxLength={30}
+                          value={usernameDraft}
+                          onChange={(e) => setUsernameDraft(e.target.value)}
+                          className="input-base w-full"
+                        />
+                        {usernameError ? (
+                          <p role="alert" className="text-sm text-[var(--color-error-ink)]">
+                            {usernameError}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-[var(--color-text-muted)]">{t("usernameHelp")}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={busy || usernameDraft.trim() === ""}
+                            className="btn-base btn-primary touch-target px-4 text-sm disabled:opacity-50"
+                          >
+                            {busy ? t("saving") : t("save")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            disabled={busy}
+                            className="btn-base btn-ghost touch-target px-4 text-sm"
+                          >
+                            {t("cancel")}
+                          </button>
+                        </div>
+                      </form>
                     )}
                   </li>
                 );

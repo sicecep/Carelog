@@ -133,3 +133,29 @@ func BenchmarkHashPIN(b *testing.B) {
 		_, _ = auth.HashPIN("284917")
 	}
 }
+
+func TestValidatePINFor(t *testing.T) {
+	tests := []struct {
+		name    string
+		pin     string
+		phone   string
+		wantErr error
+	}{
+		{name: "unrelated to phone", pin: "284917", phone: "+6281234567890"},
+		{name: "no phone", pin: "284917", phone: ""},
+		{name: "last six digits of phone", pin: "567890", phone: "+6281234567890", wantErr: auth.ErrPINWeak},
+		{name: "formatted phone", pin: "567890", phone: "0812-3456-7890", wantErr: auth.ErrPINWeak},
+		{name: "still applies the common list", pin: "123456", phone: "", wantErr: auth.ErrPINWeak},
+		{name: "still checks shape", pin: "12345", phone: "", wantErr: auth.ErrPINFormat},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := auth.ValidatePINFor(tc.pin, tc.phone)
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}

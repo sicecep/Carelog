@@ -551,10 +551,24 @@ const (
 	// NotificationTaskOverdue is TSK-003: a task's due moment passed while it
 	// was still not done.
 	NotificationTaskOverdue NotificationType = "task_overdue"
+	// NotificationCaregiverNewDevice tells the owner a caregiver signed in
+	// from a device not seen before (login revamp §5.3).
+	NotificationCaregiverNewDevice NotificationType = "caregiver_new_device"
+	// NotificationCaregiverPINLocked tells the owner a caregiver's account
+	// locked after repeated wrong PINs (§6).
+	NotificationCaregiverPINLocked NotificationType = "caregiver_pin_locked"
+	// NotificationUsernameChanged tells a caregiver the owner changed their
+	// login username (D6, §5.2).
+	NotificationUsernameChanged NotificationType = "username_changed"
 )
 
 // NotificationTypes lists every valid NotificationType.
-var NotificationTypes = []NotificationType{NotificationTaskOverdue}
+var NotificationTypes = []NotificationType{
+	NotificationTaskOverdue,
+	NotificationCaregiverNewDevice,
+	NotificationCaregiverPINLocked,
+	NotificationUsernameChanged,
+}
 
 func (n NotificationType) String() string { return string(n) }
 

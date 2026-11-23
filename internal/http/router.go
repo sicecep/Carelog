@@ -256,8 +256,17 @@ func NewRouter(deps Deps) http.Handler {
 
 			memberHandlers := &MemberHandlers{
 				Queries: deps.Queries,
+				PINSvc:  &service.PINAuthDeps{Queries: deps.Queries},
 			}
 			RegisterMemberRoutes(r, memberHandlers)
+			// Login revamp §5.2: the invite form's live username check.
+			// Keyed by user so one owner typing cannot exhaust another's.
+			r.With(middleware.RateLimitMiddleware(deps.Limiter, logger, middleware.RateLimit{
+				Name:    "username_available",
+				Max:     120,
+				Window:  time.Hour,
+				KeyFunc: middleware.KeyByUser,
+			})).Get("/usernames/{name}/available", HandlerFunc(memberHandlers.handleUsernameAvailable).Wrap())
 
 			// AUTH-005: caregiver PIN reset approvals (owner only,
 			// function-level role check inside the handlers).

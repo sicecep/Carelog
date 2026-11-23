@@ -66,11 +66,12 @@ func (q *Queries) ApprovePINReset(ctx context.Context, arg ApprovePINResetParams
 
 const clearPINFailures = `-- name: ClearPINFailures :exec
 UPDATE user_pins
-SET failed_count = 0, locked_until = NULL, updated_at = now()
+SET failed_count = 0, lock_level = 0, locked_until = NULL, updated_at = now()
 WHERE user_id = $1
 `
 
-// Called after a successful verification.
+// Called after a successful verification, and by the owner's unlock: the
+// account is back in good standing, so the backoff level resets too.
 func (q *Queries) ClearPINFailures(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearPINFailures, userID)
 	return err
@@ -354,38 +355,51 @@ func (q *Queries) ListTrustedDevices(ctx context.Context, userID uuid.UUID) ([]T
 
 const recordPINFailure = `-- name: RecordPINFailure :one
 UPDATE user_pins
-SET failed_count = failed_count + 1,
+SET failed_count = CASE
+        WHEN failed_count + 1 >= $1::int THEN 0
+        ELSE failed_count + 1
+    END,
     locked_until = CASE
         WHEN failed_count + 1 >= $1::int
-        THEN now() + ($2::int * interval '1 second')
+        THEN now() + LEAST(
+                $2::bigint,
+                $3::bigint << LEAST(lock_level, 20)
+             ) * interval '1 second'
         ELSE locked_until
     END,
+    lock_level = CASE
+        WHEN failed_count + 1 >= $1::int THEN lock_level + 1
+        ELSE lock_level
+    END,
     updated_at = now()
-WHERE user_id = $3
-RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at, lock_level
+WHERE user_id = $4
+RETURNING (failed_count = 0 AND locked_until > now())::boolean AS just_locked
 `
 
 type RecordPINFailureParams struct {
 	MaxAttempts int32     `json:"max_attempts"`
-	LockSeconds int32     `json:"lock_seconds"`
+	CapSeconds  int64     `json:"cap_seconds"`
+	BaseSeconds int64     `json:"base_seconds"`
 	UserID      uuid.UUID `json:"user_id"`
 }
 
-// Increments the counter and locks once the threshold is crossed. Doing both
-// in one statement keeps concurrent attempts from racing past the limit.
-func (q *Queries) RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (UserPin, error) {
-	row := q.db.QueryRow(ctx, recordPINFailure, arg.MaxAttempts, arg.LockSeconds, arg.UserID)
-	var i UserPin
-	err := row.Scan(
-		&i.UserID,
-		&i.PinHash,
-		&i.FailedCount,
-		&i.LockedUntil,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.LockLevel,
+// Doubling backoff (spec §6), same shape as RecordPasswordFailure. One
+// statement so concurrent attempts cannot race past the threshold; every SET
+// expression reads the row as it was BEFORE this update, so the CASE arms
+// agree on whether this failure is the one that locks. On the locking
+// failure: lock for base_seconds * 2^lock_level (capped), raise lock_level,
+// and restart the count for the next window. just_locked tells the caller to
+// alert the owner.
+func (q *Queries) RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (bool, error) {
+	row := q.db.QueryRow(ctx, recordPINFailure,
+		arg.MaxAttempts,
+		arg.CapSeconds,
+		arg.BaseSeconds,
+		arg.UserID,
 	)
-	return i, err
+	var just_locked bool
+	err := row.Scan(&just_locked)
+	return just_locked, err
 }
 
 const revokeAllTrustedDevices = `-- name: RevokeAllTrustedDevices :exec
@@ -426,11 +440,12 @@ func (q *Queries) TouchTrustedDevice(ctx context.Context, id uuid.UUID) error {
 
 const upsertUserPIN = `-- name: UpsertUserPIN :one
 
-INSERT INTO user_pins (user_id, pin_hash, failed_count, locked_until, updated_at)
-VALUES ($1, $2, 0, NULL, now())
+INSERT INTO user_pins (user_id, pin_hash, failed_count, lock_level, locked_until, updated_at)
+VALUES ($1, $2, 0, 0, NULL, now())
 ON CONFLICT (user_id) DO UPDATE
     SET pin_hash     = EXCLUDED.pin_hash,
         failed_count = 0,
+        lock_level   = 0,
         locked_until = NULL,
         updated_at   = now()
 RETURNING user_id, pin_hash, failed_count, locked_until, created_at, updated_at, lock_level
@@ -441,7 +456,8 @@ type UpsertUserPINParams struct {
 	PinHash string    `json:"pin_hash"`
 }
 
-// AUTH-005: caregiver phone + device-bound PIN.
+// AUTH-005: caregiver phone or username + PIN (login revamp D3/D4: any
+// device; trusted_devices now only drives the new-device alert).
 // Setting a PIN clears any lockout: the user has proven control through
 // enrolment or an approved reset, so stale failure state must not follow
 // them into the new PIN.

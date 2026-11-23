@@ -470,7 +470,11 @@
     "titleNamed": "Gabung ke {workspace}",
     "invalidTitle": "Tautan undangan ini tidak berlaku",
     "invalidBody": "Mungkin sudah kedaluwarsa, sudah dipakai, atau dibatalkan. Minta keluarga mengirim tautan baru.",
-    "phoneIntro": "Masukkan nomor HP Anda untuk mulai. Nomor ini dipakai untuk masuk selanjutnya."
+    "phoneIntro": "Masukkan nomor HP Anda untuk mulai. Nomor ini dipakai untuk masuk selanjutnya.",
+    "usernameIntro": "Nama pengguna Anda: {username}. Pakai nama ini (atau nomor HP) untuk masuk.",
+    "phoneOptional": "Nomor HP (opsional)",
+    "phoneIntroOptional": "Masukkan nomor HP jika ada. Anda juga bisa masuk hanya dengan nama pengguna.",
+    "usernameTaken": "Nama pengguna di undangan ini sudah dipakai orang lain. Minta keluarga mengirim undangan baru."
   },
   "invitecaregiver": {
     "inviteButton": "Undang Pengasuh",
@@ -500,7 +504,16 @@
     "confirmRevoke": "Batalkan undangan ini? Tautan akan langsung berhenti berfungsi.",
     "archive": "Arsipkan",
     "reactivate": "Pulihkan",
-    "confirmArchive": "Arsipkan penerima ini? Mereka akan disembunyikan dari dasbor tetapi riwayat mereka tetap tersimpan."
+    "confirmArchive": "Arsipkan penerima ini? Mereka akan disembunyikan dari dasbor tetapi riwayat mereka tetap tersimpan.",
+    "usernameLabel": "Nama pengguna (opsional)",
+    "usernamePlaceholder": "contoh: yuni.pengasuh",
+    "usernameHint": "Untuk masuk tanpa nomor HP. 3–30 huruf kecil, angka, titik atau garis bawah.",
+    "usernameChecking": "Memeriksa…",
+    "usernameAvailable": "Tersedia",
+    "usernameTaken": "Sudah dipakai",
+    "usernameInvalid": "Pakai 3–30 huruf kecil, angka, titik atau garis bawah, dengan minimal satu huruf.",
+    "needIdentifier": "Isi nomor WhatsApp atau nama pengguna, supaya pengasuh bisa masuk.",
+    "usernameSuggest": "Pakai {username}"
   },
   "careteam": {
     "title": "Tim Perawat",
@@ -523,7 +536,19 @@
     "errorGeneric": "Terjadi kesalahan. Silakan coba lagi.",
     "cancel": "Batal",
     "save": "Simpan",
-    "close": "Tutup"
+    "close": "Tutup",
+    "usernameLine": "Nama pengguna: {username}",
+    "editUsername": "Ubah nama pengguna",
+    "setUsername": "Atur nama pengguna",
+    "usernameFor": "Nama pengguna untuk {name}",
+    "usernameHelp": "Pengasuh akan diberi tahu saat masuk berikutnya.",
+    "usernameTaken": "Nama pengguna ini sudah dipakai.",
+    "usernameInvalid": "Pakai 3–30 huruf kecil, angka, titik atau garis bawah, dengan minimal satu huruf.",
+    "usernameSaved": "Nama pengguna disimpan.",
+    "locked": "Terkunci",
+    "unlock": "Buka kunci",
+    "unlocking": "Membuka…",
+    "unlocked": "Kunci dibuka. {name} bisa masuk lagi."
   },
   "pending": {
     "titlePending": "Akun menunggu persetujuan",
@@ -638,7 +663,14 @@
     "unreadCount": "{count} belum dibaca",
     "openAria": "Notifikasi, {count} belum dibaca",
     "taskOverdueTitle": "Tugas terlambat",
-    "taskOverdueBody": "\"{task}\" untuk {recipient} jatuh tempo {due} dan belum selesai."
+    "taskOverdueBody": "\"{task}\" untuk {recipient} jatuh tempo {due} dan belum selesai.",
+    "newDeviceTitle": "Masuk dari perangkat baru",
+    "newDeviceBody": "{name} masuk dari perangkat baru ({device}) pukul {time}.",
+    "pinLockedTitle": "Akun pengasuh terkunci",
+    "pinLockedBody": "Ada percobaan masuk gagal ke akun {name}. Buka kunci dari Kelola Tim Perawat jika itu dia.",
+    "usernameChangedTitle": "Nama pengguna diganti",
+    "usernameChangedBody": "Nama pengguna Anda diganti menjadi {username} oleh {owner}.",
+    "someone": "pemilik"
   },
   "pin": {
     "phoneLabel": "Nomor HP",
@@ -652,18 +684,21 @@
     "confirmPin": "Masukkan sekali lagi",
     "confirmPinHint": "Supaya Anda yakin ingat.",
     "mismatch": "PIN tidak sama. Coba lagi.",
-    "incorrect": "Nomor HP atau PIN salah.",
-    "locked": "Terlalu banyak percobaan. Tunggu 15 menit lalu coba lagi.",
-    "notEnrolled": "Nomor ini belum punya PIN. Pakai tautan undangan dari keluarga Anda.",
-    "deviceNotTrusted": "HP ini belum didaftarkan. Minta keluarga mengirim tautan undangan baru.",
+    "incorrect": "Nomor/nama pengguna atau PIN salah.",
+    "locked": "Terlalu banyak percobaan. Coba lagi nanti, atau minta keluarga membuka kunci akun Anda.",
     "forgotPin": "Saya lupa PIN",
     "resetRequested": "Keluarga Anda sudah diberi tahu. Mereka akan memberi kode untuk membuat PIN baru.",
-    "changeNumber": "Pakai nomor lain",
+    "changeNumber": "Pakai nomor atau nama lain",
     "back": "Kembali",
     "confirm": "Konfirmasi",
     "backspace": "Hapus",
     "complete": "PIN lengkap",
-    "digitsEntered": "{count} dari {total} angka dimasukkan"
+    "digitsEntered": "{count} dari {total} angka dimasukkan",
+    "identifierLabel": "Nomor HP atau nama pengguna",
+    "identifierPlaceholder": "0812 3456 7890 atau sari.pengasuh",
+    "identifierHint": "Nomor HP atau nama pengguna dari keluarga yang mengundang Anda.",
+    "identifierInvalid": "Masukkan nomor HP atau nama pengguna.",
+    "pinTooCommon": "PIN terlalu mudah ditebak. Jangan pakai angka berurutan, angka kembar, atau 6 angka terakhir nomor HP Anda."
   },
   "pinResets": {
     "loading": "Memuat…",

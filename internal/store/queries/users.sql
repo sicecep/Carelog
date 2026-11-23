@@ -177,3 +177,30 @@ UPDATE users
 SET is_super_admin = false, updated_at = now()
 WHERE is_super_admin
   AND LOWER(email) <> ALL (sqlc.arg(emails)::text[]);
+-- name: GetUserByUsername :one
+-- Caregiver login by username (login revamp §5.1). Usernames are stored
+-- lowercase and the unique index is on LOWER(username), so callers pass the
+-- normalized value and this matches the index expression.
+SELECT * FROM users
+WHERE LOWER(username) = LOWER(sqlc.arg(username)::text);
+
+-- name: CreateUserWithUsername :one
+-- Invite claim by a caregiver with no phone (§5.2). The invite is the
+-- owner's approval, so the account starts approved. A taken username is a
+-- unique violation the caller maps to username_taken.
+INSERT INTO users (username, full_name, locale, approval_status)
+VALUES (sqlc.arg(username), sqlc.narg(full_name), sqlc.arg(locale), 'approved')
+RETURNING *;
+
+-- name: SetUsername :one
+-- Sets or changes a caregiver's username (invite claim, owner rename).
+-- Sessions are untouched: only the login identifier changes.
+UPDATE users
+SET username = sqlc.arg(username), updated_at = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: IsUsernameTaken :one
+SELECT EXISTS (
+    SELECT 1 FROM users WHERE LOWER(username) = LOWER(sqlc.arg(username)::text)
+) AS taken;

@@ -114,8 +114,8 @@ func RegisterAuthRoutes(r chi.Router, h *AuthHandlers, limiter middleware.Limite
 			KeyFunc: middleware.KeyByIP,
 		})).Post("/refresh", HandlerFunc(h.handleRefresh).Wrap())
 
-		// POST /auth/pin/login — phone + PIN from an enrolled device
-		// (AUTH-005).
+		// POST /auth/pin/login — phone or username + PIN from any device
+		// (AUTH-005, login revamp D3/D4).
 		//
 		// pinLoginIPMax MUST stay above the per-account lockout threshold
 		// (service.PINMaxAttempts). The two controls have different jobs:
@@ -125,12 +125,24 @@ func RegisterAuthRoutes(r chi.Router, h *AuthHandlers, limiter middleware.Limite
 		// lockout was unreachable — caught by e2e-caregiver-pin, which saw
 		// 429 rate_limited where it expected pin_locked. Guarded by
 		// TestPINLoginLimits_IPBudgetExceedsAccountLockout.
-		r.With(middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
-			Name:    "auth_pin_login",
-			Max:     pinLoginIPMax,
-			Window:  15 * time.Minute,
-			KeyFunc: middleware.KeyByIP,
-		})).Post("/pin/login", HandlerFunc(h.handlePINLogin).Wrap())
+		//
+		// The daily cap (spec §6) is the second line: with the PIN valid on
+		// any device, slow guessing that stays under the 15-minute window
+		// must still run out.
+		r.With(
+			middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+				Name:    "auth_pin_login",
+				Max:     pinLoginIPMax,
+				Window:  15 * time.Minute,
+				KeyFunc: middleware.KeyByIP,
+			}),
+			middleware.RateLimitMiddleware(limiter, logger, middleware.RateLimit{
+				Name:    "auth_pin_login_daily",
+				Max:     pinLoginIPDailyMax,
+				Window:  24 * time.Hour,
+				KeyFunc: middleware.KeyByIP,
+			}),
+		).Post("/pin/login", HandlerFunc(h.handlePINLogin).Wrap())
 
 		// POST /auth/pin/enrol — during invite claim or approved reset;
 		// auth via one-time token, not a session (the user has none yet).

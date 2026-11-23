@@ -4,8 +4,9 @@
 -- invitee_email is optional; when set, the verify handler uses it to exempt
 -- the invitee from the approval gate on their magic-link click.
 INSERT INTO invitations (
-    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at,
+    invitee_username
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetInvitationByHash :one

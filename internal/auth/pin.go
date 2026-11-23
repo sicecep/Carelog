@@ -89,6 +89,26 @@ func ValidatePIN(pin string) error {
 	return nil
 }
 
+// ValidatePINFor runs ValidatePIN and also rejects a PIN equal to the last
+// six digits of the account's own phone number (spec §5.4): that number is
+// written on the invite and shared with the whole household, so it is the
+// first guess anyone who knows the caregiver would try. phone may be empty.
+func ValidatePINFor(pin, phone string) error {
+	if err := ValidatePIN(pin); err != nil {
+		return err
+	}
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, phone)
+	if len(digits) >= PINLength && digits[len(digits)-PINLength:] == pin {
+		return ErrPINWeak
+	}
+	return nil
+}
+
 // HashPIN returns an encoded argon2id hash in the standard PHC string
 // format, so the parameters travel with the hash and can be raised later
 // without invalidating existing PINs.

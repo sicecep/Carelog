@@ -11,6 +11,7 @@ const (
 	IdentifierUnknown IdentifierKind = iota
 	IdentifierEmail
 	IdentifierPhone
+	IdentifierUsername
 )
 
 // ParseOwnerIdentifier interprets what an owner typed into the single

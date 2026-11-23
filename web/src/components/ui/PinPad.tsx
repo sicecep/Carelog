@@ -58,20 +58,19 @@ export function PinPad({
 
   const press = useCallback(
     (digit: string) => {
-      if (disabled) return;
-      setPin((prev) => {
-        if (prev.length >= PIN_LENGTH) return prev;
-        const next = prev + digit;
-        // Fire on the last digit. Scheduled out of the updater so the final
-        // dot paints before the network call blocks the pad — otherwise the
-        // caregiver taps 6 and sees only 5 dots while it spins.
-        if (autoSubmit && next.length === PIN_LENGTH) {
-          setTimeout(() => submit(next), 0);
-        }
-        return next;
-      });
+      if (disabled || pin.length >= PIN_LENGTH) return;
+      const next = pin + digit;
+      setPin(next);
+      // Fire on the last digit, from the handler and NOT from a setPin
+      // updater: React may run an updater twice (Strict Mode does in
+      // development), which sent every PIN twice. Deferred so the final dot
+      // paints before the network call blocks the pad — otherwise the
+      // caregiver taps 6 and sees only 5 dots while it spins.
+      if (autoSubmit && next.length === PIN_LENGTH) {
+        setTimeout(() => submit(next), 0);
+      }
     },
-    [disabled, autoSubmit, submit],
+    [disabled, pin, autoSubmit, submit],
   );
 
   const backspace = useCallback(() => {

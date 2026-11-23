@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
@@ -65,47 +65,100 @@ func uniquePhone() string {
 	return fmt.Sprintf("+62811%06d%03d", time.Now().UnixNano()%1000000, n%1000)
 }
 
-func TestPINLogin_SucceedsOnEnrolledDevice(t *testing.T) {
+// makeTeam puts caregiverID into a new workspace with a fresh owner and
+// returns the workspace and owner ids, with a cleanup.
+func makeTeam(t *testing.T, pool *pgxpool.Pool, caregiverID uuid.UUID) (uuid.UUID, uuid.UUID, func()) {
+	t.Helper()
+	ctx := context.Background()
+	ownerID, cleanOwner := makePhoneUser(t, pool, uniquePhone())
+	var ws uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx,
+		`INSERT INTO workspaces (name) VALUES ('PIN team') RETURNING id`).Scan(&ws))
+	_, err := pool.Exec(ctx,
+		`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1,$2,'owner'),($1,$3,'caregiver')`,
+		ws, ownerID, caregiverID)
+	require.NoError(t, err)
+	return ws, ownerID, func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM workspaces WHERE id=$1`, ws)
+		cleanOwner()
+	}
+}
+
+// notificationTypes lists the types of the user's notifications, oldest
+// first.
+func notificationTypes(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID) []string {
+	t.Helper()
+	rows, err := pool.Query(context.Background(),
+		`SELECT type FROM notifications WHERE user_id=$1 ORDER BY created_at`, userID)
+	require.NoError(t, err)
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		require.NoError(t, rows.Scan(&s))
+		out = append(out, s)
+	}
+	return out
+}
+
+func TestPINLogin_KnownDeviceRaisesNoAlert(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
 	phone := uniquePhone()
 	uid, cleanup := makePhoneUser(t, pool, phone)
 	defer cleanup()
+	_, ownerID, cleanTeam := makeTeam(t, pool, uid)
+	defer cleanTeam()
 	ctx := context.Background()
 
 	deviceToken, err := deps.SetPIN(ctx, uid, "284917", "Test Phone")
 	require.NoError(t, err)
-	require.NotEmpty(t, deviceToken)
 
-	user, err := deps.VerifyPINLogin(ctx, phone, "284917", deviceToken)
+	res, err := deps.VerifyPINLogin(ctx, phone, "284917", deviceToken, "Test Phone")
 	require.NoError(t, err)
-	require.Equal(t, uid, user.ID)
+	require.Equal(t, uid, res.User.ID)
+	require.Empty(t, res.DeviceToken, "a known device gets no new token")
+	require.Empty(t, notificationTypes(t, pool, ownerID))
 }
 
-// The core AUTH-005 claim: a correct PIN alone is NOT enough. Without the
-// enrolled device the login must fail, or the PIN is just a 6-digit password.
-func TestPINLogin_CorrectPINWrongDeviceRejected(t *testing.T) {
+// D4: the PIN works from any device. A device not seen before is enrolled
+// and every owner is told (spec §5.3).
+func TestPINLogin_NewDeviceSignsInAndAlertsOwner(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
 	phone := uniquePhone()
 	uid, cleanup := makePhoneUser(t, pool, phone)
 	defer cleanup()
+	_, ownerID, cleanTeam := makeTeam(t, pool, uid)
+	defer cleanTeam()
 	ctx := context.Background()
 
 	_, err := deps.SetPIN(ctx, uid, "284917", "Enrolled Phone")
 	require.NoError(t, err)
 
-	// No device token at all.
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", "")
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
+	ua := "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36"
+	for _, cookie := range []string{"", "not-an-enrolled-device-token"} {
+		res, err := deps.VerifyPINLogin(ctx, phone, "284917", cookie, ua)
+		require.NoError(t, err, "cookie %q", cookie)
+		require.Equal(t, uid, res.User.ID)
+		require.NotEmpty(t, res.DeviceToken, "a new device is enrolled")
 
-	// A syntactically valid but unenrolled token.
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", "not-an-enrolled-device-token")
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
+		// Signing in again from that device is quiet.
+		again, err := deps.VerifyPINLogin(ctx, phone, "284917", res.DeviceToken, ua)
+		require.NoError(t, err)
+		require.Empty(t, again.DeviceToken)
+	}
+	require.Equal(t, []string{"caregiver_new_device", "caregiver_new_device"},
+		notificationTypes(t, pool, ownerID))
+
+	var device string
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT payload->>'device' FROM notifications WHERE user_id=$1 LIMIT 1`, ownerID).Scan(&device))
+	require.Equal(t, "Chrome · Android", device)
 }
 
-// Another user's device must not satisfy the possession factor.
-func TestPINLogin_OtherUsersDeviceRejected(t *testing.T) {
+// Another user's device cookie is just an unknown device for this user.
+func TestPINLogin_OtherUsersDeviceCountsAsNew(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
 	ctx := context.Background()
@@ -113,8 +166,7 @@ func TestPINLogin_OtherUsersDeviceRejected(t *testing.T) {
 	phoneA := uniquePhone()
 	uidA, cleanA := makePhoneUser(t, pool, phoneA)
 	defer cleanA()
-	phoneB := uniquePhone()
-	uidB, cleanB := makePhoneUser(t, pool, phoneB)
+	uidB, cleanB := makePhoneUser(t, pool, uniquePhone())
 	defer cleanB()
 
 	_, err := deps.SetPIN(ctx, uidA, "284917", "A's phone")
@@ -122,8 +174,30 @@ func TestPINLogin_OtherUsersDeviceRejected(t *testing.T) {
 	tokenB, err := deps.SetPIN(ctx, uidB, "730264", "B's phone")
 	require.NoError(t, err)
 
-	_, err = deps.VerifyPINLogin(ctx, phoneA, "284917", tokenB)
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{})
+	res, err := deps.VerifyPINLogin(ctx, phoneA, "284917", tokenB, "B's phone")
+	require.NoError(t, err)
+	require.Equal(t, uidA, res.User.ID)
+	require.NotEmpty(t, res.DeviceToken)
+}
+
+func TestPINLogin_ByUsername(t *testing.T) {
+	deps, pool, done := pinTestDeps(t)
+	defer done()
+	uid, cleanup := makePhoneUser(t, pool, uniquePhone())
+	defer cleanup()
+	ctx := context.Background()
+
+	name := fmt.Sprintf("sari.%d", time.Now().UnixNano()%1000000000)
+	_, err := pool.Exec(ctx, `UPDATE users SET username=$1 WHERE id=$2`, name, uid)
+	require.NoError(t, err)
+	_, err = deps.SetPIN(ctx, uid, "284917", "Phone")
+	require.NoError(t, err)
+
+	for _, variant := range []string{name, "  " + name + " ", strings.ToUpper(name)} {
+		res, err := deps.VerifyPINLogin(ctx, variant, "284917", "", "Phone")
+		require.NoError(t, err, "variant %q", variant)
+		require.Equal(t, uid, res.User.ID)
+	}
 }
 
 func TestPINLogin_WrongPINRejected(t *testing.T) {
@@ -137,68 +211,99 @@ func TestPINLogin_WrongPINRejected(t *testing.T) {
 	token, err := deps.SetPIN(ctx, uid, "284917", "Phone")
 	require.NoError(t, err)
 
-	_, err = deps.VerifyPINLogin(ctx, phone, "111999", token)
+	_, err = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
 	require.ErrorIs(t, err, service.ErrPINIncorrect{})
 }
 
-// An unknown phone must be indistinguishable from a wrong PIN, or the
-// endpoint tells an attacker which numbers have accounts.
-func TestPINLogin_UnknownPhoneLooksLikeWrongPIN(t *testing.T) {
-	deps, _, done := pinTestDeps(t)
+// An unknown identifier, and an account with no PIN, must be
+// indistinguishable from a wrong PIN, or the endpoint tells an attacker
+// which numbers and usernames have accounts.
+func TestPINLogin_UnknownAccountLooksLikeWrongPIN(t *testing.T) {
+	deps, pool, done := pinTestDeps(t)
 	defer done()
 	ctx := context.Background()
+	noPINPhone := uniquePhone()
+	_, cleanup := makePhoneUser(t, pool, noPINPhone)
+	defer cleanup()
 
-	_, err := deps.VerifyPINLogin(ctx, "+628999888777", "284917", "whatever")
-	require.ErrorIs(t, err, service.ErrPINIncorrect{},
-		"unknown phone must report the same error as a wrong PIN")
-
-	_, err = deps.VerifyPINLogin(ctx, "not-a-phone", "284917", "whatever")
-	require.ErrorIs(t, err, service.ErrPINIncorrect{})
+	for _, ident := range []string{"+628999888777", "no.such.user", "not a phone!", noPINPhone} {
+		_, err := deps.VerifyPINLogin(ctx, ident, "284917", "whatever", "Phone")
+		require.ErrorIs(t, err, service.ErrPINIncorrect{}, "identifier %q", ident)
+	}
 }
 
-// Lockout bounds online guessing of a 10^6 keyspace.
-func TestPINLogin_LocksAfterMaxAttempts(t *testing.T) {
+// Spec §6: after 5 failures the lock lasts 15 min, then 30 min, doubling,
+// and the owner is alerted each time the account locks.
+func TestPINLogin_DoublingLockoutAlertsOwner(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
 	phone := uniquePhone()
 	uid, cleanup := makePhoneUser(t, pool, phone)
 	defer cleanup()
+	_, ownerID, cleanTeam := makeTeam(t, pool, uid)
+	defer cleanTeam()
 	ctx := context.Background()
 
 	token, err := deps.SetPIN(ctx, uid, "284917", "Phone")
 	require.NoError(t, err)
 
-	for i := 0; i < service.PINMaxAttempts; i++ {
-		_, err = deps.VerifyPINLogin(ctx, phone, "111999", token)
-		require.ErrorIs(t, err, service.ErrPINIncorrect{}, "attempt %d", i+1)
+	lockFor := func() time.Duration {
+		rec, err := store.New(pool).GetUserPIN(ctx, uid)
+		require.NoError(t, err)
+		require.True(t, rec.LockedUntil.Valid)
+		return time.Until(rec.LockedUntil.Time)
 	}
 
-	// Even the CORRECT pin must now be refused.
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
-	require.ErrorIs(t, err, service.ErrPINLocked{},
-		"after max attempts the account must lock even for the right PIN")
+	for i := 0; i < service.PINMaxAttempts; i++ {
+		_, err = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
+		require.ErrorIs(t, err, service.ErrPINIncorrect{}, "attempt %d", i+1)
+	}
+	// Even the CORRECT pin is now refused.
+	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token, "Phone")
+	require.ErrorIs(t, err, service.ErrPINLocked{})
+	require.InDelta(t, service.PINLockBase.Seconds(), lockFor().Seconds(), 5)
+
+	// Let the lock expire, fail again: the next lock is twice as long.
+	_, err = pool.Exec(ctx, `UPDATE user_pins SET locked_until = now() - interval '1 second' WHERE user_id=$1`, uid)
+	require.NoError(t, err)
+	for i := 0; i < service.PINMaxAttempts; i++ {
+		_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
+	}
+	require.InDelta(t, (2 * service.PINLockBase).Seconds(), lockFor().Seconds(), 5)
+
+	require.Equal(t, []string{"caregiver_pin_locked", "caregiver_pin_locked"},
+		notificationTypes(t, pool, ownerID))
 }
 
-// A correct PIN from an unenrolled device must also consume attempts —
-// otherwise an attacker who learned the PIN retries forever.
-func TestPINLogin_WrongDeviceAlsoBurnsAttempts(t *testing.T) {
+func TestUnlockPIN_OwnerClearsLockout(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
 	phone := uniquePhone()
 	uid, cleanup := makePhoneUser(t, pool, phone)
 	defer cleanup()
+	ws, ownerID, cleanTeam := makeTeam(t, pool, uid)
+	defer cleanTeam()
 	ctx := context.Background()
 
 	_, err := deps.SetPIN(ctx, uid, "284917", "Phone")
 	require.NoError(t, err)
-
 	for i := 0; i < service.PINMaxAttempts; i++ {
-		_, err = deps.VerifyPINLogin(ctx, phone, "284917", "bogus-device")
-		require.ErrorIs(t, err, service.ErrDeviceNotTrusted{}, "attempt %d", i+1)
+		_, _ = deps.VerifyPINLogin(ctx, phone, "111999", "", "Phone")
 	}
+
+	// Only the owner, and only for a member of their workspace.
+	require.ErrorIs(t, deps.UnlockPIN(ctx, ws, uid, "caregiver", uid), service.ErrMemberNotOwner{})
+	var nf service.ErrNotFoundTyped
+	require.ErrorAs(t, deps.UnlockPIN(ctx, ws, ownerID, "owner", uuid.New()), &nf)
+
+	require.NoError(t, deps.UnlockPIN(ctx, ws, ownerID, "owner", uid))
 	rec, err := store.New(pool).GetUserPIN(ctx, uid)
 	require.NoError(t, err)
-	require.True(t, rec.LockedUntil.Valid, "wrong-device attempts must count toward lockout")
+	require.False(t, rec.LockedUntil.Valid)
+	require.EqualValues(t, 0, rec.LockLevel)
+
+	_, err = deps.VerifyPINLogin(ctx, phone, "284917", "", "Phone")
+	require.NoError(t, err)
 }
 
 func TestSetPIN_ClearsLockout(t *testing.T) {
@@ -212,26 +317,29 @@ func TestSetPIN_ClearsLockout(t *testing.T) {
 	token, err := deps.SetPIN(ctx, uid, "284917", "Phone")
 	require.NoError(t, err)
 	for i := 0; i < service.PINMaxAttempts; i++ {
-		_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token)
+		_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
 	}
 
 	newToken, err := deps.SetPIN(ctx, uid, "730264", "Phone")
 	require.NoError(t, err)
-	user, err := deps.VerifyPINLogin(ctx, phone, "730264", newToken)
+	res, err := deps.VerifyPINLogin(ctx, phone, "730264", newToken, "Phone")
 	require.NoError(t, err, "a freshly set PIN must not inherit the old lockout")
-	require.Equal(t, uid, user.ID)
+	require.Equal(t, uid, res.User.ID)
 }
 
 func TestSetPIN_RejectsWeakPIN(t *testing.T) {
 	deps, pool, done := pinTestDeps(t)
 	defer done()
-	uid, cleanup := makePhoneUser(t, pool, uniquePhone())
+	phone := "+628123459" + fmt.Sprintf("%03d", phoneSeq.Add(1)%1000)
+	uid, cleanup := makePhoneUser(t, pool, phone)
 	defer cleanup()
 
-	_, err := deps.SetPIN(context.Background(), uid, "123456", "Phone")
-	require.Error(t, err)
-	var verr service.ErrValidation
-	require.ErrorAs(t, err, &verr)
+	// A common PIN, and the last six digits of the caregiver's own phone.
+	for _, pin := range []string{"123456", phone[len(phone)-6:]} {
+		_, err := deps.SetPIN(context.Background(), uid, pin, "Phone")
+		var verr service.ErrValidation
+		require.ErrorAs(t, err, &verr, "pin %q", pin)
+	}
 }
 
 // Successful login must reset the counter, or a user who mistypes
@@ -247,9 +355,9 @@ func TestPINLogin_SuccessClearsFailureCount(t *testing.T) {
 	token, err := deps.SetPIN(ctx, uid, "284917", "Phone")
 	require.NoError(t, err)
 
-	_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token)
-	_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token)
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
+	_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
+	_, _ = deps.VerifyPINLogin(ctx, phone, "111999", token, "Phone")
+	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token, "Phone")
 	require.NoError(t, err)
 
 	rec, err := store.New(pool).GetUserPIN(ctx, uid)
@@ -270,9 +378,9 @@ func TestPINLogin_AcceptsAnyPhoneFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, variant := range []string{"+628123450099", "628123450099", "08123450099", "0812-3450-099"} {
-		user, err := deps.VerifyPINLogin(ctx, variant, "284917", token)
+		res, err := deps.VerifyPINLogin(ctx, variant, "284917", token, "Phone")
 		require.NoError(t, err, "variant %q must resolve to the same account", variant)
-		require.Equal(t, uid, user.ID)
+		require.Equal(t, uid, res.User.ID)
 	}
 }
 
@@ -299,6 +407,7 @@ func TestPINReset_UnknownPhoneDoesNotError(t *testing.T) {
 	// Silent success: revealing which numbers exist would make this an
 	// enumeration oracle.
 	require.NoError(t, deps.RequestPINReset(context.Background(), "+628999000111", "Phone", "127.0.0.1"))
+	require.NoError(t, deps.RequestPINReset(context.Background(), "no.such.user", "Phone", ""))
 	require.NoError(t, deps.RequestPINReset(context.Background(), "garbage", "Phone", ""))
 }
 
@@ -313,36 +422,3 @@ func TestPINReset_EmptyTokensRejected(t *testing.T) {
 	_, _, err = deps.CompletePINReset(ctx, "token", "", "730264", "Phone")
 	require.ErrorIs(t, err, service.ErrResetNotApproved{})
 }
-
-func TestTrustedDevice_RevokedDeviceStopsWorking(t *testing.T) {
-	deps, pool, done := pinTestDeps(t)
-	defer done()
-	phone := uniquePhone()
-	uid, cleanup := makePhoneUser(t, pool, phone)
-	defer cleanup()
-	ctx := context.Background()
-
-	token, err := deps.SetPIN(ctx, uid, "284917", "Phone")
-	require.NoError(t, err)
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
-	require.NoError(t, err)
-
-	require.NoError(t, store.New(pool).RevokeAllTrustedDevices(ctx, uid))
-
-	_, err = deps.VerifyPINLogin(ctx, phone, "284917", token)
-	require.ErrorIs(t, err, service.ErrDeviceNotTrusted{},
-		"a revoked device must stop satisfying the possession factor")
-}
-
-func TestPINLogin_NoPINSet(t *testing.T) {
-	deps, pool, done := pinTestDeps(t)
-	defer done()
-	phone := uniquePhone()
-	_, cleanup := makePhoneUser(t, pool, phone)
-	defer cleanup()
-
-	_, err := deps.VerifyPINLogin(context.Background(), phone, "284917", "device")
-	require.ErrorIs(t, err, service.ErrPINNotSet{})
-}
-
-var _ = pgtype.Text{}
