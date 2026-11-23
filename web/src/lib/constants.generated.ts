@@ -33,7 +33,7 @@ export type ReportType = (typeof REPORT_TYPES)[number];
 export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const NOTIFICATION_TYPES = ["task_overdue"] as const;
+export const NOTIFICATION_TYPES = ["task_overdue", "caregiver_new_device", "caregiver_pin_locked", "username_changed"] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export const PLANS = ["free", "starter", "pro"] as const;

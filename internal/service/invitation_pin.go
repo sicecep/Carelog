@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/sicecep/carelog/internal/auth"
 	"github.com/sicecep/carelog/internal/domain"
 	store "github.com/sicecep/carelog/internal/store/generated"
 )
@@ -48,23 +48,36 @@ func ClaimInvitationWithPIN(
 	pool *pgxpool.Pool,
 	rawToken, rawPhone, pin, deviceLabel, locale string,
 ) (ClaimWithPINResult, error) {
-	phone, err := domain.NormalizePhone(rawPhone)
+	hash, err := hashInviteToken(rawToken)
 	if err != nil {
-		return ClaimWithPINResult{}, ErrValidation{Errors: []RecipientError{
-			{Field: "phone", Message: "enter a valid phone number"},
-		}}
+		return ClaimWithPINResult{}, err
+	}
+
+	// Read the invite first: whether a phone is required depends on whether
+	// the owner picked a username (spec §5.2). The consume below is still
+	// the single-use guard.
+	inv, err := q.GetInvitationByHash(ctx, hash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ClaimWithPINResult{}, ErrInviteInvalid{Reason: "unknown"}
+		}
+		return ClaimWithPINResult{}, fmt.Errorf("get invitation: %w", err)
+	}
+	username := inv.InviteeUsername
+
+	phone := ""
+	if strings.TrimSpace(rawPhone) != "" || !username.Valid {
+		phone, err = domain.NormalizePhone(rawPhone)
+		if err != nil {
+			return ClaimWithPINResult{}, ErrValidation{Errors: []RecipientError{
+				{Field: "phone", Message: "enter a valid phone number"},
+			}}
+		}
 	}
 
 	// Validate and hash BEFORE opening the transaction: a weak PIN must not
 	// consume the single-use invitation.
-	pinHash, err := auth.HashPIN(pin)
-	if err != nil {
-		return ClaimWithPINResult{}, ErrValidation{Errors: []RecipientError{
-			{Field: "pin", Message: pinErrorMessage(err)},
-		}}
-	}
-
-	hash, err := hashInviteToken(rawToken)
+	pinHash, err := hashPINFor(pin, phone)
 	if err != nil {
 		return ClaimWithPINResult{}, err
 	}
@@ -89,14 +102,10 @@ func ClaimInvitationWithPIN(
 		qtx := store.New(tx)
 
 		// Resolve the identity first so the invitation is consumed by a real
-		// user id. UpsertUserByPhone makes a repeat claim from the same
-		// number idempotent rather than a duplicate-key error.
-		user, err := qtx.UpsertUserByPhone(ctx, store.UpsertUserByPhoneParams{
-			Phone:  pgtype.Text{String: phone, Valid: true},
-			Locale: locale,
-		})
+		// user id.
+		user, err := claimIdentity(ctx, qtx, phone, username, inv.InviteeName, locale)
 		if err != nil {
-			return fmt.Errorf("upsert user by phone: %w", err)
+			return err
 		}
 
 		claimed, err := qtx.ConsumeInvitation(ctx, store.ConsumeInvitationParams{
@@ -136,6 +145,8 @@ func ClaimInvitationWithPIN(
 			return fmt.Errorf("store pin: %w", err)
 		}
 
+		// The claiming device counts as known (spec §5.3), so the first
+		// sign-in from it raises no new-device alert.
 		if _, err := qtx.CreateTrustedDevice(ctx, store.CreateTrustedDeviceParams{
 			UserID:    user.ID,
 			TokenHash: hashToken(deviceRaw),
@@ -144,11 +155,12 @@ func ClaimInvitationWithPIN(
 			return fmt.Errorf("enrol device: %w", err)
 		}
 
-		// The invite IS the owner's approval — mark the phone verified and
-		// the account approved so the caregiver lands in the app, not on the
-		// pending-approval screen.
-		if _, err := qtx.MarkPhoneVerified(ctx, user.ID); err != nil {
-			return fmt.Errorf("mark phone verified: %w", err)
+		// The invite IS the owner's approval — mark the phone verified so
+		// the caregiver lands in the app, not on the pending screen.
+		if phone != "" {
+			if _, err := qtx.MarkPhoneVerified(ctx, user.ID); err != nil {
+				return fmt.Errorf("mark phone verified: %w", err)
+			}
 		}
 
 		out = ClaimWithPINResult{
@@ -163,4 +175,50 @@ func ClaimInvitationWithPIN(
 		return ClaimWithPINResult{}, err
 	}
 	return out, nil
+}
+
+// claimIdentity finds or creates the account an invite claim attaches to.
+//
+//   - With a phone: the account for that phone (created if new). The
+//     invite's username is given to it unless it already has one — an
+//     existing caregiver keeps the name they already sign in with.
+//   - Without a phone: a new account with only the invite's username.
+//
+// A username another account took since the invite was made fails the
+// claim with username_taken, before the invite is consumed.
+func claimIdentity(ctx context.Context, qtx *store.Queries, phone string, username pgtype.Text, name, locale string) (store.User, error) {
+	if phone == "" {
+		user, err := qtx.CreateUserWithUsername(ctx, store.CreateUserWithUsernameParams{
+			Username: username,
+			FullName: pgtype.Text{String: name, Valid: name != ""},
+			Locale:   locale,
+		})
+		if err != nil {
+			if isUsernameConflict(err) {
+				return store.User{}, ErrUsernameTaken{}
+			}
+			return store.User{}, fmt.Errorf("create user by username: %w", err)
+		}
+		return user, nil
+	}
+
+	// UpsertUserByPhone makes a repeat claim from the same number idempotent
+	// rather than a duplicate-key error.
+	user, err := qtx.UpsertUserByPhone(ctx, store.UpsertUserByPhoneParams{
+		Phone:  pgtype.Text{String: phone, Valid: true},
+		Locale: locale,
+	})
+	if err != nil {
+		return store.User{}, fmt.Errorf("upsert user by phone: %w", err)
+	}
+	if username.Valid && !user.Username.Valid {
+		user, err = qtx.SetUsername(ctx, store.SetUsernameParams{ID: user.ID, Username: username})
+		if err != nil {
+			if isUsernameConflict(err) {
+				return store.User{}, ErrUsernameTaken{}
+			}
+			return store.User{}, fmt.Errorf("set username: %w", err)
+		}
+	}
+	return user, nil
 }

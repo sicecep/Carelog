@@ -87,6 +87,11 @@ func TestRouter_AllRoutesRegistered(t *testing.T) {
 		// AUTH-005: phone-primary invite claim (public — no session yet).
 		"POST /api/v1/invites/{token}/claim-pin",
 
+		// Login revamp §5.2, §6: caregiver usernames and the owner's unlock.
+		"PATCH /api/v1/workspace/members/{userID}",
+		"POST /api/v1/workspace/members/{userID}/pin-unlock",
+		"GET /api/v1/usernames/{name}/available",
+
 		// Incidents
 		"GET /api/v1/incidents",
 		"POST /api/v1/recipients/{recipientID}/incidents",

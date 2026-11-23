@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/sicecep/carelog/internal/domain"
 	store "github.com/sicecep/carelog/internal/store/generated"
@@ -61,6 +64,9 @@ type Member struct {
 	Role      string
 	IsActive  bool
 	JoinedAt  string
+	Username  string
+	// PINLocked is true while the member's PIN lockout is active.
+	PINLocked bool
 }
 
 // ListMembers returns every member of the workspace with their identity.
@@ -86,6 +92,8 @@ func ListMembers(
 			Role:      row.Role,
 			IsActive:  row.IsActive,
 			JoinedAt:  row.JoinedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+			Username:  row.Username.String,
+			PINLocked: row.PinLocked,
 		}
 	}
 	return members, nil
@@ -143,6 +151,92 @@ func UpdateMemberRole(
 		return fmt.Errorf("update member role: %w", err)
 	}
 	return nil
+}
+
+// ─── Username ────────────────────────────────────────────────────────────────
+
+// UsernameChangedPayload is the caregiver's in-app notice (D6, spec §5.2).
+type UsernameChangedPayload struct {
+	Username      string `json:"username"`
+	ChangedByName string `json:"changed_by_name"`
+}
+
+// SetMemberUsername sets or changes a caregiver's login username. Owner
+// only, never on self or another owner (owners sign in with email or phone).
+// Sessions stay valid; the caregiver is told in-app on their next visit.
+func SetMemberUsername(
+	ctx context.Context,
+	q *store.Queries,
+	workspaceID uuid.UUID,
+	targetUserID uuid.UUID,
+	rawUsername string,
+	callerUserID uuid.UUID,
+	callerRole string,
+) (string, error) {
+	if domain.Role(callerRole) != domain.RoleOwner {
+		return "", ErrMemberNotOwner{}
+	}
+	if targetUserID == callerUserID {
+		return "", ErrSelfDemotion{Action: "change"}
+	}
+	username, err := normalizeUsername(rawUsername)
+	if err != nil {
+		return "", err
+	}
+
+	member, err := q.GetWorkspaceMember(ctx, store.GetWorkspaceMemberParams{
+		WorkspaceID: workspaceID,
+		UserID:      targetUserID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFoundTyped{Resource: "member"}
+		}
+		return "", fmt.Errorf("get workspace member: %w", err)
+	}
+	if domain.Role(member.Role) == domain.RoleOwner {
+		return "", ErrValidation{Errors: []RecipientError{{
+			Field: "username", Message: "owners sign in with email or phone",
+		}}}
+	}
+
+	target, err := q.GetUser(ctx, targetUserID)
+	if err != nil {
+		return "", fmt.Errorf("get user: %w", err)
+	}
+	if target.Username.String == username {
+		return username, nil
+	}
+
+	if _, err := q.SetUsername(ctx, store.SetUsernameParams{
+		ID:       targetUserID,
+		Username: pgtype.Text{String: username, Valid: true},
+	}); err != nil {
+		if isUsernameConflict(err) {
+			return "", ErrUsernameTaken{}
+		}
+		return "", fmt.Errorf("set username: %w", err)
+	}
+
+	// Tell the caregiver (D6). Best effort: the rename already happened, and
+	// a lost notice must not report the rename as failed.
+	changedBy := ""
+	if caller, cerr := q.GetUser(ctx, callerUserID); cerr == nil {
+		changedBy = caller.FullName.String
+	}
+	payload, _ := json.Marshal(UsernameChangedPayload{Username: username, ChangedByName: changedBy})
+	if _, nerr := q.CreateNotification(ctx, store.CreateNotificationParams{
+		WorkspaceID: workspaceID,
+		UserID:      targetUserID,
+		Type:        domain.NotificationUsernameChanged.String(),
+		Payload:     payload,
+	}); nerr != nil && !errors.Is(nerr, pgx.ErrNoRows) {
+		slog.WarnContext(ctx, "username changed: create notification", "error", nerr)
+	}
+	// No audit_logs table yet: log the event with IDs only (no PII).
+	slog.InfoContext(ctx, "member.username_changed",
+		"workspace_id", workspaceID, "actor_id", callerUserID, "target_id", targetUserID)
+	return username, nil
 }
 
 // ─── Remove ──────────────────────────────────────────────────────────────────

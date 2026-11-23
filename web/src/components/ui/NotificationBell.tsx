@@ -13,10 +13,27 @@ interface NotificationBellProps {
   initialUnread: number;
 }
 
+// CareLog's households are in Indonesia. A fixed zone (not the runtime's)
+// keeps the server render and the phone's hydration identical.
+const ALERT_TIME_ZONE = "Asia/Jakarta";
+
+/** "08.12" / "8:12 AM" for an RFC 3339 instant; empty when unparseable. */
+function formatClock(iso: string | undefined, locale: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat(locale === "id" ? "id-ID" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: ALERT_TIME_ZONE,
+  }).format(d);
+}
+
 /**
- * In-app notification centre (NOT-002). Currently fed by the TSK-003 overdue
- * task sweep; the payload is read per type so new producers slot in without
- * changing the panel.
+ * In-app notification centre (NOT-002). Fed by the TSK-003 overdue task
+ * sweep and the caregiver sign-in alerts (login revamp §5.2, §5.3, §6); the
+ * payload is read per type so new producers slot in without changing the
+ * panel.
  *
  * Rendered from server-fetched data rather than polling: an overdue alert is
  * not time-critical to the second, and a 15-second poll on every page for
@@ -54,6 +71,22 @@ export function NotificationBell({
   // their title only, so a notification produced by a newer server version
   // degrades instead of crashing the panel.
   const renderBody = (n: Notification): string | null => {
+    if (n.type === "caregiver_new_device") {
+      return t("newDeviceBody", {
+        name: n.payload.caregiver_name ?? "",
+        device: n.payload.device || "?",
+        time: formatClock(n.payload.signed_in_at, locale),
+      });
+    }
+    if (n.type === "caregiver_pin_locked") {
+      return t("pinLockedBody", { name: n.payload.caregiver_name ?? "" });
+    }
+    if (n.type === "username_changed") {
+      return t("usernameChangedBody", {
+        username: n.payload.username ?? "",
+        owner: n.payload.changed_by_name || t("someone"),
+      });
+    }
     if (n.type === "task_overdue") {
       const due = n.payload.due_time
         ? `${n.payload.due_date} ${n.payload.due_time}`
@@ -67,8 +100,20 @@ export function NotificationBell({
     return null;
   };
 
-  const renderTitle = (n: Notification): string =>
-    n.type === "task_overdue" ? t("taskOverdueTitle") : n.type;
+  const renderTitle = (n: Notification): string => {
+    switch (n.type) {
+      case "task_overdue":
+        return t("taskOverdueTitle");
+      case "caregiver_new_device":
+        return t("newDeviceTitle");
+      case "caregiver_pin_locked":
+        return t("pinLockedTitle");
+      case "username_changed":
+        return t("usernameChangedTitle");
+      default:
+        return n.type;
+    }
+  };
 
   return (
     <div className="relative">

@@ -53,6 +53,9 @@ type CreateInvitationRequest struct {
 	Role        string  `json:"role,omitempty"`
 	RecipientID *string `json:"recipient_id,omitempty"`
 	Phone       *string `json:"phone,omitempty"` // optional, for the wa.me deep link
+	// Username is the caregiver's login name (spec §5.2). At least one of
+	// phone and username is required.
+	Username string `json:"username,omitempty"`
 }
 
 type CreateInvitationResponse struct {
@@ -70,6 +73,7 @@ type CreateInvitationResponse struct {
 type InvitationListItem struct {
 	ID          uuid.UUID `json:"id"`
 	InviteeName string    `json:"invitee_name"`
+	Username    string    `json:"username,omitempty"`
 	Role        string    `json:"role"`
 	ExpiresAt   string    `json:"expires_at"`
 	CreatedAt   string    `json:"created_at"`
@@ -80,6 +84,9 @@ type InvitationPreviewResponse struct {
 	WorkspaceName string `json:"workspace_name"`
 	Role          string `json:"role"`
 	ExpiresAt     string `json:"expires_at"`
+	// Username, when set, is shown on the claim page and makes the phone
+	// optional there.
+	Username string `json:"username,omitempty"`
 }
 
 // buildWhatsAppInvite composes the wa.me deep link. Indonesian copy is the
@@ -127,6 +134,7 @@ func (h *InvitationHandlers) handleCreateInvitation(w http.ResponseWriter, r *ht
 
 	res, err := service.CreateInvitation(
 		r.Context(), h.Queries, workspaceID, userID, role, req.InviteeName, req.InviteeEmail, req.Role, recipientID,
+		req.Username, req.Phone != nil && strings.TrimSpace(*req.Phone) != "",
 	)
 	if err != nil {
 		return err
@@ -167,6 +175,7 @@ func (h *InvitationHandlers) handleListInvitations(w http.ResponseWriter, r *htt
 		resp[i] = InvitationListItem{
 			ID:          row.ID,
 			InviteeName: row.InviteeName,
+			Username:    row.InviteeUsername.String,
 			Role:        row.Role,
 			ExpiresAt:   row.ExpiresAt.Time.Format(time.RFC3339),
 			CreatedAt:   row.CreatedAt.Time.Format(time.RFC3339),
@@ -212,6 +221,7 @@ func (h *InvitationHandlers) handlePeekInvitation(w http.ResponseWriter, r *http
 		WorkspaceName: preview.WorkspaceName,
 		Role:          preview.Role,
 		ExpiresAt:     preview.ExpiresAt.Format(time.RFC3339),
+		Username:      preview.Username,
 	}))
 	return nil
 }

@@ -470,7 +470,11 @@
     "titleNamed": "Join {workspace}",
     "invalidTitle": "This invite link doesn't work",
     "invalidBody": "It may have expired, already been used, or been cancelled. Ask your family to send a new one.",
-    "phoneIntro": "Enter your phone number to get started. You'll use it to sign in from now on."
+    "phoneIntro": "Enter your phone number to get started. You'll use it to sign in from now on.",
+    "usernameIntro": "Your username: {username}. Use it (or your phone number) to sign in.",
+    "phoneOptional": "Phone number (optional)",
+    "phoneIntroOptional": "Enter your phone number if you have one. You can also sign in with just your username.",
+    "usernameTaken": "The username on this invite is already taken. Ask your family to send a new invite."
   },
   "invitecaregiver": {
     "inviteButton": "Invite Caregiver",
@@ -500,7 +504,16 @@
     "confirmRevoke": "Cancel this invitation? The link will stop working immediately.",
     "archive": "Archive",
     "reactivate": "Restore",
-    "confirmArchive": "Archive this recipient? They will be hidden from the dashboard but their history is retained."
+    "confirmArchive": "Archive this recipient? They will be hidden from the dashboard but their history is retained.",
+    "usernameLabel": "Username (optional)",
+    "usernamePlaceholder": "e.g. yuni.pengasuh",
+    "usernameHint": "To sign in without a phone number. 3–30 lowercase letters, digits, dots or underscores.",
+    "usernameChecking": "Checking…",
+    "usernameAvailable": "Available",
+    "usernameTaken": "Already taken",
+    "usernameInvalid": "Use 3–30 lowercase letters, digits, dots or underscores, with at least one letter.",
+    "needIdentifier": "Enter a WhatsApp number or a username so the caregiver can sign in.",
+    "usernameSuggest": "Use {username}"
   },
   "careteam": {
     "title": "Care Team",
@@ -523,7 +536,19 @@
     "errorGeneric": "Something went wrong. Please try again.",
     "cancel": "Cancel",
     "save": "Save",
-    "close": "Close"
+    "close": "Close",
+    "usernameLine": "Username: {username}",
+    "editUsername": "Change username",
+    "setUsername": "Set username",
+    "usernameFor": "Username for {name}",
+    "usernameHelp": "The caregiver is told the next time they sign in.",
+    "usernameTaken": "This username is already taken.",
+    "usernameInvalid": "Use 3–30 lowercase letters, digits, dots or underscores, with at least one letter.",
+    "usernameSaved": "Username saved.",
+    "locked": "Locked",
+    "unlock": "Unlock",
+    "unlocking": "Unlocking…",
+    "unlocked": "Unlocked. {name} can sign in again."
   },
   "pending": {
     "titlePending": "Account awaiting approval",
@@ -638,7 +663,14 @@
     "unreadCount": "{count} unread",
     "openAria": "Notifications, {count} unread",
     "taskOverdueTitle": "Task overdue",
-    "taskOverdueBody": "\"{task}\" for {recipient} was due {due} and is not done."
+    "taskOverdueBody": "\"{task}\" for {recipient} was due {due} and is not done.",
+    "newDeviceTitle": "Sign-in from a new device",
+    "newDeviceBody": "{name} signed in from a new device ({device}) at {time}.",
+    "pinLockedTitle": "Caregiver account locked",
+    "pinLockedBody": "There were failed sign-in attempts on {name}'s account. Unlock it from Manage Care Team if it was them.",
+    "usernameChangedTitle": "Username changed",
+    "usernameChangedBody": "Your username was changed to {username} by {owner}.",
+    "someone": "the owner"
   },
   "pin": {
     "phoneLabel": "Phone number",
@@ -652,18 +684,21 @@
     "confirmPin": "Enter it again",
     "confirmPinHint": "Just to be sure you'll remember it.",
     "mismatch": "Those PINs didn't match. Try again.",
-    "incorrect": "Phone number or PIN is incorrect.",
-    "locked": "Too many tries. Wait 15 minutes and try again.",
-    "notEnrolled": "No PIN set for this number yet. Use the invite link your family sent you.",
-    "deviceNotTrusted": "This phone isn't set up yet. Ask your family to send you a new invite link.",
+    "incorrect": "Phone number/username or PIN is incorrect.",
+    "locked": "Too many tries. Try again later, or ask your family to unlock your account.",
     "forgotPin": "I forgot my PIN",
     "resetRequested": "We've told your family. They'll give you a code to set a new PIN.",
-    "changeNumber": "Use a different number",
+    "changeNumber": "Use a different number or username",
     "back": "Back",
     "confirm": "Confirm",
     "backspace": "Delete",
     "complete": "PIN complete",
-    "digitsEntered": "{count} of {total} digits entered"
+    "digitsEntered": "{count} of {total} digits entered",
+    "identifierLabel": "Phone number or username",
+    "identifierPlaceholder": "0812 3456 7890 or sari.pengasuh",
+    "identifierHint": "The phone number or username your family gave you.",
+    "identifierInvalid": "Enter your phone number or username.",
+    "pinTooCommon": "That PIN is too easy to guess. Don't use a sequence, repeated digits, or the last 6 digits of your phone number."
   },
   "pinResets": {
     "loading": "Loading…",

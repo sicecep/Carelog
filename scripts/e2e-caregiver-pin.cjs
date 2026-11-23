@@ -1,12 +1,15 @@
-// AUTH-005 end-to-end: caregiver phone + device-bound PIN.
+// AUTH-005 + login revamp (D3/D4) end-to-end: caregiver phone or username
+// + PIN, from any device.
 //
 // This is the flow that replaces email magic links for caregivers, so it is
 // verified in a real browser against real Postgres — the whole point of the
 // epic is that a caregiver with NO EMAIL can get in.
 //
 // Covered:
-//   enrol via invite link -> login -> wrong PIN -> lockout ->
-//   wrong-device rejection -> forgot-PIN -> owner approval -> reset
+//   invite with username -> enrol via invite link -> login ->
+//   login by username from a SECOND browser (any device) -> owner gets the
+//   new-device alert -> wrong PIN -> lockout -> owner alert + unlock ->
+//   forgot-PIN -> owner approval -> reset
 //
 // Run: node scripts/e2e-caregiver-pin.cjs
 
@@ -98,15 +101,21 @@ async function main() {
     );
     check("owner has a workspace", /^[0-9a-f-]{36}$/.test(wsId), wsId);
 
-    const invite = await ownerPage.evaluate(async (workspaceId) => {
+    // A phone or a username is required on the invite (spec §5.2). The
+    // phone here only builds the wa.me link; the username is the caregiver's
+    // login name from now on.
+    const username = `sari.e2e${Date.now() % 100000000}`;
+    const invite = await ownerPage.evaluate(async ([workspaceId, name]) => {
       const res = await fetch("/api/v1/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Workspace-ID": workspaceId },
         credentials: "include",
-        body: JSON.stringify({ invitee_name: "Bu Sari", role: "caregiver" }),
+        body: JSON.stringify({
+          invitee_name: "Bu Sari", role: "caregiver", phone: "081200000000", username: name,
+        }),
       });
       return { status: res.status, body: await res.json() };
-    }, wsId);
+    }, [wsId, username]);
     check("owner created an invite", invite.status === 201 || invite.status === 200,
       `status ${invite.status}`);
 
@@ -171,7 +180,7 @@ async function main() {
     const loginBody = await cgPage.innerText("body");
     check("login page offers the PIN method", /HP|PIN/i.test(loginBody), loginBody.slice(0, 140));
 
-    await cgPage.fill("#phone", phone);
+    await cgPage.fill("#caregiver-identifier", phone);
     await cgPage.click('button[type="submit"]');
     await cgPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });
     for (const d of PIN) await cgPage.click(`button[aria-label="${d}"]`);
@@ -179,44 +188,31 @@ async function main() {
     check("phone + PIN signs in on the enrolled device",
       cgPage.url().includes("/dashboard"), cgPage.url());
 
-    // ── THE core security property: PIN alone is not enough ────────────────
-    // A fresh context = a new device with no cl_device cookie. The PIN is
-    // correct; this MUST still be refused, or the PIN is just a 6-digit
-    // password accepted from anywhere on the internet.
-    const attackerCtx = await browser.newContext();
-    const attackerPage = await attackerCtx.newPage();
-    await attackerPage.goto(`${WEB}/id/login`);
-    const attack = await attackerPage.evaluate(
-      async ([p, pin]) => {
-        const res = await fetch("/api/v1/auth/pin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ phone: p, pin }),
-        });
-        return { status: res.status, body: await res.json() };
-      },
-      [phone, PIN],
-    );
-    check("CORRECT PIN from an UNENROLLED device is rejected",
-      attack.status === 401, `status ${attack.status}`);
-    check("rejection names the device, not the PIN",
-      attack.body?.error?.code === "device_not_trusted", JSON.stringify(attack.body?.error));
+    check("username from the invite was given to the account",
+      psql(`SELECT username FROM users WHERE id='${cgUserId}'`) === username);
+    check("signing in on the enrolling device raised no new-device alert",
+      psql(`SELECT count(*) FROM notifications WHERE type='caregiver_new_device'
+            AND payload->>'caregiver_id'='${cgUserId}'`) === "0");
 
-    // And it must be visible in the UI, not just the API.
-    await attackerPage.fill("#phone", phone);
-    await attackerPage.click('button[type="submit"]');
-    await attackerPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });
-    for (const d of PIN) await attackerPage.click(`button[aria-label="${d}"]`);
-    // Scope to the form's own alert: Next injects a permanently-empty
-    // #__next-route-announcer__ with role="alert", so an unscoped
-    // [role="alert"] can resolve to that and read as blank.
-    await attackerPage.waitForSelector('p[role="alert"]', { timeout: 10000 });
-    const attackerAlert = await attackerPage.innerText('p[role="alert"]');
-    check("unenrolled device sees an actionable message",
-      /belum didaftarkan|isn't set up/i.test(attackerAlert), attackerAlert.slice(0, 120));
-    check("attacker stays on the login page",
-      !attackerPage.url().includes("/dashboard"), attackerPage.url());
+    // ── D4: the PIN works from ANY device ──────────────────────────────────
+    // A fresh context = a second phone with no cl_device cookie. Sign in by
+    // USERNAME through the real form.
+    const secondCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const secondPage = await secondCtx.newPage();
+    await secondPage.goto(`${WEB}/id/login`);
+    await secondPage.fill("#caregiver-identifier", username);
+    await secondPage.click('button[type="submit"]');
+    await secondPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });
+    for (const d of PIN) await secondPage.click(`button[aria-label="${d}"]`);
+    await secondPage.waitForURL("**/dashboard", { timeout: 15000 }).catch(() => {});
+    check("username + PIN signs in from a SECOND device",
+      secondPage.url().includes("/dashboard"), secondPage.url());
+    check("the second device is now known",
+      psql(`SELECT count(*) FROM trusted_devices WHERE user_id='${cgUserId}' AND revoked_at IS NULL`) === "2");
+    check("owner got the new-device alert",
+      psql(`SELECT count(*) FROM notifications n JOIN users u ON u.id = n.user_id
+            WHERE LOWER(u.email) = LOWER('${ownerEmail}') AND n.type='caregiver_new_device'`) === "1");
+    await secondCtx.close();
 
     // ── Wrong PIN + lockout ────────────────────────────────────────────────
     // Clear BOTH controls first. The per-IP budget is shared with everything
@@ -224,7 +220,7 @@ async function main() {
     // per-account lockout we are actually testing here. This is the harness
     // isolating one control — the IP limit itself is covered by
     // e2e-rate-limit.cjs.
-    psql(`UPDATE user_pins SET failed_count=0, locked_until=NULL WHERE user_id='${cgUserId}'`);
+    psql(`UPDATE user_pins SET failed_count=0, lock_level=0, locked_until=NULL WHERE user_id='${cgUserId}'`);
     clearRateLimit("auth_pin_login");
     const wrongResults = [];
     for (let i = 0; i < 5; i++) {
@@ -234,7 +230,7 @@ async function main() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ phone: p, pin: "111999" }),
+            body: JSON.stringify({ identifier: p, pin: "111999" }),
           });
           return { status: res.status, code: (await res.json())?.error?.code };
         },
@@ -257,7 +253,7 @@ async function main() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ phone: p, pin }),
+          body: JSON.stringify({ identifier: p, pin }),
         });
         return { status: res.status, code: (await res.json())?.error?.code };
       },
@@ -265,9 +261,37 @@ async function main() {
     );
     check("locked account refuses even the CORRECT PIN",
       lockedAttempt.code === "pin_locked", JSON.stringify(lockedAttempt));
+    check("owner was alerted that the account locked",
+      psql(`SELECT count(*) FROM notifications n JOIN users u ON u.id = n.user_id
+            WHERE LOWER(u.email) = LOWER('${ownerEmail}') AND n.type='caregiver_pin_locked'`) === "1");
+
+    // ── Owner unlock (spec §6) ─────────────────────────────────────────────
+    const unlock = await ownerPage.evaluate(async ([workspaceId, uid]) => {
+      const res = await fetch(`/api/v1/workspace/members/${uid}/pin-unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Workspace-ID": workspaceId },
+        credentials: "include",
+        body: "{}",
+      });
+      return res.status;
+    }, [wsId, cgUserId]);
+    check("owner can unlock the caregiver", unlock === 200, `status ${unlock}`);
+    const afterUnlock = await cgPage.evaluate(
+      async ([p, pin]) => {
+        const res = await fetch("/api/v1/auth/pin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ identifier: p, pin }),
+        });
+        return res.status;
+      },
+      [phone, PIN],
+    );
+    check("correct PIN works right after the owner unlocks", afterUnlock === 200, `status ${afterUnlock}`);
 
     // ── Forgot PIN -> owner approval -> reset ──────────────────────────────
-    psql(`UPDATE user_pins SET failed_count=0, locked_until=NULL WHERE user_id='${cgUserId}'`);
+    psql(`UPDATE user_pins SET failed_count=0, lock_level=0, locked_until=NULL WHERE user_id='${cgUserId}'`);
 
     const forgot = await cgPage.evaluate(
       async ([p]) => {
@@ -275,7 +299,7 @@ async function main() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ phone: p }),
+          body: JSON.stringify({ identifier: p }),
         });
         return res.status;
       },
@@ -294,7 +318,7 @@ async function main() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone: "+628119999000111" }),
+        body: JSON.stringify({ identifier: "+628119999000111" }),
       });
       return res.status;
     });
@@ -342,7 +366,7 @@ async function main() {
 
     // Touch targets on the PIN pad (56px standard, #52).
     await cgPage.goto(`${WEB}/id/login`);
-    await cgPage.fill("#phone", phone);
+    await cgPage.fill("#caregiver-identifier", phone);
     await cgPage.click('button[type="submit"]');
     await cgPage.waitForSelector('button[aria-label="1"]', { timeout: 10000 });
     const padSizes = await cgPage.$$eval(

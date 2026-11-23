@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { invitationApi, authApi, APIError } from "@/lib/api-client";
 import { PinPad } from "@/components/ui/PinPad";
+import { hardNavigate } from "@/lib/hard-navigate";
 
 type Step = "loading" | "invalid" | "phone" | "pin" | "confirm";
 
@@ -17,7 +18,8 @@ type Step = "loading" | "invalid" | "phone" | "pin" | "confirm";
  * owner vouched for this person by sending it over their own WhatsApp.
  *
  * Flow: preview the invite -> confirm phone -> choose PIN -> confirm PIN ->
- * account created, device enrolled, signed in.
+ * account created, device enrolled, signed in. When the owner picked a
+ * username (login revamp §5.2) the page shows it and the phone is optional.
  */
 export default function InviteClaimPage() {
   const t = useTranslations("invite");
@@ -27,6 +29,7 @@ export default function InviteClaimPage() {
 
   const [step, setStep] = useState<Step>("loading");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [firstPin, setFirstPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export default function InviteClaimPage() {
         const res = await invitationApi.get(token);
         if (cancelled) return;
         setWorkspaceName(res.data?.workspace_name ?? "");
+        setUsername(res.data?.username ?? "");
         setStep("phone");
       } catch {
         if (!cancelled) setStep("invalid");
@@ -53,7 +57,9 @@ export default function InviteClaimPage() {
 
   function submitPhone(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (phone.trim().length < 6) {
+    const typed = phone.trim();
+    // With a username on the invite the phone may be left empty.
+    if ((typed !== "" || !username) && typed.length < 6) {
       setError(tPin("phoneInvalid"));
       return;
     }
@@ -80,17 +86,20 @@ export default function InviteClaimPage() {
     setBusy(true);
     setError(null);
     try {
-      await authApi.claimInviteWithPIN(token, phone, pin, locale);
+      await authApi.claimInviteWithPIN(token, phone.trim(), pin, locale);
       // Full document navigation, NOT router.push — the claim response set
       // the session and device cookies, and server components must re-render
       // with them or the dashboard bounces back to /login.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- see above: must re-run server components with the new cookies
-      window.location.href = `/${locale}/dashboard`;
+      hardNavigate(`/${locale}/dashboard`);
     } catch (err) {
       const code = err instanceof APIError ? err.code : "";
       const message = err instanceof APIError ? err.message : "";
-      if (code === "invite_invalid") {
+      if (code === "invitation_invalid") {
         setStep("invalid");
+      } else if (code === "username_taken") {
+        setError(t("usernameTaken"));
+        setStep("phone");
+        setFirstPin("");
       } else {
         // validation_error carries an actionable message (weak PIN, bad
         // phone) — show it rather than a generic failure.
@@ -129,7 +138,14 @@ export default function InviteClaimPage() {
 
       {step === "phone" && (
         <form onSubmit={submitPhone} className="mt-8 space-y-6">
-          <p className="text-base text-[var(--color-text-muted)]">{t("phoneIntro")}</p>
+          {username && (
+            <p className="rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface-hover)] px-4 py-3 text-base text-[var(--color-text)]">
+              {t("usernameIntro", { username })}
+            </p>
+          )}
+          <p className="text-base text-[var(--color-text-muted)]">
+            {username ? t("phoneIntroOptional") : t("phoneIntro")}
+          </p>
 
           {error && (
             <p
@@ -142,7 +158,7 @@ export default function InviteClaimPage() {
 
           <div>
             <label htmlFor="phone" className="block text-base font-medium text-[var(--color-text)]">
-              {tPin("phoneLabel")}
+              {username ? t("phoneOptional") : tPin("phoneLabel")}
             </label>
             <input
               id="phone"
@@ -150,13 +166,17 @@ export default function InviteClaimPage() {
               type="text"
               inputMode="tel"
               autoComplete="tel"
-              required
+              required={!username}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder={tPin("phonePlaceholder")}
               className="input-base mt-2 w-full"
             />
-            <p className="mt-2 text-sm text-[var(--color-text-muted)]">{tPin("phoneHint")}</p>
+            {/* "The number your family used to invite you" is only true
+                when they did not invite by username. */}
+            {!username && (
+              <p className="mt-2 text-sm text-[var(--color-text-muted)]">{tPin("phoneHint")}</p>
+            )}
           </div>
 
           <button type="submit" className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)]">

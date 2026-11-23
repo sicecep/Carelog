@@ -4,29 +4,33 @@ import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { authApi, APIError } from "@/lib/api-client";
 import { PinPad } from "@/components/ui/PinPad";
+import { hardNavigate } from "@/lib/hard-navigate";
 
-type Step = "phone" | "pin" | "forgot-sent";
+type Step = "identifier" | "pin" | "forgot-sent";
 
 /**
- * Caregiver sign-in: phone number, then PIN (AUTH-005).
+ * Caregiver sign-in: phone number or username, then PIN (AUTH-005, login
+ * revamp D3). Works from any device (D4); a device not seen before is
+ * remembered by the API and the owner is told.
  *
  * Two steps rather than one screen because the PIN pad needs the full
- * viewport on a small phone, and because the phone number is usually
+ * viewport on a small phone, and because the identifier is usually
  * remembered by the browser while the PIN never is.
  */
 export function PinLoginForm() {
   const t = useTranslations("pin");
   const locale = useLocale();
 
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<Step>("identifier");
+  const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  function submitPhone(e: React.FormEvent<HTMLFormElement>) {
+  function submitIdentifier(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (phone.trim().length < 6) {
-      setError(t("phoneInvalid"));
+    // Shortest valid username is 3 characters; the API decides the rest.
+    if (identifier.trim().length < 3) {
+      setError(t("identifierInvalid"));
       return;
     }
     setError(null);
@@ -37,27 +41,18 @@ export function PinLoginForm() {
     setBusy(true);
     setError(null);
     try {
-      await authApi.pinLogin(phone, pin);
+      await authApi.pinLogin(identifier.trim(), pin);
       // Full document navigation, NOT router.push. The API just set the
       // session cookies on this response; a client-side transition would
       // reuse the already-rendered server tree, which was built without
       // them, and the dashboard would bounce straight back to /login.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- see above: must re-run server components with the new cookies
-      window.location.href = `/${locale}/dashboard`;
+      hardNavigate(`/${locale}/dashboard`);
     } catch (err) {
       // The API deliberately does not distinguish a wrong PIN from an
-      // unknown number, so the copy can't either. device_not_trusted IS
-      // distinguishable and actionable, so it gets its own message.
+      // unknown account, so the copy can't either. Only the lock is
+      // distinguishable, because it changes what the caregiver should do.
       const code = err instanceof APIError ? err.code : "";
-      if (code === "device_not_trusted") {
-        setError(t("deviceNotTrusted"));
-      } else if (code === "pin_locked") {
-        setError(t("locked"));
-      } else if (code === "pin_not_set") {
-        setError(t("notEnrolled"));
-      } else {
-        setError(t("incorrect"));
-      }
+      setError(code === "pin_locked" ? t("locked") : t("incorrect"));
       setBusy(false);
     }
   }
@@ -65,10 +60,10 @@ export function PinLoginForm() {
   async function requestReset() {
     setBusy(true);
     try {
-      await authApi.forgotPIN(phone);
+      await authApi.forgotPIN(identifier.trim());
       setStep("forgot-sent");
     } catch {
-      // Even a failure here must not reveal anything about the number.
+      // Even a failure here must not reveal anything about the account.
       setStep("forgot-sent");
     } finally {
       setBusy(false);
@@ -87,7 +82,7 @@ export function PinLoginForm() {
         <button
           type="button"
           onClick={() => {
-            setStep("phone");
+            setStep("identifier");
             setError(null);
           }}
           className="btn-base w-full border border-[var(--color-border-control)] bg-[var(--color-surface)] text-[var(--color-text)]"
@@ -103,7 +98,7 @@ export function PinLoginForm() {
       <div className="space-y-8">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-[var(--color-text)]">{t("enterPin")}</h2>
-          <p className="mt-1 text-base text-[var(--color-text-muted)]">{phone}</p>
+          <p className="mt-1 text-base text-[var(--color-text-muted)]">{identifier.trim()}</p>
         </div>
 
         <PinPad onComplete={submitPin} disabled={busy} error={error} />
@@ -120,7 +115,7 @@ export function PinLoginForm() {
           <button
             type="button"
             onClick={() => {
-              setStep("phone");
+              setStep("identifier");
               setError(null);
             }}
             disabled={busy}
@@ -134,7 +129,7 @@ export function PinLoginForm() {
   }
 
   return (
-    <form onSubmit={submitPhone} className="space-y-6">
+    <form onSubmit={submitIdentifier} className="space-y-6">
       {error && (
         <p
           role="alert"
@@ -145,25 +140,27 @@ export function PinLoginForm() {
       )}
 
       <div>
-        <label htmlFor="phone" className="block text-base font-medium text-[var(--color-text)]">
-          {t("phoneLabel")}
+        <label htmlFor="caregiver-identifier" className="block text-base font-medium text-[var(--color-text)]">
+          {t("identifierLabel")}
         </label>
-        {/* inputMode=tel gives the dialer keypad without the strict
-            validation of type=tel, which rejects the spaces and dashes
-            people naturally type. The server normalizes anyway. */}
+        {/* One field for a phone number or a username (spec §7), so the
+            keyboard stays plain text: a username needs letters. The server
+            decides which it is. */}
         <input
-          id="phone"
-          name="phone"
+          id="caregiver-identifier"
+          name="username"
           type="text"
-          inputMode="tel"
-          autoComplete="tel"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder={t("phonePlaceholder")}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder={t("identifierPlaceholder")}
           className="input-base mt-2 w-full"
         />
-        <p className="mt-2 text-sm text-[var(--color-text-muted)]">{t("phoneHint")}</p>
+        <p className="mt-2 text-sm text-[var(--color-text-muted)]">{t("identifierHint")}</p>
       </div>
 
       <button type="submit" className="btn-base w-full bg-[var(--color-accent)] text-[var(--color-text-inverse)]">

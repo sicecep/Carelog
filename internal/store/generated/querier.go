@@ -33,7 +33,8 @@ type Querier interface {
 	// own shift, and only while it is still open.
 	CheckOutShift(ctx context.Context, arg CheckOutShiftParams) (Shift, error)
 	CleanExpiredRefreshTokens(ctx context.Context) error
-	// Called after a successful verification.
+	// Called after a successful verification, and by the owner's unlock: the
+	// account is back in good standing, so the backoff level resets too.
 	ClearPINFailures(ctx context.Context, userID uuid.UUID) error
 	// After a successful login: the account is back in good standing.
 	ClearPasswordFailures(ctx context.Context, userID uuid.UUID) error
@@ -97,6 +98,10 @@ type Querier interface {
 	// ─── Trusted devices ────────────────────────────────────────────────────────
 	CreateTrustedDevice(ctx context.Context, arg CreateTrustedDeviceParams) (TrustedDevice, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	// Invite claim by a caregiver with no phone (§5.2). The invite is the
+	// owner's approval, so the account starts approved. A taken username is a
+	// unique violation the caller maps to username_taken.
+	CreateUserWithUsername(ctx context.Context, arg CreateUserWithUsernameParams) (User, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) (Workspace, error)
 	DeactivateCareRecipient(ctx context.Context, arg DeactivateCareRecipientParams) error
 	// Revoke: soft-deactivate the active assignment for this pair. No row
@@ -166,6 +171,10 @@ type Querier interface {
 	// must normalize before looking up, or a user types "0812…" and gets a
 	// second account.
 	GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error)
+	// Caregiver login by username (login revamp §5.1). Usernames are stored
+	// lowercase and the unique index is on LOWER(username), so callers pass the
+	// normalized value and this matches the index expression.
+	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUserPIN(ctx context.Context, userID uuid.UUID) (UserPin, error)
 	// Owner passwords (login revamp D1/D2). Lockout mechanics mirror user_pins,
 	// with a doubling backoff: each consecutive lock lasts twice as long.
@@ -186,6 +195,7 @@ type Querier interface {
 	// claim (claiming requires an authenticated session, and pending users don't
 	// get one). Comparison is case-insensitive to match the users email index.
 	HasPendingInvitationForEmail(ctx context.Context, lower string) (bool, error)
+	IsUsernameTaken(ctx context.Context, username string) (bool, error)
 	// True if the user owns at least one workspace. Admin password resets are
 	// for owners; a caregiver signs in with a PIN and has no password.
 	IsWorkspaceOwner(ctx context.Context, userID uuid.UUID) (bool, error)
@@ -238,6 +248,10 @@ type Querier interface {
 	// workspace gets the alert (PRD says "the owner"; a workspace may have more
 	// than one, and silently picking the first would drop the others).
 	ListOverdueTasks(ctx context.Context) ([]ListOverdueTasksRow, error)
+	// Who to alert about a caregiver's account (new-device sign-in, PIN lock;
+	// spec §5.3, §6): every owner of every workspace the caregiver belongs to,
+	// excluding the caregiver themself when they also own one.
+	ListOwnersForMemberWorkspaces(ctx context.Context, userID uuid.UUID) ([]ListOwnersForMemberWorkspacesRow, error)
 	// Both the persistent standing note and the note for the requested date
 	// (usually today), scoped by workspace for tenant safety.
 	ListParentNotesForRecipient(ctx context.Context, arg ListParentNotesForRecipientParams) ([]ParentNote, error)
@@ -323,9 +337,14 @@ type Querier interface {
 	// guard: it makes restoring another workspace's recipient impossible even with
 	// a guessed ID.
 	ReactivateCareRecipient(ctx context.Context, arg ReactivateCareRecipientParams) error
-	// Increments the counter and locks once the threshold is crossed. Doing both
-	// in one statement keeps concurrent attempts from racing past the limit.
-	RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (UserPin, error)
+	// Doubling backoff (spec §6), same shape as RecordPasswordFailure. One
+	// statement so concurrent attempts cannot race past the threshold; every SET
+	// expression reads the row as it was BEFORE this update, so the CASE arms
+	// agree on whether this failure is the one that locks. On the locking
+	// failure: lock for base_seconds * 2^lock_level (capped), raise lock_level,
+	// and restart the count for the next window. just_locked tells the caller to
+	// alert the owner.
+	RecordPINFailure(ctx context.Context, arg RecordPINFailureParams) (bool, error)
 	// One statement so concurrent attempts cannot race past the threshold.
 	// Every SET expression reads the row as it was BEFORE this update, so the
 	// CASE arms agree on whether this failure is the one that locks.
@@ -366,6 +385,9 @@ type Querier interface {
 	// Attaches a phone to an existing account (an invited caregiver claiming
 	// their invite). The partial unique index rejects a number already in use.
 	SetUserPhone(ctx context.Context, arg SetUserPhoneParams) (User, error)
+	// Sets or changes a caregiver's username (invite claim, owner rename).
+	// Sessions are untouched: only the login identifier changes.
+	SetUsername(ctx context.Context, arg SetUsernameParams) (User, error)
 	// Numeric roll-up (sleep minutes, medication doses) for the categories that
 	// carry a value_number. Kept separate from the count query so a category can
 	// report both "3 entries" and "410 minutes" without a second pass in Go.
@@ -423,7 +445,8 @@ type Querier interface {
 	// caller must not learn whether the account already existed, so insert and
 	// lookup are one statement.
 	UpsertUserByPhone(ctx context.Context, arg UpsertUserByPhoneParams) (User, error)
-	// AUTH-005: caregiver phone + device-bound PIN.
+	// AUTH-005: caregiver phone or username + PIN (login revamp D3/D4: any
+	// device; trusted_devices now only drives the new-device alert).
 	// Setting a PIN clears any lockout: the user has proven control through
 	// enrolment or an approved reset, so stale failure state must not follow
 	// them into the new PIN.

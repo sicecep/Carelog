@@ -100,6 +100,44 @@ func (q *Queries) GetWorkspaceRoleForUser(ctx context.Context, arg GetWorkspaceR
 	return role, err
 }
 
+const listOwnersForMemberWorkspaces = `-- name: ListOwnersForMemberWorkspaces :many
+SELECT owner.workspace_id, owner.user_id AS owner_id
+FROM workspace_members member
+JOIN workspace_members owner
+  ON owner.workspace_id = member.workspace_id AND owner.role = 'owner'
+WHERE member.user_id = $1
+  AND owner.user_id <> $1
+ORDER BY owner.workspace_id, owner.user_id
+`
+
+type ListOwnersForMemberWorkspacesRow struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	OwnerID     uuid.UUID `json:"owner_id"`
+}
+
+// Who to alert about a caregiver's account (new-device sign-in, PIN lock;
+// spec §5.3, §6): every owner of every workspace the caregiver belongs to,
+// excluding the caregiver themself when they also own one.
+func (q *Queries) ListOwnersForMemberWorkspaces(ctx context.Context, userID uuid.UUID) ([]ListOwnersForMemberWorkspacesRow, error) {
+	rows, err := q.db.Query(ctx, listOwnersForMemberWorkspaces, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOwnersForMemberWorkspacesRow{}
+	for rows.Next() {
+		var i ListOwnersForMemberWorkspacesRow
+		if err := rows.Scan(&i.WorkspaceID, &i.OwnerID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorkspaceMembers = `-- name: ListWorkspaceMembers :many
 SELECT workspace_id, user_id, role, joined_at FROM workspace_members
 WHERE workspace_id = $1
@@ -140,9 +178,13 @@ SELECT
     u.email,
     u.full_name,
     u.avatar_url,
-    u.is_active
+    u.is_active,
+    u.username,
+    -- Drives the owner's "Buka kunci" (unlock) button (spec §6).
+    COALESCE(p.locked_until > now(), false)::boolean AS pin_locked
 FROM workspace_members wm
 JOIN users u ON u.id = wm.user_id
+LEFT JOIN user_pins p ON p.user_id = wm.user_id
 WHERE wm.workspace_id = $1
 ORDER BY wm.joined_at
 `
@@ -156,6 +198,8 @@ type ListWorkspaceMembersWithUserRow struct {
 	FullName    pgtype.Text        `json:"full_name"`
 	AvatarUrl   pgtype.Text        `json:"avatar_url"`
 	IsActive    bool               `json:"is_active"`
+	Username    pgtype.Text        `json:"username"`
+	PinLocked   bool               `json:"pin_locked"`
 }
 
 // The membership row alone carries no identity, so the caregiver management UI
@@ -180,6 +224,8 @@ func (q *Queries) ListWorkspaceMembersWithUser(ctx context.Context, workspaceID 
 			&i.FullName,
 			&i.AvatarUrl,
 			&i.IsActive,
+			&i.Username,
+			&i.PinLocked,
 		); err != nil {
 			return nil, err
 		}

@@ -24,3 +24,10 @@ func TestPINLoginLimits_IPBudgetExceedsAccountLockout(t *testing.T) {
 		"the per-IP limit on /auth/pin/login must exceed PINMaxAttempts, "+
 			"otherwise the per-account lockout can never trigger from a single IP")
 }
+
+// The daily cap (spec §6) only adds protection if it is above the 15-minute
+// window's budget; otherwise it would just be a stricter 15-minute limit.
+func TestPINLoginLimits_DailyCapExceedsWindow(t *testing.T) {
+	require.Greater(t, pinLoginIPDailyMax, pinLoginIPMax,
+		"the daily per-IP cap must exceed the 15-minute budget")
+}

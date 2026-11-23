@@ -14,16 +14,20 @@ import (
 	"github.com/sicecep/carelog/internal/service"
 )
 
-// AUTH-005: caregiver phone + device-bound PIN endpoints.
+// AUTH-005 / login revamp D3–D4: caregiver phone-or-username + PIN.
 //
-// Cookie model: the device secret (`cl_device`, HttpOnly, 1 year) is the
-// POSSESSION factor; the PIN is the KNOWLEDGE factor. `/pin/login` requires
-// both. `/pin/enrol` and `/pin/reset/complete` mint a fresh device cookie
-// alongside enrolment — the one-time token that authorised them is the
-// possession proof for that enrolment.
+// Cookie model: the device secret (`cl_device`, HttpOnly, 1 year) marks a
+// KNOWN device. It no longer gates login (the PIN works from any device);
+// a sign-in without a known cookie enrols this device and alerts the owner.
+// `/pin/reset/complete` still requires the cookie of the device that asked.
 
 // deviceCookieName is the trusted-device secret cookie.
 const deviceCookieName = "cl_device"
+
+// pinLoginIPDailyMax is the per-IP budget for POST /auth/pin/login per day
+// (spec §6). It caps slow scripted guessing that stays under the 15-minute
+// window.
+const pinLoginIPDailyMax int64 = 30
 
 // pinLoginIPMax is the per-IP budget for POST /auth/pin/login in a 15-minute
 // window. It must stay STRICTLY ABOVE service.PINMaxAttempts so the
@@ -65,15 +69,16 @@ func deviceTokenFromRequest(r *http.Request) string {
 
 // PINLoginRequest is the body for POST /auth/pin/login.
 type PINLoginRequest struct {
-	Phone string `json:"phone"`
-	PIN   string `json:"pin"`
+	// Identifier is a phone number or a username (spec §5.1).
+	Identifier string `json:"identifier"`
+	PIN        string `json:"pin"`
 }
 
-// handlePINLogin authenticates phone + PIN from an enrolled device.
+// handlePINLogin authenticates phone-or-username + PIN from any device.
 //
-// Error mapping is deliberately coarse: wrong PIN, unknown phone, unenrolled
-// device, no PIN set, and lockout are all reported through mapError's
-// generic handling with distinct codes but NO account-existence information.
+// Error mapping is deliberately coarse: a wrong PIN, an unknown identifier
+// and an account with no PIN all answer invalid_credentials; only the
+// lockout is distinguishable.
 func (h *AuthHandlers) handlePINLogin(w http.ResponseWriter, r *http.Request) error {
 	if h.PINSvc == nil {
 		return &service.ErrValidation{Errors: []service.RecipientError{{Field: "pin", Message: "PIN login is not configured"}}}
@@ -83,13 +88,17 @@ func (h *AuthHandlers) handlePINLogin(w http.ResponseWriter, r *http.Request) er
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
-	if req.Phone == "" || req.PIN == "" {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "phone", Message: "phone and PIN are required"}}}
+	if req.Identifier == "" || req.PIN == "" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "identifier", Message: "identifier and PIN are required"}}}
 	}
 
-	user, err := h.PINSvc.VerifyPINLogin(r.Context(), req.Phone, req.PIN, deviceTokenFromRequest(r))
+	res, err := h.PINSvc.VerifyPINLogin(r.Context(), req.Identifier, req.PIN, deviceTokenFromRequest(r), deviceLabelFrom(r))
 	if err != nil {
 		return err // service errors carry their own status/code
+	}
+	user := res.User
+	if res.DeviceToken != "" {
+		h.setDeviceCookie(w, r, res.DeviceToken)
 	}
 
 	// Approval gate, same as magic-link verify: pending/rejected users get
@@ -175,7 +184,8 @@ func (h *AuthHandlers) handlePINEnrol(w http.ResponseWriter, r *http.Request) er
 
 // PINForgotRequest is the body for POST /auth/pin/forgot.
 type PINForgotRequest struct {
-	Phone string `json:"phone"`
+	// Identifier is a phone number or a username.
+	Identifier string `json:"identifier"`
 }
 
 // handlePINForgot records a reset request for the owner to approve.
@@ -191,15 +201,15 @@ func (h *AuthHandlers) handlePINForgot(w http.ResponseWriter, r *http.Request) e
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
-	if req.Phone == "" {
-		return service.ErrValidation{Errors: []service.RecipientError{{Field: "phone", Message: "phone is required"}}}
+	if req.Identifier == "" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "identifier", Message: "phone number or username is required"}}}
 	}
 
 	// The request is bound to the CURRENT device cookie (if any): approval
 	// will only re-enrol this device. A device without a cookie yet (fresh
 	// install + forgotten PIN) records a hash of "none" and must re-enrol
 	// through the owner's fresh invite instead — the safest fallback.
-	if err := h.PINSvc.RequestPINReset(r.Context(), req.Phone, deviceLabelFrom(r), getClientIP(r)); err != nil {
+	if err := h.PINSvc.RequestPINReset(r.Context(), req.Identifier, deviceLabelFrom(r), getClientIP(r)); err != nil {
 		return err
 	}
 	Created(w, ptr(map[string]string{"status": "requested"}))
@@ -264,13 +274,9 @@ func (h *AuthHandlers) handleSetPIN(w http.ResponseWriter, r *http.Request) erro
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "body", Message: "invalid JSON"}}}
 	}
 
-	// Re-verify the current PIN before allowing a change.
-	user, err := h.Queries.GetUser(r.Context(), userID)
-	if err != nil {
-		return err
-	}
-	_, err = h.PINSvc.VerifyPINLogin(r.Context(), user.Phone.String, req.CurrentPassword, deviceTokenFromRequest(r))
-	if err != nil {
+	// Re-verify the current PIN before allowing a change. Failures count
+	// toward the same lockout as login.
+	if err := h.PINSvc.VerifyCurrentPIN(r.Context(), userID, req.CurrentPassword); err != nil {
 		if errors.Is(err, service.ErrPINIncorrect{}) || errors.Is(err, service.ErrPINLocked{}) {
 			return service.ErrValidation{Errors: []service.RecipientError{{Field: "current_pin", Message: "current PIN is incorrect"}}}
 		}
@@ -298,6 +304,7 @@ func deviceLabelFrom(r *http.Request) string {
 
 // ClaimWithPINRequest is the body for POST /invites/{token}/claim-pin.
 type ClaimWithPINRequest struct {
+	// Phone is optional when the invite carries a username.
 	Phone  string `json:"phone"`
 	PIN    string `json:"pin"`
 	Locale string `json:"locale"`

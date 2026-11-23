@@ -95,9 +95,29 @@ func CreateInvitation(
 	inviteeEmail string,
 	role string,
 	recipientID *uuid.UUID,
+	inviteeUsername string,
+	hasPhone bool,
 ) (CreateInvitationResult, error) {
 	if domain.Role(inviterRole) != domain.RoleOwner {
 		return CreateInvitationResult{}, ErrInviteNotOwner{}
+	}
+
+	// The caregiver needs something to sign in with (spec §5.2): the phone
+	// they confirm at claim, or the username picked here.
+	var username pgtype.Text
+	if strings.TrimSpace(inviteeUsername) != "" {
+		u, available, err := UsernameAvailable(ctx, q, inviteeUsername)
+		if err != nil {
+			return CreateInvitationResult{}, err
+		}
+		if !available {
+			return CreateInvitationResult{}, ErrUsernameTaken{}
+		}
+		username = pgtype.Text{String: u, Valid: true}
+	} else if !hasPhone {
+		return CreateInvitationResult{}, ErrValidation{Errors: []RecipientError{{
+			Field: "username", Message: "enter a phone number or a username",
+		}}}
 	}
 
 	inviteeName = strings.TrimSpace(inviteeName)
@@ -141,6 +161,7 @@ func CreateInvitation(
 		Role:         role,
 		InvitedBy:    inviterID,
 		ExpiresAt:    pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		InviteeUsername: username,
 	})
 	if err != nil {
 		return CreateInvitationResult{}, fmt.Errorf("create invitation: %w", err)
@@ -162,6 +183,10 @@ type InvitationPreview struct {
 	WorkspaceName string
 	Role          string
 	ExpiresAt     time.Time
+	// Username is the login name the owner picked (may be empty). Not a
+	// secret: the claim page shows it so the caregiver learns it, and a
+	// phone becomes optional when it is set.
+	Username string
 }
 
 // PeekInvitation validates a raw token and returns display info without
@@ -194,6 +219,7 @@ func PeekInvitation(ctx context.Context, q *store.Queries, rawToken string) (Inv
 		WorkspaceName: row.WorkspaceName,
 		Role:          row.Role,
 		ExpiresAt:     row.ExpiresAt.Time,
+		Username:      row.InviteeUsername.String,
 	}, nil
 }
 

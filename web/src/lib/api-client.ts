@@ -152,14 +152,15 @@ export const authApi = {
   // `credentials: "include"` — it is never read or set from JavaScript, so
   // an XSS cannot exfiltrate the possession factor.
 
-  // POST /api/v1/auth/pin/login - Sign in with phone + PIN from an enrolled
-  // device. Fails with device_not_trusted if this browser was never enrolled.
-  pinLogin: (phone: string, pin: string) =>
-    api.post<{ status: string }>("/api/v1/auth/pin/login", { phone, pin }),
+  // POST /api/v1/auth/pin/login - Sign in with phone or username + PIN from
+  // any device. A device not seen before is remembered and the owner told.
+  pinLogin: (identifier: string, pin: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/login", { identifier, pin }),
 
   // POST /api/v1/invites/{token}/claim-pin - Phone-primary invite claim:
   // creates the account, sets the PIN, enrols this device, joins the
-  // workspace, and returns a session. No email involved at any point.
+  // workspace, and returns a session. No email involved at any point. The
+  // phone may be empty when the invite carries a username.
   claimInviteWithPIN: (token: string, phone: string, pin: string, locale: string) =>
     api.post<{ status: string }>(
       `/api/v1/invites/${encodeURIComponent(token)}/claim-pin`,
@@ -167,9 +168,9 @@ export const authApi = {
     ),
 
   // POST /api/v1/auth/pin/forgot - Ask the owner to approve a PIN reset.
-  // Always succeeds, even for unknown numbers (anti-enumeration).
-  forgotPIN: (phone: string) =>
-    api.post<{ status: string }>("/api/v1/auth/pin/forgot", { phone }),
+  // Always succeeds, even for unknown accounts (anti-enumeration).
+  forgotPIN: (identifier: string) =>
+    api.post<{ status: string }>("/api/v1/auth/pin/forgot", { identifier }),
 
   // POST /api/v1/auth/pin/reset/complete - Redeem an owner-approved reset
   // token and set a new PIN. Only works from the device that requested it.
@@ -462,6 +463,8 @@ export interface Invitation {
   workspace_id: string;
   recipient_id?: string;
   invitee_name: string;
+  // Login name the owner picked for the caregiver, if any.
+  username?: string;
   role: "caregiver" | "viewer";
   expires_at: string;
   created_at: string;
@@ -478,13 +481,23 @@ export interface InvitationPreview {
   workspace_name: string;
   role: "caregiver" | "viewer";
   expires_at: string;
+  // Set when the owner picked a login name: shown on the claim page, and
+  // the phone becomes optional.
+  username?: string;
 }
 
 export const invitationApi = {
   // POST /api/v1/invitations - Owner creates an invite
   create: (
     workspaceId: string,
-    body: { invitee_name: string; role: string; recipient_id?: string; phone?: string }
+    body: {
+      invitee_name: string;
+      role: string;
+      recipient_id?: string;
+      phone?: string;
+      // At least one of phone and username is required.
+      username?: string;
+    }
   ) =>
     api.post<Invitation>("/api/v1/invitations", body, {
       "X-Workspace-ID": workspaceId,
@@ -501,6 +514,14 @@ export const invitationApi = {
     api.post<void>(`/api/v1/invitations/${id}/revoke`, {}, {
       "X-Workspace-ID": workspaceId,
     }),
+
+  // GET /api/v1/usernames/{name}/available - Owner-only live check for the
+  // invite form. A malformed name fails with username_invalid.
+  usernameAvailable: (workspaceId: string, name: string) =>
+    api.get<{ username: string; available: boolean }>(
+      `/api/v1/usernames/${encodeURIComponent(name)}/available`,
+      { "X-Workspace-ID": workspaceId }
+    ),
 
   // GET /api/v1/invites/{token} - Public preview
   get: (token: string) => api.get<InvitationPreview>(`/api/v1/invites/${token}`),
@@ -634,8 +655,11 @@ export interface Notification {
   id: string;
   type: NotificationType;
   subject_id?: string;
-  // Denormalized rendering data, shaped per type. For task_overdue:
-  // { task_title, recipient_id, recipient_name, due_date, due_time? }
+  // Denormalized rendering data, shaped per type:
+  //   task_overdue:         { task_title, recipient_id, recipient_name, due_date, due_time? }
+  //   caregiver_new_device: { caregiver_id, caregiver_name, device, signed_in_at }
+  //   caregiver_pin_locked: { caregiver_id, caregiver_name }
+  //   username_changed:     { username, changed_by_name }
   payload: Record<string, string>;
   read_at?: string;
   created_at: string;
@@ -677,6 +701,10 @@ export interface Member {
   role: "owner" | "caregiver" | "viewer";
   is_active: boolean;
   joined_at: string;
+  // Caregiver login name, if one is set.
+  username?: string;
+  // True while the member's PIN lockout is active (owner sees "Buka kunci").
+  pin_locked: boolean;
 }
 
 // Caregiver (workspace member) management endpoints.
@@ -696,6 +724,22 @@ export const memberApi = {
       { role },
       { "X-Workspace-ID": workspaceId }
     ),
+
+  // PATCH /api/v1/workspace/members/{userId} - Owner sets or changes a
+  // caregiver's username. The caregiver is told in-app.
+  updateUsername: (workspaceId: string, userId: string, username: string) =>
+    api.patch<{ status: string; username: string }>(
+      `/api/v1/workspace/members/${userId}`,
+      { username },
+      { "X-Workspace-ID": workspaceId }
+    ),
+
+  // POST /api/v1/workspace/members/{userId}/pin-unlock - Owner clears a
+  // caregiver's PIN lockout.
+  unlockPIN: (workspaceId: string, userId: string) =>
+    api.post<{ status: string }>(`/api/v1/workspace/members/${userId}/pin-unlock`, {}, {
+      "X-Workspace-ID": workspaceId,
+    }),
 
   // DELETE /api/v1/workspace/members/{userId} - Owner removes a member.
   remove: (workspaceId: string, userId: string) =>

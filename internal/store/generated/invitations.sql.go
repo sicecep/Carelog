@@ -54,20 +54,22 @@ func (q *Queries) ConsumeInvitation(ctx context.Context, arg ConsumeInvitationPa
 
 const createInvitation = `-- name: CreateInvitation :one
 INSERT INTO invitations (
-    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at,
+    invitee_username
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, workspace_id, recipient_id, token_hash, invitee_name, invitee_email, role, invited_by, expires_at, consumed_at, consumed_by, revoked_at, created_at, invitee_username
 `
 
 type CreateInvitationParams struct {
-	WorkspaceID  uuid.UUID          `json:"workspace_id"`
-	RecipientID  pgtype.UUID        `json:"recipient_id"`
-	TokenHash    []byte             `json:"token_hash"`
-	InviteeName  string             `json:"invitee_name"`
-	InviteeEmail pgtype.Text        `json:"invitee_email"`
-	Role         string             `json:"role"`
-	InvitedBy    uuid.UUID          `json:"invited_by"`
-	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	WorkspaceID     uuid.UUID          `json:"workspace_id"`
+	RecipientID     pgtype.UUID        `json:"recipient_id"`
+	TokenHash       []byte             `json:"token_hash"`
+	InviteeName     string             `json:"invitee_name"`
+	InviteeEmail    pgtype.Text        `json:"invitee_email"`
+	Role            string             `json:"role"`
+	InvitedBy       uuid.UUID          `json:"invited_by"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	InviteeUsername pgtype.Text        `json:"invitee_username"`
 }
 
 // WRK-004: owner invites a caregiver. Only the SHA-256 hash of the token is
@@ -84,6 +86,7 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 		arg.Role,
 		arg.InvitedBy,
 		arg.ExpiresAt,
+		arg.InviteeUsername,
 	)
 	var i Invitation
 	err := row.Scan(
