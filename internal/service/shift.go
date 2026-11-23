@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	store "github.com/sicecep/carelog/internal/store/generated"
@@ -35,6 +36,7 @@ func (shiftConflict) Status() int     { return 409 }
 type noActiveShift struct{}
 
 func (noActiveShift) Error() string   { return ErrNoActiveShift.Error() }
+func (noActiveShift) Is(target error) bool { return target == ErrNoActiveShift }
 func (noActiveShift) Code() string    { return "no_active_shift" }
 func (noActiveShift) Message() string { return "No active shift found for this caregiver." }
 func (noActiveShift) Status() int     { return 404 }
@@ -50,13 +52,15 @@ func CheckInShift(
 	workspaceID uuid.UUID,
 	caregiverID uuid.UUID,
 ) (store.Shift, error) {
-	// Enforce: no open shift for this caregiver
-	_, err := q.GetActiveShift(ctx, store.GetActiveShiftParams{
-		WorkspaceID: workspaceID,
-		CaregiverID: caregiverID,
-	})
-	if err == nil {
+	// Enforce: no open shift for this caregiver. Only "not found" lets the
+	// check-in proceed; a failed lookup must not be read as "no shift" and
+	// open a second one.
+	_, err := GetActiveShift(ctx, q, workspaceID, caregiverID)
+	switch {
+	case err == nil:
 		return store.Shift{}, shiftConflict{}
+	case !errors.Is(err, ErrNoActiveShift):
+		return store.Shift{}, err
 	}
 
 	now := time.Now().UTC()
@@ -87,12 +91,9 @@ func CheckOutShift(
 		}}}
 	}
 
-	active, err := q.GetActiveShift(ctx, store.GetActiveShiftParams{
-		WorkspaceID: workspaceID,
-		CaregiverID: caregiverID,
-	})
+	active, err := GetActiveShift(ctx, q, workspaceID, caregiverID)
 	if err != nil {
-		return store.Shift{}, noActiveShift{}
+		return store.Shift{}, err
 	}
 
 	var note pgtype.Text
@@ -108,7 +109,34 @@ func CheckOutShift(
 		HandoffNote:    note,
 	})
 	if err != nil {
-		return store.Shift{}, shiftConflict{}
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Closed between the lookup and the update (a double tap, or
+			// the owner closing it): the shift is no longer open.
+			return store.Shift{}, shiftConflict{}
+		}
+		return store.Shift{}, fmt.Errorf("check out shift: %w", err)
+	}
+	return shift, nil
+}
+
+// GetActiveShift returns the caregiver's open shift. No open shift is the
+// typed 404 no_active_shift; any other failure is returned wrapped, so a
+// database error surfaces as one instead of reading as "not on shift".
+func GetActiveShift(
+	ctx context.Context,
+	q *store.Queries,
+	workspaceID uuid.UUID,
+	caregiverID uuid.UUID,
+) (store.Shift, error) {
+	shift, err := q.GetActiveShift(ctx, store.GetActiveShiftParams{
+		WorkspaceID: workspaceID,
+		CaregiverID: caregiverID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return store.Shift{}, noActiveShift{}
+		}
+		return store.Shift{}, fmt.Errorf("get active shift: %w", err)
 	}
 	return shift, nil
 }
@@ -123,7 +151,10 @@ func GetLastCompletedShiftForWorkspace(
 ) (store.GetLastCompletedShiftForWorkspaceRow, error) {
 	row, err := q.GetLastCompletedShiftForWorkspace(ctx, workspaceID)
 	if err != nil {
-		return store.GetLastCompletedShiftForWorkspaceRow{}, ErrNoActiveShift
+		if errors.Is(err, pgx.ErrNoRows) {
+			return store.GetLastCompletedShiftForWorkspaceRow{}, noActiveShift{}
+		}
+		return store.GetLastCompletedShiftForWorkspaceRow{}, fmt.Errorf("get last completed shift: %w", err)
 	}
 	return row, nil
 }

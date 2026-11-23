@@ -102,12 +102,11 @@ func (h *ShiftHandlers) handleGetActiveShift(w http.ResponseWriter, r *http.Requ
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace or user context"}}}
 	}
 
-	shift, err := h.Queries.GetActiveShift(r.Context(), store.GetActiveShiftParams{
-		WorkspaceID: workspaceID,
-		CaregiverID: userID,
-	})
+	// No open shift is a normal state for a caregiver, answered 404
+	// no_active_shift; it used to come back as a 500.
+	shift, err := service.GetActiveShift(r.Context(), h.Queries, workspaceID, userID)
 	if err != nil {
-		return service.ErrNoActiveShift
+		return err
 	}
 
 	OK(w, ptr(toShiftResponse(shift)))
