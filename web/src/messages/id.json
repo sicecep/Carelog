@@ -576,8 +576,13 @@
     "titleRejected": "Akun tidak disetujui",
     "bodyRejected": "Administrator tidak menyetujui akun ini.",
     "reasonLabel": "Alasan",
-    "emailVerified": "Alamat email Anda telah terverifikasi.",
-    "backToLogin": "Kembali ke halaman masuk"
+    "backToLogin": "Kembali ke halaman masuk",
+    "nextPending": "Kami tidak mengirim email atau SMS saat akun disetujui. Coba masuk lagi nanti, atau hubungi admin CareLog lewat WhatsApp.",
+    "nextRejected": "Jika menurut Anda ini keliru, hubungi admin CareLog lewat WhatsApp.",
+    "nextNoContact": "Kami tidak mengirim email atau SMS saat akun disetujui. Coba masuk lagi nanti, atau hubungi admin CareLog.",
+    "whatsAppButton": "WhatsApp admin",
+    "whatsAppMessagePending": "Halo admin CareLog, saya baru mendaftar dan akun saya menunggu persetujuan.",
+    "whatsAppMessageRejected": "Halo admin CareLog, pendaftaran akun saya tidak disetujui. Boleh saya tahu alasannya?"
   },
   "admin": {
     "title": "Administrasi",
