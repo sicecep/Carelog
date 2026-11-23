@@ -10,13 +10,11 @@ import { useTranslations } from "next-intl";
 import { Plus, WarningOctagon } from "phosphor-react";
 import { LoggingSheet } from "@/components/ui/LoggingSheet";
 import { IncidentSheet } from "@/components/ui/IncidentSheet";
-import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
-import { Recipient, shiftApi } from "@/lib/api-client";
+import { shiftApi } from "@/lib/api-client";
 
 interface DetailActionsProps {
   recipientId: string;
   workspaceId: string;
-  recipient: Recipient;
   /**
    * SFT-001 #4: caregivers are soft-blocked from logging before checking
    * in. Undefined for owners, who never check in and must never see this.
@@ -31,7 +29,6 @@ interface DetailActionsProps {
 export function DetailActions({
   recipientId,
   workspaceId,
-  recipient,
   shiftPrompt,
 }: DetailActionsProps) {
   const t = useTranslations("logging");
@@ -41,17 +38,12 @@ export function DetailActions({
 
   const [loggingOpen, setLoggingOpen] = useState(false);
   const [incidentOpen, setIncidentOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [shiftNudge, setShiftNudge] = useState(false);
   const [startingShift, setStartingShift] = useState(false);
 
   // Server Component page owns the timeline data; refresh re-runs its fetches
   // so a new entry/incident appears without a manual reload.
   const handleLogged = useCallback(() => {
-    router.refresh();
-  }, [router]);
-
-  const handleUpdated = useCallback(() => {
     router.refresh();
   }, [router]);
 
@@ -171,13 +163,6 @@ export function DetailActions({
         recipientId={recipientId}
         workspaceId={workspaceId}
         onLogged={handleLogged}
-      />
-      <EditRecipientSheet
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        recipient={recipient}
-        workspaceId={workspaceId}
-        onUpdated={handleUpdated}
       />
     </>
   );

@@ -17,9 +17,9 @@ For a generic "which library for task X" lookup outside this list, the vendored
 1. **Ask before adding a dependency** (repo rule, `CLAUDE.md`). Name the package, the version,
    the screen that needs it, and what it replaces. One library per PR.
 2. **Check `web/package.json` first.** If something already covers the task, use it. Today the
-   UI deps are `clsx`, `phosphor-react`, `sonner` and `@radix-ui/react-dialog`. `LoggingSheet`,
-   `SummarySheet` and `IncidentSheet` use the shared `BottomSheet`; `EditRecipientSheet` is
-   still hand-built, so migrating it is a deliberate, separate change, never a side effect.
+   UI deps are `clsx`, `phosphor-react`, `sonner` and `@radix-ui/react-dialog`. Every sheet
+   (`LoggingSheet`, `SummarySheet`, `IncidentSheet`, `EditRecipientSheet`) uses the shared
+   `BottomSheet`; build new sheets on it too.
 3. **This is Next.js 16, not the version you remember.** Read `web/AGENTS.md` and the guide in
    `web/node_modules/next/dist/docs/` before writing component code. Check that the library
    supports React 19.
@@ -84,7 +84,7 @@ For a generic "which library for task X" lookup outside this list, the vendored
 - Pass `preventDismiss` while the sheet holds unsaved input (typed text, picked photos).
   Escape and a tap outside are then ignored, and only the close button closes it. The incident
   sheet must use this, and must open in one tap.
-- Migrated so far: `LoggingSheet`, `SummarySheet`, `IncidentSheet`. Still to move:
+- All sheets are on `BottomSheet`: `LoggingSheet`, `SummarySheet`, `IncidentSheet`,
   `EditRecipientSheet`.
 - A close button on a sheet with input can ask first, as `IncidentSheet` does: its `onClose`
   shows an in-sheet "Buang laporan?" step (Keep focused first) instead of closing.

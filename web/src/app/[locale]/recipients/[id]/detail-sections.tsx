@@ -20,11 +20,13 @@ import {
   WhatsappLogo,
   CheckCircle,
   ClipboardText,
+  PencilSimple,
 } from "phosphor-react";
 import { CARE_TYPES, MODULES, VITAL_SPECS, type CareType, type Module } from "@/lib/constants.generated";
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 import { SummarySheet } from "@/components/ui/SummarySheet";
+import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
 
 // formatVitalMeasurement renders a stored vital for the timeline (CGR-009):
 // single-field vitals as "36.8 °C", blood pressure as "120/80 mmHg".
@@ -79,9 +81,20 @@ function formatTime(iso: string) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function DetailHeader({ recipient }: { recipient: Recipient }) {
+interface DetailHeaderProps {
+  recipient: Recipient;
+  /**
+   * Set for owners only: shows "Ubah profil" and its sheet. Profile edits
+   * are owner-only (AUTH-004), and the API enforces it too.
+   */
+  editWorkspaceId?: string;
+}
+
+export function DetailHeader({ recipient, editWorkspaceId }: DetailHeaderProps) {
   const tRecipients = useTranslations("recipients");
   const tOnboarding = useTranslations("onboarding");
+  const router = useRouter();
+  const [editOpen, setEditOpen] = useState(false);
 
   const name = recipient.display_name?.trim() || recipient.full_name;
   const initial = name.trim().charAt(0).toUpperCase();
@@ -110,6 +123,19 @@ export function DetailHeader({ recipient }: { recipient: Recipient }) {
         </div>
       </div>
 
+      {/* Own row, not beside the name: at 360px a button there squeezes
+          the name down to its first letter. */}
+      {editWorkspaceId && (
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="btn-base btn-secondary touch-target mt-4 gap-1.5 px-3 text-sm"
+        >
+          <PencilSimple size={18} weight="bold" aria-hidden="true" />
+          <span>{tRecipients("editOpen")}</span>
+        </button>
+      )}
+
       {modules.length > 0 && (
         <ul className="mt-5 flex flex-wrap gap-2">
           {modules.map((module) => (
@@ -121,6 +147,17 @@ export function DetailHeader({ recipient }: { recipient: Recipient }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {editWorkspaceId && (
+        <EditRecipientSheet
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          recipient={recipient}
+          workspaceId={editWorkspaceId}
+          // The page is a Server Component: refresh re-reads the new name.
+          onUpdated={() => router.refresh()}
+        />
       )}
     </section>
   );

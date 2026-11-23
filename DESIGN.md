@@ -580,7 +580,7 @@ revamped, not all at once.
 | ~~Input / chip outlines~~ | **Done.** `--color-border-control` on inputs, selects, outline buttons, chips, toggles and the switch track; input focus is `accent`. Also removed a self-referencing `--color-border` alias that had made every `var(--color-border)` invalid in light mode | — |
 | ~~Warning / success text~~ | **Done.** `--color-warning-ink` / `--color-success-ink` added; `.toast-success` and the history-gated notice use them | — |
 | ~~`.toast-success` utility~~ | **Done.** Sonner `Toaster` (tokens, bottom-centre, 4s); Logging and Summary sheets close and toast; incident confirmation renamed `.success-panel` and stays in-sheet | — |
-| Sheets | `LoggingSheet` and `SummarySheet` are **done** on the shared `BottomSheet` (Radix Dialog). `IncidentSheet` and `EditRecipientSheet` are still hand-built | Move each onto `BottomSheet`, one per PR. The incident sheet uses `preventDismiss` |
+| Sheets | **Done.** `LoggingSheet`, `SummarySheet`, `IncidentSheet` and `EditRecipientSheet` all use the shared `BottomSheet` (Radix Dialog) | Build new sheets on `BottomSheet`. Sheets with input set `preventDismiss`; the incident sheet also asks "Buang laporan?" |
 | ~~Radii~~ | **Done.** `--radius-sm/md/lg/xl` (6/10/14/20px, `2xl` 24px) replace Tailwind's defaults so `rounded-*` follows §5; 30 controls moved `rounded-lg` → `rounded-md`; shared styles use the tokens | — |
 | Icons | `phosphor-react` | Same set. The package has been succeeded by `@phosphor-icons/react`; a swap needs approval like any dependency change |
 | ~~Spec font~~ | **Done.** Spec says **Geist**, as already shipped | — |

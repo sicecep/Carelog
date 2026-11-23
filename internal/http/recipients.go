@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -82,7 +83,9 @@ type CreateRecipientRequest struct {
 
 type UpdateRecipientRequest struct {
 	FullName        string   `json:"full_name,omitempty"`
-	DisplayName     string   `json:"display_name,omitempty"`
+	// DisplayName is a pointer so an owner can clear a nickname: absent
+	// keeps the current one, "" removes it.
+	DisplayName     *string  `json:"display_name,omitempty"`
 	CareType        string   `json:"care_type,omitempty"`
 	DateOfBirth     string   `json:"date_of_birth,omitempty"`
 	Gender          string   `json:"gender,omitempty"`
@@ -114,6 +117,15 @@ func pgText(s string) pgtype.Text {
 		return pgtype.Text{String: "", Valid: false}
 	}
 	return pgtype.Text{String: s, Valid: true}
+}
+
+// mergeDisplayName applies an update's display_name: nil keeps the current
+// value, anything else replaces it (trimmed; "" clears it).
+func mergeDisplayName(requested *string, current pgtype.Text) string {
+	if requested == nil {
+		return pgTextFrom(current)
+	}
+	return strings.TrimSpace(*requested)
 }
 
 func pgTextFrom(t pgtype.Text) string {
@@ -345,6 +357,13 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 	if workspaceID == uuid.Nil {
 		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "missing workspace context"}}}
 	}
+	// Owner-only (PRD AUTH-004), like archive and restore. The writer
+	// middleware lets caregivers through, and this endpoint also writes
+	// medical_notes, so without this check a caregiver could rewrite the
+	// profile.
+	if middleware.GetWorkspaceRole(r.Context()) != "owner" {
+		return service.ErrValidation{Errors: []service.RecipientError{{Field: "auth", Message: "only owners can edit recipients"}}}
+	}
 
 	recipientIDStr := chi.URLParam(r, "recipientID")
 	recipientID, err := uuid.Parse(recipientIDStr)
@@ -374,10 +393,7 @@ func (h *RecipientHandlers) handleUpdateRecipient(w http.ResponseWriter, r *http
 	if fullName == "" {
 		fullName = existing.FullName
 	}
-	displayName := req.DisplayName
-	if displayName == "" {
-		displayName = pgTextFrom(existing.DisplayName)
-	}
+	displayName := mergeDisplayName(req.DisplayName, existing.DisplayName)
 	careType := req.CareType
 	if careType == "" {
 		careType = existing.CareType
