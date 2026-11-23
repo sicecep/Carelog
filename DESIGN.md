@@ -350,7 +350,10 @@ note in `globals.css`.
   No drag handle, since sheets aren't draggable.
 - The primary action is pinned at the bottom of the sheet, above the safe area.
 - **Incident sheet:** opens in one tap, and dismissal by tapping the overlay is **disabled while
-  the form has input**. Closing then asks "Buang laporan?".
+  the form has input**. Closing then asks "Buang laporan?". Built as a step inside the sheet
+  (Lanjutkan focused first, Buang in danger red), not a second dialog. "Input" means a type,
+  any text or a photo; a severity tap alone is one tap to redo, so it doesn't ask. An urgent
+  report waiting to be shared to WhatsApp also ignores Escape and taps outside.
 
 ### 8.6 Dialogs, popovers, menus, selects: **shadcn/ui on Radix**
 

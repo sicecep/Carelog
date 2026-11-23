@@ -374,7 +374,7 @@
     "submit": "Kirim laporan",
     "submitted": "Terkirim!",
     "urgentNotifyTitle": "INSIDEN URGENT",
-    "urgentNotifyBody": "Laporan insiden tingkat tinggi/darurat telah dikirim. Owner akan mendapat notifikasi push & email segera.",
+    "urgentNotifyBody": "Laporan insiden tingkat tinggi/darurat telah dikirim. Pengelola akan mendapat notifikasi push & email segera.",
     "severity": {
       "low": {
         "label": "Rendah",
@@ -382,11 +382,11 @@
       },
       "medium": {
         "label": "Sedang",
-        "desc": "Owner perlu tahu segera"
+        "desc": "Pengelola perlu tahu segera"
       },
       "high": {
         "label": "Tinggi",
-        "desc": "Darurat — owner & 112 segera dihubungi"
+        "desc": "Darurat — pengelola & 112 segera dihubungi"
       },
       "emergency": {
         "label": "DARURAT",
@@ -396,7 +396,11 @@
     "sharePrompt": "Bagikan laporan darurat ini ke keluarga?",
     "shareWhatsApp": "Bagikan via WhatsApp",
     "shareSkip": "Selesai, tutup",
-    "shareMessage": "🚨 CareLog INSIDEN DARURAT\nJenis: {type}\nTingkat: {severity}\n\nApa yang terjadi:\n{description}\n\nTindakan yang diambil:\n{action}"
+    "shareMessage": "🚨 CareLog INSIDEN DARURAT\nJenis: {type}\nTingkat: {severity}\n\nApa yang terjadi:\n{description}\n\nTindakan yang diambil:\n{action}",
+    "discardTitle": "Buang laporan?",
+    "discardBody": "Yang sudah Anda isi akan hilang.",
+    "discardKeep": "Lanjutkan",
+    "discardConfirm": "Buang"
   },
   "settings": {
     "title": "Pengaturan",
