@@ -55,10 +55,19 @@ classes (`amber-500`, `red-600`, …). Every pairing below was checked against W
 | `--color-text` | `#1F2A24` | Primary text (dark forest) |
 | `--color-text-muted` | `#4A5952` | Secondary text, timestamps, placeholders (6.9:1) |
 | `--color-text-inverse` | `#FFFFFF` | Text on accent / error / emergency fills |
-| `--color-accent` | `#2F7D5D` | Primary actions, links, selected state (care green) |
-| `--color-accent-hover` | `#266B4E` | Accent hover/pressed |
-| `--color-accent-soft` | `#E3EFE8` | Selected chip fill, active nav pill |
-| `--color-accent-ink` | `#1D5A41` | Text/icons on `accent-soft` |
+| `--color-accent` | `#0E6B73` | Primary actions, links, selected state, app-bar hero (teal) |
+| `--color-accent-hover` | `#0A5A61` | Accent hover/pressed |
+| `--color-accent-soft` | `#DDF0F0` | Selected chip fill, active nav pill, standing-instruction banner |
+| `--color-accent-ink` | `#0A4F55` | Text/icons on `accent-soft` |
+| `--color-highlight` | `#E9A23B` | **New.** Kunyit (turmeric). Decoration only: selected-recipient ring, small dots. 2.2:1 on white, so never text or a control boundary |
+| `--color-highlight-soft` | `#FDF0DB` | "On duty" shift strip, last-logged time pills |
+| `--color-highlight-ink` | `#7A4D00` | Text/icons on `highlight-soft` (6.5:1) |
+
+**Why teal + kunyit (2026-11-23).** The old care green (`#2F7D5D`) sat in the same hue as the
+ride-hailing, chat and marketplace apps on the users' home screens, and health apps in
+Indonesia lean on hospital blue or magenta. Teal keeps the calm, trustworthy feel without
+looking like either; the warm turmeric highlight gives a second, homely colour so screens are
+not one-note. Status colours, severity, contributors and the WhatsApp button are unchanged.
 
 ### 2.2 Status
 
@@ -104,7 +113,7 @@ every day. Each badge shows the person's name plus their role label ("Bu Sari ·
 |---|---|---|---|
 | `owner` | `#EEE6F5` | `#5B2E82` | Workspace owner(s) |
 | `c1` blue | `#E3ECF7` | `#1F4E80` | 1st caregiver |
-| `c2` teal | `#DDF1EF` | `#145A55` | 2nd caregiver |
+| `c2` moss | `#E4F0E1` | `#2F5A26` | 2nd caregiver (was teal; moved so it never reads as the accent) |
 | `c3` terracotta | `#F7E5DC` | `#8A3A17` | 3rd caregiver |
 | `c4` olive | `#EEF0DC` | `#545C17` | 4th caregiver |
 | `c5` slate | `#E6E9EC` | `#36424D` | 5th+ caregiver (and revoked: "(dihapus)") |
@@ -134,10 +143,13 @@ emergency red, the WhatsApp/Google brand colours, and the white switch thumb. Th
 | `--color-text` | `#E8EDEA` |
 | `--color-text-muted` | `#A3B0A9` |
 | `--color-text-inverse` | `#0F1A14` (text on light accent) |
-| `--color-accent` | `#6CC59A` |
-| `--color-accent-hover` | `#85D3AC` |
-| `--color-accent-soft` | `#1B3A2A` |
-| `--color-accent-ink` | `#A8E8C8` |
+| `--color-accent` | `#5EC4C9` |
+| `--color-accent-hover` | `#7DD1D5` |
+| `--color-accent-soft` | `#123A3D` |
+| `--color-accent-ink` | `#A3E2E5` |
+| `--color-highlight` | `#E9B453` |
+| `--color-highlight-soft` | `#3A2C12` |
+| `--color-highlight-ink` | `#F2CF85` |
 | `--color-overlay` | `rgb(0 0 0 / 0.6)` |
 
 Status, severity and contributor colours in dark mode. The soft colours are dark, the inks are
@@ -152,7 +164,7 @@ light, and the fills are lifted so they read on the dark surface:
 | sev-low | `#5BBF7E` | `#18301F` | `#9ADBB0` |
 | sev-medium | `#E0A24A` | `#3A2A12` | `#F2C98A` |
 | sev-high | `#F07B6E` | `#3D1E1B` | `#F5B5AD` |
-| contrib owner / c1 / c2 / c3 / c4 / c5 | — | `#2E2140` / `#1B2A3D` / `#14302D` / `#3A2419` / `#2C2F17` / `#2A3036` | `#D2B8EA` / `#A9C6EC` / `#8FD6CE` / `#EDB89B` / `#D3D99A` / `#C3CCD5` |
+| contrib owner / c1 / c2 / c3 / c4 / c5 | — | `#2E2140` / `#1B2A3D` / `#1A2E17` / `#3A2419` / `#2C2F17` / `#2A3036` | `#D2B8EA` / `#A9C6EC` / `#A9D69B` / `#EDB89B` / `#D3D99A` / `#C3CCD5` |
 
 The emergency badge stays `#9B1C1C` with white text in both themes. Its pulsing ring has its
 own token, `--color-sev-emergency-ring`: deep red in light mode, and `#F07B6E` in dark mode,
@@ -435,22 +447,32 @@ Every interactive feature defines all three.
 
 - **Phosphor**: the `regular` weight by default, and `fill` for selected/active state. Not
   `thin`, which is illegible at small sizes on low-DPI screens.
-- Sizes: 20px inline with text, 24px in buttons and nav, 32px in category tiles.
+- Sizes: 20px inline with text, 24px in buttons and nav, 28px in a 48px category circle on tiles, 22px in a 40px circle on the timeline.
 - Icons always sit next to a text label on caregiver screens. An icon-only button needs an
   `aria-label` (from i18n).
-- One icon per category, used everywhere: log sheet, timeline, digest email.
+- One icon **and one colour** per category, used everywhere: log grid, quick-log tiles,
+  timeline, digest email. The shared component is `components/ui/CategoryIcon.tsx`: the icon
+  (ink colour) inside a soft circle of the category colour, 40px on the timeline and 48px on
+  tiles. The colour helps recognition (the Huckleberry / Sprout pattern); it never replaces
+  the label, so the circle is `aria-hidden`.
 
-| Category | Icon | Category | Icon |
-|---|---|---|---|
-| Meal | `ForkKnife` | Mood | `Smiley` |
-| Vitamins/Meds | `Pill` | Health | `Heart` |
-| Activity | *to pick* | Diaper | `Baby` |
-| Sleep | `Moon` | Note | `NotePencil` |
+| Category | Icon | Soft / ink (light) | Soft / ink (dark) | Ink on soft |
+|---|---|---|---|---|
+| Meal | `ForkKnife` | `#FDF0DB` / `#7A4D00` kunyit | `#3A2C12` / `#F2CF85` | 6.5 / 9.1 |
+| Medication | `Pill` | `#F0E7F7` / `#5E2D86` lavender | `#2E2140` / `#D2B8EA` | 8.0 / 8.4 |
+| Activity | `PersonSimpleRun` | `#E4F0E1` / `#2F5A26` moss | `#1A2E17` / `#A9D69B` | 6.8 / 8.8 |
+| Sleep | `Moon` | `#E6E8F7` / `#2B3680` indigo | `#1E2340` / `#B4BCF0` | 8.9 / 8.3 |
+| Diaper | `Baby` | `#E3ECF7` / `#1F4E80` sky | `#1B2A3D` / `#A9C6EC` | 7.2 / 8.3 |
+| Mood | `Smiley` | `#F7E5DC` / `#8A3A17` coral | `#3A2419` / `#EDB89B` | 6.4 / 8.2 |
+| Health | `Heart` | `#FBE6EA` / `#8C1D3B` rose | `#3D1C25` / `#F2AFC0` | 7.5 / 8.4 |
+| Learning | `BookOpen` | `#EEF0DC` / `#545C17` olive | `#2C2F17` / `#D3D99A` | 6.2 / 9.3 |
+| Therapy | `FirstAid` | `#F3E6EE` / `#7A2E5C` mauve | `#36202E` / `#E7B3D3` | 7.3 / 8.4 |
+| Note | `NotePencil` | `#E6E9EC` / `#36424D` slate | `#2A3036` / `#C3CCD5` | 8.4 / 8.2 |
 
-These are the icons already shipped in `CategoryGrid.tsx`. Activity isn't in the grid yet, so
-pick its icon when it's added, and confirm the name exists in the installed Phosphor package.
-The same check applies to `Info` (the severity `low` icon in §2.3). Incident types keep their
-existing icons (`IncidentSheet.tsx`).
+Tokens: `--color-cat-<id>-soft` / `-ink` in `globals.css`. Teal is deliberately not a category
+colour so a category circle never reads as the accent / selected state. Some hues match the
+contributor palette (§2.4); that's acceptable because both always carry a text label. Incident
+types keep their existing icons (`IncidentSheet.tsx`).
 
 ---
 
@@ -506,6 +528,10 @@ this revamp needs. Existing tokens not listed here stay as they are.
   /* new core */
   --color-border-control: #8C8273;
 
+  /* brand (teal + kunyit) */
+  --color-accent: #0E6B73; --color-accent-hover: #0A5A61; --color-accent-soft: #DDF0F0; --color-accent-ink: #0A4F55;
+  --color-highlight: #E9A23B; --color-highlight-soft: #FDF0DB; --color-highlight-ink: #7A4D00;
+
   /* status inks + info */
   --color-warning-ink: #7A5200;
   --color-success-ink: #1E6B41;
@@ -522,7 +548,7 @@ this revamp needs. Existing tokens not listed here stay as they are.
   /* contributor palette */
   --color-contrib-owner-soft: #EEE6F5; --color-contrib-owner-ink: #5B2E82;
   --color-contrib-c1-soft: #E3ECF7;    --color-contrib-c1-ink: #1F4E80;
-  --color-contrib-c2-soft: #DDF1EF;    --color-contrib-c2-ink: #145A55;
+  --color-contrib-c2-soft: #E4F0E1;    --color-contrib-c2-ink: #2F5A26;
   --color-contrib-c3-soft: #F7E5DC;    --color-contrib-c3-ink: #8A3A17;
   --color-contrib-c4-soft: #EEF0DC;    --color-contrib-c4-ink: #545C17;
   --color-contrib-c5-soft: #E6E9EC;    --color-contrib-c5-ink: #36424D;
@@ -596,14 +622,15 @@ whenever you change a token.
 |---|---|---|---|---|
 | text / bg | 13.9 | | sev-low ink / soft | 7.3 |
 | text-muted / bg | 6.9 | | sev-medium ink / soft | 6.5 |
-| inverse / accent | 5.0 | | sev-high ink / soft | 8.1 |
-| accent (link) / bg | 4.7 | | white / sev-emergency | 8.2 |
-| accent-ink / accent-soft | 6.9 | | contributor inks / softs | 6.2 – 8.4 |
+| inverse / accent | 6.2 | | sev-high ink / soft | 8.1 |
+| accent (link) / bg | 5.8 | | white / sev-emergency | 8.2 |
+| accent-ink / accent-soft | 7.9 | | contributor inks / softs | 6.2 – 8.4 |
+| highlight-ink / highlight-soft | 6.5 | | **dark** highlight-ink / soft | 9.1 |
 | error / surface | 5.4 | | border-control / surface (UI) | 3.8 |
 | error-ink / error-soft | 7.7 | | **dark** text / bg | 14.7 |
 | warning-ink / warning-soft | 6.4 | | **dark** text-muted / surface | 6.9 |
-| success-ink / success-soft | 5.9 | | **dark** accent / surface | 7.5 |
-| info-ink / info-soft | 7.4 | | **dark** on-accent / accent | 8.6 |
+| success-ink / success-soft | 5.9 | | **dark** accent / surface | 7.6 |
+| info-ink / info-soft | 7.4 | | **dark** on-accent / accent | 8.7 |
 | **dark** border-control / surface (UI) | 3.3 | | **dark** on-error / error (danger btn) | 6.6 |
 | **dark** error/warning/success/info ink / soft | 8.6 – 9.3 | | **dark** sev ink / soft | 8.6 – 8.9 |
 | **dark** emergency ring / surface (UI) | 5.8 | | **dark** contributor inks / softs | 8.2 – 9.3 |

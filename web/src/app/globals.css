@@ -25,10 +25,45 @@
      read as washed-out on phones in daylight. */
   --color-text-muted: #4A5952;
   --color-text-inverse: #FFFFFF;
-  --color-accent: #2F7D5D;
-  --color-accent-hover: #266B4E;
-  --color-accent-soft: #E3EFE8;
-  --color-accent-ink: #1D5A41;
+  /* Teal brand (DESIGN.md §2.1). Moved off care green, which blended in with
+     the ride-hailing and marketplace apps on the same home screens.
+     6.2:1 white-on-accent, 5.8:1 accent on bg, 7.9:1 ink on soft. */
+  --color-accent: #0E6B73;
+  --color-accent-hover: #0A5A61;
+  --color-accent-soft: #DDF0F0;
+  --color-accent-ink: #0A4F55;
+  /* Kunyit highlight: a second, warm colour for "on duty" strips, last-logged
+     times and the selected-recipient ring. The fill is 2.2:1 on white, so it
+     is decoration only — never text, never a control boundary. Text on the
+     soft fill uses the ink (6.5:1). */
+  --color-highlight: #E9A23B;
+  --color-highlight-soft: #FDF0DB;
+  --color-highlight-ink: #7A4D00;
+
+  /* Category colours (DESIGN.md §9): a soft circle behind each category icon
+     on the log grid, the quick-log tiles and the timeline, so a category is
+     recognised before its label is read. Always paired with icon + label.
+     Ink on soft is 6.2–8.9:1. */
+  --color-cat-meal-soft: #FDF0DB;
+  --color-cat-meal-ink: #7A4D00;
+  --color-cat-medication-soft: #F0E7F7;
+  --color-cat-medication-ink: #5E2D86;
+  --color-cat-activity-soft: #E4F0E1;
+  --color-cat-activity-ink: #2F5A26;
+  --color-cat-sleep-soft: #E6E8F7;
+  --color-cat-sleep-ink: #2B3680;
+  --color-cat-diaper-soft: #E3ECF7;
+  --color-cat-diaper-ink: #1F4E80;
+  --color-cat-mood-soft: #F7E5DC;
+  --color-cat-mood-ink: #8A3A17;
+  --color-cat-health-soft: #FBE6EA;
+  --color-cat-health-ink: #8C1D3B;
+  --color-cat-learning-soft: #EEF0DC;
+  --color-cat-learning-ink: #545C17;
+  --color-cat-therapy-soft: #F3E6EE;
+  --color-cat-therapy-ink: #7A2E5C;
+  --color-cat-note-soft: #E6E9EC;
+  --color-cat-note-ink: #36424D;
   --color-error: #C0392B;
   --color-error-soft: #FADBD8;
   --color-error-ink: #7B241C;
@@ -100,7 +135,7 @@
      2px accent ring — reads on any fill, including accent buttons. Was a
      3px accent-soft halo: ~1.2:1 on surface in both themes, effectively
      invisible to keyboard and switch-access users (WCAG 2.4.7 / 1.4.11).
-     Accent is 4.7–5.0:1 on light bg/surface and 7.5:1 on the dark surface. */
+     Accent is 5.8–6.2:1 on light bg/surface and 7.6:1 on the dark surface. */
   --shadow-focus: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-ring);
 
   /* Corner radii (DESIGN.md §5). These REPLACE Tailwind's defaults, so the
@@ -134,10 +169,34 @@
     --color-text: #E8EDEA;               /* 13.2:1 on surface */
     --color-text-muted: #A3B0A9;         /* 6.9:1 on surface */
     --color-text-inverse: #0F1A14;       /* text on the light dark-mode accent */
-    --color-accent: #6CC59A;             /* replaces neon #4ADE80 */
-    --color-accent-hover: #85D3AC;
-    --color-accent-soft: #1B3A2A;
-    --color-accent-ink: #A8E8C8;
+    --color-accent: #5EC4C9;             /* 7.6:1 on surface; inverse on it 8.7:1 */
+    --color-accent-hover: #7DD1D5;
+    --color-accent-soft: #123A3D;
+    --color-accent-ink: #A3E2E5;         /* 8.6:1 on accent-soft */
+    --color-highlight: #E9B453;
+    --color-highlight-soft: #3A2C12;
+    --color-highlight-ink: #F2CF85;      /* 9.1:1 on highlight-soft */
+    /* Category colours: dark soft circles, light inks (8.2–9.3:1). */
+    --color-cat-meal-soft: #3A2C12;
+    --color-cat-meal-ink: #F2CF85;
+    --color-cat-medication-soft: #2E2140;
+    --color-cat-medication-ink: #D2B8EA;
+    --color-cat-activity-soft: #1A2E17;
+    --color-cat-activity-ink: #A9D69B;
+    --color-cat-sleep-soft: #1E2340;
+    --color-cat-sleep-ink: #B4BCF0;
+    --color-cat-diaper-soft: #1B2A3D;
+    --color-cat-diaper-ink: #A9C6EC;
+    --color-cat-mood-soft: #3A2419;
+    --color-cat-mood-ink: #EDB89B;
+    --color-cat-health-soft: #3D1C25;
+    --color-cat-health-ink: #F2AFC0;
+    --color-cat-learning-soft: #2C2F17;
+    --color-cat-learning-ink: #D3D99A;
+    --color-cat-therapy-soft: #36202E;
+    --color-cat-therapy-ink: #E7B3D3;
+    --color-cat-note-soft: #2A3036;
+    --color-cat-note-ink: #C3CCD5;
 
     --color-error: #F07B6E;
     --color-error-soft: #3A1F1C;

@@ -26,6 +26,7 @@ import { CARE_TYPES, GENDERS, MODULES, RECIPIENT_MEASUREMENTS, VITAL_SPECS, type
 import { APIError, incidentApi, type Incident, type Recipient, type ReportEntry } from "@/lib/api-client";
 import { buildWhatsAppShareUrl } from "@/components/ui/IncidentSheet";
 import { SummarySheet } from "@/components/ui/SummarySheet";
+import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { formatClock } from "@/lib/format-time";
 import { EditRecipientSheet } from "@/components/ui/EditRecipientSheet";
 import { ageFrom } from "@/lib/recipient-details";
@@ -428,9 +429,10 @@ export function TimelineList({
         <ul className="space-y-3">
           {entries.map((entry) => (
             <li key={entry.id} className="card flex items-start gap-3">
-              <span className="w-14 shrink-0 pt-0.5 text-sm text-[var(--color-text-muted)]">
+              <span className="w-14 shrink-0 pt-2 text-sm tabular-nums text-[var(--color-text-muted)]">
                 {formatClock(entry.occurred_at, locale, timezone)}
               </span>
+              <CategoryIcon category={entry.category} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-[var(--color-text)]">
