@@ -8,6 +8,7 @@ import {
   shiftApi,
   taskApi,
   notificationApi,
+  workspaceApi,
   type MeResponse,
   type Recipient,
   type ShiftRow,
@@ -19,6 +20,7 @@ import { RecipientsSection } from "./recipients-section";
 import { HomeTasks } from "@/components/ui/HomeTasks";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { ShiftActions } from "@/components/ui/ShiftActions";
+import { DEFAULT_TIMEZONE } from "@/lib/format-time";
 
 interface DashboardPageProps {
   params: Promise<{ locale: string }>;
@@ -41,6 +43,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   let notifications: Notification[] = [];
   let unreadCount = 0;
   let activeShift: ShiftRow | undefined;
+  let workspaceTimezone = DEFAULT_TIMEZONE;
   let redirectToLogin = false;
   let loadFailed = false;
 
@@ -71,7 +74,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   if (workspace && !mustChangePassword) {
     try {
-      const [activeRes, archivedRes, tasksRes, notifRes, shiftRes] = await Promise.all([
+      const [activeRes, archivedRes, tasksRes, notifRes, shiftRes, settingsRes] = await Promise.all([
         recipientApi.list(workspace.id, forwarded),
         recipientApi.listArchived(workspace.id, forwarded),
         // TSK-002 home-screen section and NOT-002 bell. Non-fatal: the
@@ -85,6 +88,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         // checks in and would always 404.
         workspace.role === "caregiver"
           ? shiftApi.getActive(workspace.id, forwarded).catch(() => null)
+          : Promise.resolve(null),
+        // The shift card's check-in time is shown in the workspace's zone
+        // (not the server's or the phone's). Non-fatal: falls back to
+        // DEFAULT_TIMEZONE.
+        workspace.role === "caregiver"
+          ? workspaceApi.get(workspace.id, forwarded).catch(() => null)
           : Promise.resolve(null),
       ]);
       // Dedupe by id: the two endpoints are independent queries, so a row that
@@ -100,6 +109,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       notifications = notifRes?.data?.notifications ?? [];
       unreadCount = notifRes?.data?.unread_count ?? 0;
       activeShift = shiftRes?.data ?? undefined;
+      workspaceTimezone = settingsRes?.data?.timezone ?? DEFAULT_TIMEZONE;
     } catch (err) {
       if (err instanceof APIError && err.status === 401) {
         redirectToLogin = true;
@@ -162,6 +172,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   workspaceId={workspace.id}
                   caregiverId={me.user.id}
                   active={activeShift}
+                  timezone={workspaceTimezone}
                 />
               </div>
             )}

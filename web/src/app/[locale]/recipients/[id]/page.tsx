@@ -432,6 +432,7 @@ export default async function RecipientDetailPage({
                   incidents={filteredIncidents}
                   isOwner={isOwner}
                   workspaceId={workspaceId!}
+                  timezone={workspaceTimezone}
                 />
               )}
             </section>

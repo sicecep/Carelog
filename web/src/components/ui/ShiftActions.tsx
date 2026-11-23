@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { shiftApi, type ShiftRow } from "@/lib/api-client";
+import { formatClock } from "@/lib/format-time";
 
 /**
  * SFT-001 / SFT-002 — caregiver shift check-in and check-out on the home
@@ -30,12 +31,16 @@ export function ShiftActions({
   workspaceId,
   caregiverId,
   active,
+  timezone,
 }: {
   workspaceId: string;
   caregiverId: string;
   /** The caller's currently open shift, if any. undefined = not on shift. */
   active?: ShiftRow;
+  /** Workspace IANA zone: the check-in was a wall-clock event there. */
+  timezone?: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("shifts");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -94,7 +99,7 @@ export function ShiftActions({
               {t("onShiftLabel")}
             </p>
             <p className="mt-1 text-base text-[var(--color-success-ink)]">
-              {t("onShiftSince", { time: formatClock(active.checked_in_at) })}
+              {t("onShiftSince", { time: formatClock(active.checked_in_at, locale, timezone) })}
             </p>
           </div>
           {!handoffOpen && (
@@ -208,17 +213,4 @@ export function ShiftActions({
       )}
     </section>
   );
-}
-
-/** HH:MM in the browser's timezone; the check-in was a wall-clock event. */
-function formatClock(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(11, 16);
-  }
 }
