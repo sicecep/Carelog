@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  X,
   Info,
   Warning,
   WarningCircle,
@@ -24,6 +23,7 @@ import {
   type IncidentSeverity,
   type IncidentType,
 } from "@/lib/api-client";
+import { BottomSheet } from "./BottomSheet";
 import { PhotoRow, PHOTO_MAX, usePhotoAttachments } from "./photo-attachments";
 
 interface IncidentSheetProps {
@@ -125,6 +125,8 @@ const INCIDENT_TYPES: { id: IncidentType; icon: typeof Warning }[] = [
 const DESCRIPTION_MIN = 20;
 const DESCRIPTION_MAX = 1000;
 const ACTION_MAX = 500;
+// How long the success message shows before a low/medium report closes.
+const AUTO_CLOSE_MS = 1500;
 
 /**
  * Emergency-path bottom sheet for INC-001/INC-002. Reachable in one tap from
@@ -157,8 +159,18 @@ export function IncidentSheet({
   // CGR-015: photos picked before submit; compressed + uploaded on save.
   // Same machinery as the care-log sheet (./photo-attachments).
   const { photos, addPhotos, removePhoto, clearPhotos, uploadPhotos } = usePhotoAttachments();
+  // "Buang laporan?" (DESIGN.md §8.5): shown instead of closing when the
+  // caregiver taps X on a report that has input.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // The low/medium auto-close. Cleared on every reset, so a timer from one
+  // report can never close the next one opened within the delay.
+  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reset = useCallback(() => {
+    if (autoCloseTimer.current) {
+      clearTimeout(autoCloseTimer.current);
+      autoCloseTimer.current = null;
+    }
     clearPhotos();
     setStep("severity");
     setSeverity(null);
@@ -168,12 +180,42 @@ export function IncidentSheet({
     setSubmitting(false);
     setError(null);
     setSavedIncident(null);
+    setConfirmDiscard(false);
   }, [clearPhotos]);
 
   const handleClose = useCallback(() => {
     reset();
     onClose();
   }, [reset, onClose]);
+
+  // Don't leave a timer running after the sheet unmounts.
+  useEffect(() => () => {
+    if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
+  }, []);
+
+  // Anything the caregiver typed, picked or attached. Severity alone doesn't
+  // count: it is one tap to redo, and asking to confirm it would slow down
+  // backing out of a mis-tap.
+  const hasInput =
+    step === "details" &&
+    (type !== null ||
+      description.trim() !== "" ||
+      actionTaken.trim() !== "" ||
+      photos.length > 0);
+  // An urgent report waiting to be shared to WhatsApp must not be lost to a
+  // stray tap either; it is already saved, so its close button needs no
+  // confirmation.
+  const preventDismiss = hasInput || (step === "success" && savedIncident !== null);
+
+  // BottomSheet calls this for the close button (and for Escape / a tap
+  // outside when they are allowed).
+  const requestClose = useCallback(() => {
+    if (hasInput) {
+      setConfirmDiscard(true);
+      return;
+    }
+    handleClose();
+  }, [hasInput, handleClose]);
 
   const handleSeveritySelect = useCallback((s: IncidentSeverity) => {
     setSeverity(s);
@@ -216,7 +258,7 @@ export function IncidentSheet({
         setStep("success");
       } else {
         setStep("success");
-        setTimeout(handleClose, 1500);
+        autoCloseTimer.current = setTimeout(handleClose, AUTO_CLOSE_MS);
       }
     } catch (err) {
       setError(err instanceof APIError ? err.message : t("errorGeneric"));
@@ -225,257 +267,261 @@ export function IncidentSheet({
     }
   }, [severity, type, description, actionTaken, workspaceId, recipientId, onLogged, handleClose, t, photos, uploadPhotos]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--color-overlay)] sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="incident-sheet-title"
-      onClick={handleClose}
+    <BottomSheet
+      open={open}
+      onClose={requestClose}
+      title={t("title")}
+      closeLabel={t("close")}
+      preventDismiss={preventDismiss}
     >
-      <div
-        className="w-full max-w-lg overflow-y-auto rounded-t-xl bg-[var(--color-surface)] p-5 shadow-lg sm:max-h-[85vh] sm:rounded-xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h2
-            id="incident-sheet-title"
-            className="text-xl font-semibold text-[var(--color-text)]"
-          >
-            {t("title")}
-          </h2>
-          <button
-            type="button"
-            aria-label={t("close")}
-            onClick={handleClose}
-            className="btn-base btn-ghost btn-icon touch-target"
-          >
-            <X size={20} weight="bold" aria-hidden="true" />
-          </button>
+      {confirmDiscard && (
+        <div role="alertdialog" aria-labelledby="incident-discard-title" className="space-y-4">
+          <p id="incident-discard-title" className="text-lg font-semibold text-[var(--color-text)]">
+            {t("discardTitle")}
+          </p>
+          <p className="text-base text-[var(--color-text-muted)]">{t("discardBody")}</p>
+          <div className="flex gap-2">
+            {/* Keep is first and focused: closing loses the report, so
+                the safe choice is the default. */}
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setConfirmDiscard(false)}
+              className="btn-base btn-secondary flex-1 touch-target"
+            >
+              {t("discardKeep")}
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="btn-base btn-danger flex-1 touch-target"
+            >
+              {t("discardConfirm")}
+            </button>
+          </div>
         </div>
+      )}
 
-        {step === "severity" && (
-          <div>
-            <p className="mb-4 text-sm text-[var(--color-text-muted)]">
-              {t("selectSeverity")}
-            </p>
-            <div className="flex flex-col gap-3">
-              {SEVERITY_TILES.map(({ id, icon: Icon, labelKey, descKey, cls }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => handleSeveritySelect(id)}
+      {!confirmDiscard && step === "severity" && (
+        <div>
+          <p className="mb-4 text-sm text-[var(--color-text-muted)]">
+            {t("selectSeverity")}
+          </p>
+          <div className="flex flex-col gap-3">
+            {SEVERITY_TILES.map(({ id, icon: Icon, labelKey, descKey, cls }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleSeveritySelect(id)}
+                className={cn(
+                  "touch-target flex min-h-[64px] items-center gap-3 rounded-md border-2 p-4 text-left transition-[transform,background-color] duration-100 active:scale-[0.97]",
+                  cls
+                )}
+              >
+                <Icon size={28} weight="fill" aria-hidden="true" />
+                <div className="flex flex-col">
+                  <span className="text-base font-semibold">{t(labelKey)}</span>
+                  <span className="text-sm opacity-80">{t(descKey)}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!confirmDiscard && step === "details" && severity && (
+        <div className="space-y-5">
+          {/* Chosen severity as a color-coded badge — the details step is
+              otherwise monochrome, and the caregiver must always see WHAT
+              urgency they are reporting while typing. Pairs icon + color +
+              label (never color alone, same rule as the severity tiles). */}
+          {(() => {
+            const tile =
+              SEVERITY_TILES.find((s) => s.id === severity) ?? SEVERITY_TILES[0];
+            return (
+              <div className="flex items-center justify-between gap-3">
+                <span
                   className={cn(
-                    "touch-target flex min-h-[64px] items-center gap-3 rounded-md border-2 p-4 text-left transition-[transform,background-color] duration-100 active:scale-[0.97]",
-                    cls
+                    "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-semibold",
+                    tile.cls
                   )}
                 >
-                  <Icon size={28} weight="fill" aria-hidden="true" />
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold">{t(labelKey)}</span>
-                    <span className="text-sm opacity-80">{t(descKey)}</span>
-                  </div>
+                  <tile.icon size={16} weight="fill" aria-hidden="true" />
+                  {t(`severity.${severity}.label`)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStep("severity")}
+                  className="text-sm font-medium text-[var(--color-accent)] touch-target"
+                >
+                  {t("changeSeverity")}
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            );
+          })()}
 
-        {step === "details" && severity && (
-          <div className="space-y-5">
-            {/* Chosen severity as a color-coded badge — the details step is
-                otherwise monochrome, and the caregiver must always see WHAT
-                urgency they are reporting while typing. Pairs icon + color +
-                label (never color alone, same rule as the severity tiles). */}
-            {(() => {
-              const tile =
-                SEVERITY_TILES.find((s) => s.id === severity) ?? SEVERITY_TILES[0];
-              return (
-                <div className="flex items-center justify-between gap-3">
-                  <span
+          <fieldset>
+            <legend className="mb-2 text-base font-semibold text-[var(--color-text)]">
+              {tIncidents("type")}
+            </legend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {INCIDENT_TYPES.map(({ id: tp, icon: Icon }) => {
+                const selected = type === tp;
+                return (
+                  <button
+                    key={tp}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setType(tp)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-semibold",
-                      tile.cls
+                      // chip-sm keeps these at 56px (see globals.css — .chip
+                      // alone is the 120px onboarding tile). chip-selected is
+                      // the selected state that wins the cascade; a ring makes
+                      // the choice unmistakable on a phone in daylight, where
+                      // accent-soft vs white alone was too faint.
+                      "chip chip-sm touch-target flex-row gap-2 text-sm font-semibold",
+                      selected
+                        ? "chip-selected text-[var(--color-accent-ink)] ring-2 ring-[var(--color-accent)] ring-offset-1"
+                        : "text-[var(--color-text)]"
                     )}
                   >
-                    <tile.icon size={16} weight="fill" aria-hidden="true" />
-                    {t(`severity.${severity}.label`)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStep("severity")}
-                    className="text-sm font-medium text-[var(--color-accent)] touch-target"
-                  >
-                    {t("changeSeverity")}
+                    <Icon
+                      size={20}
+                      weight={selected ? "fill" : "regular"}
+                      className={selected ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}
+                      aria-hidden="true"
+                    />
+                    {tIncidents(`types.${tp}`)}
                   </button>
-                </div>
-              );
-            })()}
-
-            <fieldset>
-              <legend className="mb-2 text-base font-semibold text-[var(--color-text)]">
-                {tIncidents("type")}
-              </legend>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {INCIDENT_TYPES.map(({ id: tp, icon: Icon }) => {
-                  const selected = type === tp;
-                  return (
-                    <button
-                      key={tp}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setType(tp)}
-                      className={cn(
-                        // chip-sm keeps these at 56px (see globals.css — .chip
-                        // alone is the 120px onboarding tile). chip-selected is
-                        // the selected state that wins the cascade; a ring makes
-                        // the choice unmistakable on a phone in daylight, where
-                        // accent-soft vs white alone was too faint.
-                        "chip chip-sm touch-target flex-row gap-2 text-sm font-semibold",
-                        selected
-                          ? "chip-selected text-[var(--color-accent-ink)] ring-2 ring-[var(--color-accent)] ring-offset-1"
-                          : "text-[var(--color-text)]"
-                      )}
-                    >
-                      <Icon
-                        size={20}
-                        weight={selected ? "fill" : "regular"}
-                        className={selected ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"}
-                        aria-hidden="true"
-                      />
-                      {tIncidents(`types.${tp}`)}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-
-            <div>
-              <label
-                htmlFor="incident-description"
-                className="mb-1 block text-base font-semibold text-[var(--color-text)]"
-              >
-                {tIncidents("description")}{" "}
-                <span className="text-sm font-normal text-[var(--color-text-muted)]">
-                  ({t("min", { n: DESCRIPTION_MIN })})
-                </span>
-              </label>
-              <textarea
-                id="incident-description"
-                rows={4}
-                maxLength={DESCRIPTION_MAX}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("descriptionPlaceholder")}
-                className="input-base w-full resize-y py-3"
-              />
-              <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
-                {description.length}/{DESCRIPTION_MAX}
-              </p>
+                );
+              })}
             </div>
+          </fieldset>
 
-            <div>
-              <label
-                htmlFor="incident-action"
-                className="mb-1 block text-base font-semibold text-[var(--color-text)]"
-              >
-                {t("actionTaken")}{" "}
-                <span className="text-sm font-normal text-[var(--color-text-muted)]">
-                  ({t("optional")})
-                </span>
-              </label>
-              <textarea
-                id="incident-action"
-                rows={2}
-                maxLength={ACTION_MAX}
-                value={actionTaken}
-                onChange={(e) => setActionTaken(e.target.value)}
-                placeholder={t("actionTakenPlaceholder")}
-                className="input-base w-full resize-y py-3"
-              />
-            </div>
-
-            {/* CGR-015: a photo of the fall, bruise or spill carries more
-                than the 1000-char description ever could. Optional — an
-                incident must never be blocked on attaching one. */}
-            <PhotoRow
-              photos={photos}
-              disabled={submitting}
-              onAdd={addPhotos}
-              onRemove={removePhoto}
-              label={t("addPhoto")}
-              limitLabel={t("photoLimit", { max: PHOTO_MAX })}
-              inputId="incident-photo-input"
+          <div>
+            <label
+              htmlFor="incident-description"
+              className="mb-1 block text-base font-semibold text-[var(--color-text)]"
+            >
+              {tIncidents("description")}{" "}
+              <span className="text-sm font-normal text-[var(--color-text-muted)]">
+                ({t("min", { n: DESCRIPTION_MIN })})
+              </span>
+            </label>
+            <textarea
+              id="incident-description"
+              rows={4}
+              maxLength={DESCRIPTION_MAX}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t("descriptionPlaceholder")}
+              className="input-base w-full resize-y py-3"
             />
+            <p className="mt-1 text-right text-xs text-[var(--color-text-muted)]">
+              {description.length}/{DESCRIPTION_MAX}
+            </p>
+          </div>
 
-            {error && (
-              <p role="alert" className="text-sm text-[var(--color-error-ink)]">
-                {error}
-              </p>
-            )}
+          <div>
+            <label
+              htmlFor="incident-action"
+              className="mb-1 block text-base font-semibold text-[var(--color-text)]"
+            >
+              {t("actionTaken")}{" "}
+              <span className="text-sm font-normal text-[var(--color-text-muted)]">
+                ({t("optional")})
+              </span>
+            </label>
+            <textarea
+              id="incident-action"
+              rows={2}
+              maxLength={ACTION_MAX}
+              value={actionTaken}
+              onChange={(e) => setActionTaken(e.target.value)}
+              placeholder={t("actionTakenPlaceholder")}
+              className="input-base w-full resize-y py-3"
+            />
+          </div>
 
-            <div className="flex gap-2">
+          {/* CGR-015: a photo of the fall, bruise or spill carries more
+              than the 1000-char description ever could. Optional — an
+              incident must never be blocked on attaching one. */}
+          <PhotoRow
+            photos={photos}
+            disabled={submitting}
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+            label={t("addPhoto")}
+            limitLabel={t("photoLimit", { max: PHOTO_MAX })}
+            inputId="incident-photo-input"
+          />
+
+          {error && (
+            <p role="alert" className="text-sm text-[var(--color-error-ink)]">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setStep("severity")}
+              className="btn-base btn-secondary flex-1 touch-target"
+            >
+              {t("back")}
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !type || description.trim().length < DESCRIPTION_MIN}
+              className="btn-base btn-primary flex-1 touch-target disabled:opacity-50"
+            >
+              {submitting ? t("submitting") : t("submit")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!confirmDiscard && step === "success" && (
+        <div className="space-y-4 py-2">
+          <div className="success-panel flex items-center gap-2 py-4" role="status">
+            <span className="text-lg font-medium">{t("submitted")}</span>
+          </div>
+
+          {/* INC-003: WhatsApp handoff for high/emergency. Anchor (not
+              button) so the wa.me deep link works with the OS app chooser;
+              message text is built client-side in the caregiver's locale. */}
+          {savedIncident && (
+            <div className="space-y-3">
+              <p className="text-base text-[var(--color-text)]">{t("sharePrompt")}</p>
+              <a
+                href={buildWhatsAppShareUrl(
+                  t("shareMessage", {
+                    type: tIncidents(`types.${savedIncident.type}`),
+                    severity: tIncidents(`severities.${savedIncident.severity}`),
+                    description: savedIncident.description,
+                    action: savedIncident.action_taken || "-",
+                  })
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-whatsapp)] text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
+              >
+                <WhatsappLogo size={24} weight="fill" aria-hidden="true" />
+                <span>{t("shareWhatsApp")}</span>
+              </a>
               <button
                 type="button"
-                onClick={() => setStep("severity")}
-                className="btn-base btn-secondary flex-1 touch-target"
+                onClick={handleClose}
+                className="btn-base btn-secondary touch-target w-full"
               >
-                {t("back")}
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={submitting || !type || description.trim().length < DESCRIPTION_MIN}
-                className="btn-base btn-primary flex-1 touch-target disabled:opacity-50"
-              >
-                {submitting ? t("submitting") : t("submit")}
+                {t("shareSkip")}
               </button>
             </div>
-          </div>
-        )}
-
-        {step === "success" && (
-          <div className="space-y-4 py-2">
-            <div className="success-panel flex items-center gap-2 py-4" role="status">
-              <span className="text-lg font-medium">{t("submitted")}</span>
-            </div>
-
-            {/* INC-003: WhatsApp handoff for high/emergency. Anchor (not
-                button) so the wa.me deep link works with the OS app chooser;
-                message text is built client-side in the caregiver's locale. */}
-            {savedIncident && (
-              <div className="space-y-3">
-                <p className="text-base text-[var(--color-text)]">{t("sharePrompt")}</p>
-                <a
-                  href={buildWhatsAppShareUrl(
-                    t("shareMessage", {
-                      type: tIncidents(`types.${savedIncident.type}`),
-                      severity: tIncidents(`severities.${savedIncident.severity}`),
-                      description: savedIncident.description,
-                      action: savedIncident.action_taken || "-",
-                    })
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-base touch-target flex w-full items-center justify-center gap-2 rounded-md bg-[var(--color-whatsapp)] text-base font-semibold text-[var(--color-whatsapp-ink)] hover:bg-[var(--color-whatsapp-hover)]"
-                >
-                  <WhatsappLogo size={24} weight="fill" aria-hidden="true" />
-                  <span>{t("shareWhatsApp")}</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="btn-base btn-secondary touch-target w-full"
-                >
-                  {t("shareSkip")}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+          )}
+        </div>
+      )}
+    </BottomSheet>
   );
 }

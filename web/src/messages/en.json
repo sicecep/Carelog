@@ -382,21 +382,25 @@
       },
       "medium": {
         "label": "Medium",
-        "desc": "Owner needs to know soon"
+        "desc": "The care manager needs to know soon"
       },
       "high": {
         "label": "High",
-        "desc": "Emergency — owner & 911 contacted"
+        "desc": "Emergency — care manager & 112 contacted"
       },
       "emergency": {
         "label": "EMERGENCY",
-        "desc": "CALL 911 NOW"
+        "desc": "CALL 119/112 NOW"
       }
     },
     "sharePrompt": "Share this urgent report with the family?",
     "shareWhatsApp": "Share via WhatsApp",
     "shareSkip": "Done, close",
-    "shareMessage": "🚨 CareLog URGENT INCIDENT\nType: {type}\nSeverity: {severity}\n\nWhat happened:\n{description}\n\nAction taken:\n{action}"
+    "shareMessage": "🚨 CareLog URGENT INCIDENT\nType: {type}\nSeverity: {severity}\n\nWhat happened:\n{description}\n\nAction taken:\n{action}",
+    "discardTitle": "Discard this report?",
+    "discardBody": "What you've entered will be lost.",
+    "discardKeep": "Keep editing",
+    "discardConfirm": "Discard"
   },
   "settings": {
     "title": "Settings",
