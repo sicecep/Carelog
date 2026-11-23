@@ -109,7 +109,7 @@
     "customizeModules": "Customize modules",
     "modulesHint": "Choose which modules to enable for this profile. You can change this later.",
     "modulesLabel": "Active modules",
-    "modulesCanChangeLater": "Modules can be changed anytime in settings.",
+    "modulesCanChangeLater": "You can change these any time from Edit profile.",
     "createProfileSubmit": "Create profile",
     "progressLabel": "Onboarding progress",
     "step": "Step",
@@ -197,7 +197,10 @@
     "editSaved": "Profile saved",
     "editNameRequired": "Full name is required.",
     "editError": "Could not save. Please try again.",
-    "editOpen": "Edit profile"
+    "editOpen": "Edit profile",
+    "editModules": "Activities to log",
+    "editModulesHint": "These are the choices a caregiver sees when logging. Any care type can use any activity.",
+    "editModulesRequired": "Choose at least one activity."
   },
   "recipientDetails": {
     "heading": "Profile details",
@@ -338,7 +341,12 @@
       "afternoon": "Afternoon"
     },
     "addPhoto": "Add photo",
-    "photoLimit": "Max {max} photos"
+    "photoLimit": "Max {max} photos",
+    "textPlaceholders": {
+      "learning": "What was learned today? (optional)",
+      "therapy": "Which therapy, and for how long? (optional)"
+    },
+    "textSave": "Save"
   },
   "incidents": {
     "title": "Incidents",

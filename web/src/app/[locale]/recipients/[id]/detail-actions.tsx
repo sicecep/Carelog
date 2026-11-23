@@ -9,12 +9,15 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, WarningOctagon } from "phosphor-react";
 import { LoggingSheet } from "@/components/ui/LoggingSheet";
+import type { Module } from "@/lib/constants.generated";
 import { IncidentSheet } from "@/components/ui/IncidentSheet";
 import { shiftApi } from "@/lib/api-client";
 
 interface DetailActionsProps {
   recipientId: string;
   workspaceId: string;
+  /** The recipient's enabled modules: what the logging sheet offers. */
+  modules: Module[];
   /**
    * SFT-001 #4: caregivers are soft-blocked from logging before checking
    * in. Undefined for owners, who never check in and must never see this.
@@ -29,6 +32,7 @@ interface DetailActionsProps {
 export function DetailActions({
   recipientId,
   workspaceId,
+  modules,
   shiftPrompt,
 }: DetailActionsProps) {
   const t = useTranslations("logging");
@@ -155,6 +159,7 @@ export function DetailActions({
         onClose={() => setLoggingOpen(false)}
         recipientId={recipientId}
         workspaceId={workspaceId}
+        modules={modules}
         onLogged={handleLogged}
       />
       <IncidentSheet

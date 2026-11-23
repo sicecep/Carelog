@@ -442,6 +442,7 @@ export default async function RecipientDetailPage({
               <DetailActions
                 recipientId={recipient.id}
                 workspaceId={workspaceId}
+                modules={recipient.enabled_modules}
                 // SFT-001 #4: only caregivers get the soft-block. `shifts`
                 // holds the caller's own active shift for that role, so an
                 // empty array means "off shift".

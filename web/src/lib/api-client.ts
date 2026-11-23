@@ -286,6 +286,7 @@ export const recipientApi = {
     body: {
       full_name?: string;
       display_name?: string;
+      enabled_modules?: Module[];
       // "" clears gender / date_of_birth; null clears weight / height.
       // An absent key keeps the current value.
       gender?: Gender | "";

@@ -109,7 +109,7 @@
     "customizeModules": "Sesuaikan modul",
     "modulesHint": "Pilih modul yang ingin Anda aktifkan untuk profil ini. Bisa diubah nanti.",
     "modulesLabel": "Modul aktif",
-    "modulesCanChangeLater": "Modul bisa diubah kapan saja di pengaturan.",
+    "modulesCanChangeLater": "Bisa diubah kapan saja lewat Ubah profil.",
     "createProfileSubmit": "Buat profil",
     "progressLabel": "Kemajuan onboarding",
     "step": "Langkah",
@@ -197,7 +197,10 @@
     "editSaved": "Profil disimpan",
     "editNameRequired": "Nama lengkap wajib diisi.",
     "editError": "Gagal menyimpan. Coba lagi.",
-    "editOpen": "Ubah profil"
+    "editOpen": "Ubah profil",
+    "editModules": "Kegiatan yang dicatat",
+    "editModulesHint": "Pilihan ini yang muncul saat Pengasuh mencatat. Semua jenis perawatan bisa memakai kegiatan apa saja.",
+    "editModulesRequired": "Pilih minimal satu kegiatan."
   },
   "recipientDetails": {
     "heading": "Detail profil",
@@ -338,7 +341,12 @@
       "afternoon": "Sore"
     },
     "addPhoto": "Tambah foto",
-    "photoLimit": "Maks {max} foto"
+    "photoLimit": "Maks {max} foto",
+    "textPlaceholders": {
+      "learning": "Belajar apa hari ini? (opsional)",
+      "therapy": "Terapi apa dan berapa lama? (opsional)"
+    },
+    "textSave": "Simpan"
   },
   "incidents": {
     "title": "Insiden",
