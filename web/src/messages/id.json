@@ -56,7 +56,7 @@
     "forgotPasswordNoContact": "Hubungi admin CareLog untuk mengatur ulang kata sandi Anda.",
     "whoAreYou": "Siapa Anda?",
     "roleCaregiver": "Saya Pengasuh",
-    "roleCaregiverHint": "Yang mencatat kegiatan harian.",
+    "roleCaregiverHint": "Yang mencatat kegiatan harian. Juga untuk keluarga yang diundang.",
     "roleOwner": "Saya Pengelola",
     "roleOwnerHint": "Yang mengundang pengasuh dan memantau laporan.",
     "notYou": "Bukan Anda? Ganti",
