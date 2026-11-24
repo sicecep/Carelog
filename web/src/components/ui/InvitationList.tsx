@@ -1,40 +1,23 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
-import { X, UserPlus } from "phosphor-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { formatClock, formatShortDate } from "@/lib/format-time";
 import { Invitation, invitationApi, APIError } from "@/lib/api-client";
 
 interface InvitationListProps {
   workspaceId: string;
+  /** Active invitations fetched by the server page. */
+  initialInvites: Invitation[];
+  /** Workspace IANA zone for the dates shown. */
+  timezone: string;
 }
 
-export function InvitationList({ workspaceId }: InvitationListProps) {
+export function InvitationList({ workspaceId, initialInvites, timezone }: InvitationListProps) {
   const t = useTranslations("invitecaregiver");
-  const [open, setOpen] = useState(false);
-  const [invites, setInvites] = useState<Invitation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const locale = useLocale();
+  const [invites, setInvites] = useState<Invitation[]>(initialInvites);
   const [error, setError] = useState<string | null>(null);
-
-  const loadInvites = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await invitationApi.list(workspaceId);
-      if (res.data) setInvites(res.data);
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : t("errorGeneric"));
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId, t]);
-
-  const handleToggle = useCallback(() => {
-    const next = !open;
-    setOpen(next);
-    if (next) void loadInvites();
-  }, [open, loadInvites]);
 
   const handleRevoke = async (id: string) => {
     if (!window.confirm(t("confirmRevoke"))) return;
@@ -46,74 +29,40 @@ export function InvitationList({ workspaceId }: InvitationListProps) {
     }
   };
 
-  // Deterministic, locale-independent formatting.
-  //
-  // toLocaleString() resolves against the *runtime's* locale and timezone, which
-  // differ between the Node server and the phone (server is UTC, the phone is
-  // Asia/Jakarta). That produced two different strings for the same timestamp
-  // and tripped React's hydration check. A fixed format renders identically in
-  // both places, so there is nothing to mismatch.
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+  // Workspace zone + app locale, so the server render and the phone agree
+  // (lib/format-time.ts explains the hydration trap).
+  const formatDate = (iso: string) =>
+    `${formatShortDate(iso, locale, timezone)} ${formatClock(iso, locale, timezone)}`;
 
+  // Shown straight away (UI revamp phase 4); the section heading lives on
+  // the page. It used to sit behind a "Kelola Undangan" button.
   return (
-    <div className="mb-6">
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={cn(
-          "btn-base btn-secondary touch-target inline-flex items-center gap-2",
-          open && "bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
-        )}
-      >
-        <UserPlus size={20} weight="bold" aria-hidden="true" />
-        <span>{t("manageInvitations")}</span>
-      </button>
-
-      {open && (
-        <div className="mt-4 card p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-[var(--color-text)]">{t("pendingInvitations")}</h3>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="btn-base btn-ghost btn-icon touch-target"
-            >
-              <X size={20} weight="bold" aria-hidden="true" />
-            </button>
-          </div>
-
+    <div>
           {error && <p role="alert" className="mb-3 text-sm text-[var(--color-error-ink)]">{error}</p>}
 
-          {loading ? (
-            <p className="text-center text-[var(--color-text-muted)]">{t("loading")}</p>
-          ) : invites.length === 0 ? (
-            <p className="text-center text-[var(--color-text-muted)]">{t("noPending")}</p>
+          {invites.length === 0 ? (
+            <p className="card text-base text-[var(--color-text-muted)]">{t("noPending")}</p>
           ) : (
             <ul className="space-y-3" role="list">
               {invites.map((inv) => (
                 <li
                   key={inv.id}
-                  className="flex items-center justify-between gap-4 p-3 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border-strong)]"
+                  className="card flex items-center justify-between gap-4 p-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[var(--color-text)] truncate">{inv.invitee_name}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">
+                    <p className="text-lg font-semibold wrap-anywhere text-[var(--color-text)]">{inv.invitee_name}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">
                       {t("role")}: {inv.role === "caregiver" ? t("caregiverRole") : t("viewerRole")} •{" "}
                       {t("expires")} {formatDate(inv.expires_at)}
                     </p>
-                    <p className="text-xs text-[var(--color-text-muted)]">
+                    <p className="text-sm text-[var(--color-text-muted)]">
                       {t("created")} {formatDate(inv.created_at)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRevoke(inv.id)}
-                    className="btn-base btn-ghost touch-target px-3 py-2 text-sm text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)]"
+                    className="btn-base btn-ghost touch-target shrink-0 px-3 text-base text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)]"
                   >
                     {t("revoke")}
                   </button>
@@ -121,8 +70,6 @@ export function InvitationList({ workspaceId }: InvitationListProps) {
               ))}
             </ul>
           )}
-        </div>
-      )}
     </div>
   );
 }

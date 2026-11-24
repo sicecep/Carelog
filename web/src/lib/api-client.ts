@@ -527,8 +527,10 @@ export const invitationApi = {
     }),
 
   // GET /api/v1/invitations - Owner lists active invites
-  list: (workspaceId: string) =>
+  // `extraHeaders`: server-side cookie forward (see authApi.me).
+  list: (workspaceId: string, extraHeaders?: Record<string, string>) =>
     api.get<Invitation[]>("/api/v1/invitations", {
+      ...extraHeaders,
       "X-Workspace-ID": workspaceId,
     }),
 

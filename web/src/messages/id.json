@@ -573,6 +573,7 @@
   },
   "careteam": {
     "title": "Tim Perawat",
+    "membersHeading": "Anggota tim ({count})",
     "manage": "Kelola Tim Perawat",
     "loading": "Memuat...",
     "empty": "Belum ada pengasuh.",

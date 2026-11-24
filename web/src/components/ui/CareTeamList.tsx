@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
-import { X, UsersThree, LockSimple } from "phosphor-react";
+import { useLocale, useTranslations } from "next-intl";
+import { formatShortDate } from "@/lib/format-time";
+import { LockSimple } from "phosphor-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Member, memberApi, APIError } from "@/lib/api-client";
 
 interface CareTeamListProps {
@@ -16,14 +16,24 @@ interface CareTeamListProps {
   // Only owners get role/remove controls. Non-owners still see the roster,
   // because knowing who is on the care team is not privileged information.
   canManage: boolean;
+  /** Members fetched by the server page, so the list renders straight away. */
+  initialMembers: Member[];
+  /** Workspace IANA zone for the "joined" dates. */
+  timezone: string;
 }
 
 const ROLES: Member["role"][] = ["owner", "caregiver", "viewer"];
 
-export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeamListProps) {
+export function CareTeamList({
+  workspaceId,
+  currentUserId,
+  canManage,
+  initialMembers,
+  timezone,
+}: CareTeamListProps) {
   const t = useTranslations("careteam");
-  const [open, setOpen] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
+  const locale = useLocale();
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Tracks the row currently mid-request so only that row shows a pending state.
@@ -45,12 +55,6 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
       setLoading(false);
     }
   }, [workspaceId, t]);
-
-  const handleToggle = useCallback(() => {
-    const next = !open;
-    setOpen(next);
-    if (next) void loadMembers();
-  }, [open, loadMembers]);
 
   const roleLabel = (role: Member["role"]) => {
     if (role === "owner") return t("roleOwner");
@@ -134,46 +138,14 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
     }
   };
 
-  // Deterministic, locale-independent formatting. toLocaleString() resolves
-  // against the runtime's locale/timezone, which differs between the Node
-  // server (UTC) and the phone (Asia/Jakarta) — that mismatch trips React's
-  // hydration check. Same reasoning as InvitationList.
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-  };
+  // Workspace zone + app locale, so the server render and the phone agree
+  // (lib/format-time.ts explains the hydration trap).
+  const formatDate = (iso: string) => formatShortDate(iso, locale, timezone);
 
   return (
-    <div className="mb-6">
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-expanded={open}
-        className={cn(
-          "btn-base btn-secondary touch-target inline-flex items-center gap-2",
-          open && "bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
-        )}
-      >
-        <UsersThree size={20} weight="bold" aria-hidden="true" />
-        <span>{t("manage")}</span>
-      </button>
-
-      {open && (
-        <div className="mt-4 card p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-[var(--color-text)]">{t("title")}</h3>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label={t("close")}
-              className="btn-base btn-ghost btn-icon touch-target"
-            >
-              <X size={20} weight="bold" aria-hidden="true" />
-            </button>
-          </div>
-
+    // Shown straight away (UI revamp phase 4): the roster used to sit behind a
+    // "Kelola Tim Perawat" button and load only when opened.
+    <div>
           {error && (
             <p role="alert" className="mb-3 text-sm text-[var(--color-error-ink)]">
               {error}
@@ -196,10 +168,20 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                 return (
                   <li
                     key={m.user_id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3"
+                    className="card flex flex-wrap items-center justify-between gap-3 p-4"
                   >
-                    <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-                      <p className="truncate font-semibold text-[var(--color-text)]">
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${
+                        m.role === "owner"
+                          ? "bg-[var(--color-accent-soft)] text-[var(--color-accent-ink)]"
+                          : "bg-[var(--color-highlight-soft)] text-[var(--color-highlight-ink)]"
+                      }`}
+                    >
+                      {(displayName(m) ?? "?").trim().charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-lg font-semibold wrap-anywhere text-[var(--color-text)]">
                         {displayName(m)}
                         {isSelf && (
                           <span className="ml-2 rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-xs font-normal text-[var(--color-accent-ink)]">
@@ -212,11 +194,13 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           </span>
                         )}
                       </p>
-                      {m.email && (
-                        <p className="truncate text-xs text-[var(--color-text-muted)]">{m.email}</p>
+                      {/* The email is already the title when there is no
+                          name; don't print it twice. */}
+                      {m.email && m.email !== displayName(m) && (
+                        <p className="text-sm wrap-anywhere text-[var(--color-text-muted)]">{m.email}</p>
                       )}
                       {m.username && (
-                        <p className="truncate text-xs text-[var(--color-text-muted)]">
+                        <p className="text-sm wrap-anywhere text-[var(--color-text-muted)]">
                           {t("usernameLine", { username: m.username })}
                         </p>
                       )}
@@ -226,13 +210,13 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           {t("locked")}
                         </p>
                       )}
-                      <p className="text-xs text-[var(--color-text-muted)]">
+                      <p className="text-sm text-[var(--color-text-muted)]">
                         {roleLabel(m.role)} • {t("joined")} {formatDate(m.joined_at)}
                       </p>
                     </div>
 
                     {showControls && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full items-center gap-2">
                         <label className="sr-only" htmlFor={`role-${m.user_id}`}>
                           {t("changeRoleFor", { name: displayName(m) })}
                         </label>
@@ -246,7 +230,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           onChange={(e) =>
                             handleRoleChange(m.user_id, e.target.value as Member["role"])
                           }
-                          className="touch-target rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
+                          className="touch-target flex-1 rounded-md border border-[var(--color-border-control)] bg-[var(--color-surface)] px-3 text-base text-[var(--color-text)]"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -258,7 +242,7 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
                           type="button"
                           onClick={() => handleRemove(m.user_id)}
                           disabled={busy}
-                          className="btn-base btn-ghost touch-target px-3 text-sm text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
+                          className="btn-base btn-ghost touch-target px-3 text-base text-[var(--color-error-ink)] hover:bg-[var(--color-error-soft)] disabled:opacity-50"
                         >
                           {busy ? t("removing") : t("remove")}
                         </button>
@@ -349,8 +333,6 @@ export function CareTeamList({ workspaceId, currentUserId, canManage }: CareTeam
               })}
             </ul>
           )}
-        </div>
-      )}
     </div>
   );
 }
