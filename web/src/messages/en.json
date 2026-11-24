@@ -831,7 +831,12 @@
     "profileHeading": "My account",
     "signedInAs": "Signed in as {identity}",
     "logoutHint": "Sign out of CareLog on this device.",
-    "workspaceHeading": "Workspace settings"
+    "workspaceHeading": "Workspace settings",
+    "appearanceHeading": "Appearance",
+    "appearanceSystem": "Match my phone",
+    "appearanceSystemHint": "Light or dark follows your phone's setting.",
+    "appearanceLight": "Always light",
+    "appearanceLightHint": "Stays light even when your phone uses dark mode."
   },
   "today": {
     "title": "Today",

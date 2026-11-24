@@ -831,7 +831,12 @@
     "profileHeading": "Akun saya",
     "signedInAs": "Masuk sebagai {identity}",
     "logoutHint": "Keluar dari CareLog di perangkat ini.",
-    "workspaceHeading": "Pengaturan workspace"
+    "workspaceHeading": "Pengaturan workspace",
+    "appearanceHeading": "Tampilan",
+    "appearanceSystem": "Ikuti pengaturan HP",
+    "appearanceSystemHint": "Terang atau gelap mengikuti HP Anda.",
+    "appearanceLight": "Selalu terang",
+    "appearanceLightHint": "Tetap terang walaupun HP memakai mode gelap."
   },
   "today": {
     "title": "Hari Ini",

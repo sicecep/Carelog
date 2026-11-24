@@ -126,7 +126,10 @@ the entry card. Entries from other contributors shown to a caregiver (RPT-005) u
 ### 2.5 Dark mode
 
 Dark mode follows the phone's setting (`prefers-color-scheme`). A `.light` class on `<html>`
-opts out; it's the hook for a future settings toggle. It works by **redefining the same tokens**
+opts out: **Akun → Tampilan** offers "Ikuti pengaturan HP" (default) or "Selalu terang", stored
+per device in the `cl_appearance` cookie and read by the `[locale]` layout so the first paint is
+already right (`lib/appearance.ts`). There is no "always dark": it would need a second copy of
+the dark token block, and people who want dark already set it on their phone. It works by **redefining the same tokens**
 in one `@media (prefers-color-scheme: dark)` block in `globals.css`, so components never need
 Tailwind `dark:` utilities or raw palette classes (`gray-900`, `bg-white`). Those don't switch
 with the tokens, so they aren't used. The only deliberate exceptions are white text on the
