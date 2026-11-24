@@ -15,6 +15,8 @@ import { WorkspaceSettingsForm } from "@/components/ui/WorkspaceSettingsForm";
 import { ReminderSettings } from "@/components/ui/ReminderSettings";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { LogoutButton } from "@/components/ui/LogoutButton";
+import { AppearanceSetting } from "@/components/ui/AppearanceSetting";
+import { APPEARANCE_COOKIE, parseAppearance } from "@/lib/appearance";
 
 interface SettingsPageProps {
   params: Promise<{ locale: string }>;
@@ -137,6 +139,12 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             <LogoutButton />
           </div>
         </section>
+
+        {/* Device preference, not account data: works even if the workspace
+            failed to load. */}
+        <AppearanceSetting
+          initial={parseAppearance((await cookies()).get(APPEARANCE_COOKIE)?.value)}
+        />
 
         {loadFailed || !workspace ? (
           <p role="alert" className="card mt-6 p-6 text-base text-[var(--color-error-ink)]">

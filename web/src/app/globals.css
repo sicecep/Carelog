@@ -156,7 +156,8 @@
 }
 
 /* Dark mode (DESIGN.md §2.5). Follows the phone's setting; a `.light` class
-   on <html> opts out (hook for a future settings toggle). This redefines
+   on <html> opts out — set by Akun → Tampilan → "Selalu terang"
+   (lib/appearance.ts, read in the [locale] layout). This redefines
    the REAL tokens that components read — the old version only switched the
    aliases above, which nothing reads, and produced dark text on a dark page.
    The aliases need no override: they resolve through these tokens.
