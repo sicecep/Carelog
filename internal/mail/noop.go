@@ -22,7 +22,6 @@ func NewNoopMailer(logger *slog.Logger) *NoopMailer {
 // SendMagicLink logs the magic link instead of sending an email.
 func (m *NoopMailer) SendMagicLink(ctx context.Context, toEmail, link, locale string) error {
 	m.logger.Info("magic link email (noop)",
-		"to", toEmail,
 		"link", link,
 		"locale", locale,
 	)
@@ -32,7 +31,6 @@ func (m *NoopMailer) SendMagicLink(ctx context.Context, toEmail, link, locale st
 // SendDailyDigest logs the daily digest instead of sending an email.
 func (m *NoopMailer) SendDailyDigest(ctx context.Context, toEmail string, data DigestEmailData) error {
 	m.logger.Info("daily digest email (noop)",
-		"to", toEmail,
 		"workspace", data.WorkspaceName,
 		"date", data.Date,
 		"recipients_count", len(data.Recipients),
@@ -45,7 +43,6 @@ func (m *NoopMailer) SendDailyDigest(ctx context.Context, toEmail string, data D
 // can still verify the tiering.
 func (m *NoopMailer) SendIncidentAlert(ctx context.Context, toEmail string, data IncidentAlertData) error {
 	m.logger.Info("incident alert email (noop)",
-		"to", toEmail,
 		"workspace", data.WorkspaceName,
 		"recipient", data.RecipientName,
 		"type", data.Type,
@@ -61,7 +58,6 @@ func (m *NoopMailer) SendIncidentAlert(ctx context.Context, toEmail string, data
 // fired for the right caregiver without a real mailbox.
 func (m *NoopMailer) SendCaregiverReminder(ctx context.Context, toEmail string, data ReminderEmailData) error {
 	m.logger.Info("caregiver reminder email (noop)",
-		"to", toEmail,
 		"workspace", data.WorkspaceName,
 		"caregiver", data.CaregiverName,
 		"locale", data.Locale,

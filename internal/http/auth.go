@@ -239,7 +239,7 @@ func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) e
 	// response and skip the email entirely — browser automation signs in
 	// without burning Resend quota or minting tokens via psql.
 	if h.Config != nil && h.Config.AuthDevExposeLink {
-		slog.Info("magic link dev-expose: returning link, skipping email", "email", req.Email)
+		slog.Info("magic link dev-expose: returning link, skipping email")
 		response.Created(w, ptr(MagicLinkResponse{
 			Message:     "If the email exists, a magic link has been sent",
 			DevVerifyURL: verifyLink,
@@ -255,7 +255,7 @@ func (h *AuthHandlers) handleMagicLink(w http.ResponseWriter, r *http.Request) e
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := h.Mailer.SendMagicLink(ctx, req.Email, verifyLink, locale); err != nil {
-			slog.Error("magic link send failed", "email", req.Email, "error", err)
+			slog.Error("magic link send failed", "error", err)
 		}
 	}()
 

@@ -76,7 +76,7 @@ func SendCaregiverReminders(
 			// the rest of the household's caregivers from being reminded.
 			logger.Error("caregiver reminder failed",
 				"user_id", c.ID, "workspace_id", c.WorkspaceID, "error", err)
-			failures = append(failures, fmt.Sprintf("%s: %v", c.Email.String, err))
+			failures = append(failures, fmt.Sprintf("%s: %v", c.ID, err))
 			continue
 		}
 		sent++
