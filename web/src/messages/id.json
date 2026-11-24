@@ -650,7 +650,8 @@
     "tempPasswordHelp": "Kirim ke pemilik akun lewat WhatsApp. Hanya ditampilkan sekali — mereka wajib menggantinya saat masuk.",
     "copy": "Salin",
     "copied": "Tersalin",
-    "done": "Selesai"
+    "done": "Selesai",
+    "backToAccount": "Kembali ke Akun"
   },
   "workspaceSettings": {
     "title": "Pengaturan Workspace",
@@ -836,7 +837,10 @@
     "appearanceSystem": "Ikuti pengaturan HP",
     "appearanceSystemHint": "Terang atau gelap mengikuti HP Anda.",
     "appearanceLight": "Selalu terang",
-    "appearanceLightHint": "Tetap terang walaupun HP memakai mode gelap."
+    "appearanceLightHint": "Tetap terang walaupun HP memakai mode gelap.",
+    "adminHeading": "Administrasi",
+    "adminHint": "Setujui atau tolak pendaftar baru, dan atur ulang kata sandi pengelola.",
+    "adminOpen": "Buka Administrasi"
   },
   "today": {
     "title": "Hari Ini",

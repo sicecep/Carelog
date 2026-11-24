@@ -191,8 +191,11 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                 key={u.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-4"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[var(--color-text)]">
+                {/* Full width on a phone, so the name and email show whole
+                    and the buttons wrap below: an admin must see who they are
+                    approving. Side by side from sm up. */}
+                <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+                  <p className="font-semibold wrap-anywhere text-[var(--color-text)]">
                     {displayName(u)}
                     {u.is_super_admin && (
                       <span className="ml-2 rounded-full bg-[var(--color-accent-soft)] px-2 py-0.5 text-xs font-normal text-[var(--color-accent-ink)]">
@@ -200,7 +203,7 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-sm text-[var(--color-text-muted)]">
+                  <p className="text-sm wrap-anywhere text-[var(--color-text-muted)]">
                     {[u.email, u.phone].filter(Boolean).join(" · ")}
                   </p>
                   <p className="text-xs text-[var(--color-text-muted)]">
@@ -213,7 +216,7 @@ export function AdminUserList({ initialUsers }: AdminUserListProps) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
                   {u.approval_status !== "approved" && (
                     <button
                       type="button"

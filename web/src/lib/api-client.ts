@@ -94,6 +94,8 @@ export interface AuthUser {
   locale: string;
   email_verified: boolean;
   onboarding_completed: boolean;
+  /** Present (true) only for platform admins. */
+  is_super_admin?: boolean;
 }
 
 export interface AuthWorkspace {

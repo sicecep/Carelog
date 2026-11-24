@@ -609,6 +609,11 @@ type MeResponse struct {
 		EmailVerified  bool   `json:"email_verified"`
 		PhoneVerified  bool   `json:"phone_verified"`
 		OnboardingDone bool   `json:"onboarding_completed"`
+		// Present (true) only for platform admins, so the web can show the
+		// Administrasi link in the Akun tab. omitempty keeps it out of every
+		// other user's response: /admin answers 404 to non-admins so its
+		// existence isn't disclosed, and this must not undo that.
+		IsSuperAdmin bool `json:"is_super_admin,omitempty"`
 	} `json:"user"`
 	Workspaces []struct {
 		ID     string `json:"id"`
@@ -685,6 +690,7 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) error {
 			EmailVerified  bool   `json:"email_verified"`
 			PhoneVerified  bool   `json:"phone_verified"`
 			OnboardingDone bool   `json:"onboarding_completed"`
+			IsSuperAdmin   bool   `json:"is_super_admin,omitempty"`
 		}{
 			ID:             user.ID.String(),
 			Email:          user.Email.String,
@@ -695,6 +701,7 @@ func (h *AuthHandlers) handleMe(w http.ResponseWriter, r *http.Request) error {
 			EmailVerified:  user.EmailVerifiedAt.Valid,
 			PhoneVerified:  user.PhoneVerifiedAt.Valid,
 			OnboardingDone: user.OnboardingCompleted,
+			IsSuperAdmin:   user.IsSuperAdmin,
 		},
 		Workspaces: workspaces,
 		Auth:       authState,
