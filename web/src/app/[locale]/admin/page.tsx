@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { APIError, adminApi, type AdminUser } from "@/lib/api-client";
 import { AdminUserList } from "@/components/ui/AdminUserList";
+import { AppHeader } from "@/components/ui/AppHeader";
 
 interface AdminPageProps {
   params: Promise<{ locale: string }>;
@@ -17,7 +18,6 @@ interface AdminPageProps {
 export default async function AdminPage({ params }: AdminPageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "admin" });
-  const common = await getTranslations({ locale, namespace: "common" });
 
   // Server-side fetch has no cookie jar, so the incoming Cookie header is
   // forwarded to the Go API explicitly. See authApi.me for the full reasoning.
@@ -57,14 +57,14 @@ export default async function AdminPage({ params }: AdminPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <span className="text-lg font-semibold text-[var(--color-text)]">
-            {common("appName")} · {t("title")}
-          </span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--color-bg)] pb-24 md:pb-0">
+      {/* Reached from Akun → Administrasi, so the back arrow returns there. */}
+      <AppHeader
+        locale={locale}
+        backHref={`/${locale}/settings`}
+        backLabel={t("backToAccount")}
+        title={t("title")}
+      />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-medium text-[var(--color-text)]">

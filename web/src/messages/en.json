@@ -650,7 +650,8 @@
     "tempPasswordHelp": "Send it to the account owner on WhatsApp. It's shown only once — they must change it when they sign in.",
     "copy": "Copy",
     "copied": "Copied",
-    "done": "Done"
+    "done": "Done",
+    "backToAccount": "Back to Account"
   },
   "workspaceSettings": {
     "title": "Workspace Settings",
@@ -836,7 +837,10 @@
     "appearanceSystem": "Match my phone",
     "appearanceSystemHint": "Light or dark follows your phone's setting.",
     "appearanceLight": "Always light",
-    "appearanceLightHint": "Stays light even when your phone uses dark mode."
+    "appearanceLightHint": "Stays light even when your phone uses dark mode.",
+    "adminHeading": "Administration",
+    "adminHint": "Approve or reject new sign-ups, and reset owners' passwords.",
+    "adminOpen": "Open Administration"
   },
   "today": {
     "title": "Today",

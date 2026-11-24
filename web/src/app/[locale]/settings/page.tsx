@@ -140,6 +140,25 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           </div>
         </section>
 
+        {/* Platform admins only: the way into approving sign-ups. The API
+            sends is_super_admin to admins alone, so nobody else learns the
+            page exists. */}
+        {me?.user.is_super_admin && (
+          <section className="card mt-6" aria-labelledby="admin-heading">
+            <h2 id="admin-heading" className="text-lg font-semibold text-[var(--color-text)]">
+              {tMe("adminHeading")}
+            </h2>
+            <p className="mt-1 text-base text-[var(--color-text-muted)]">{tMe("adminHint")}</p>
+            <Link
+              href={`/${locale}/admin`}
+              data-testid="akun-admin-link"
+              className="btn-base btn-secondary touch-target mt-4 w-full sm:w-auto"
+            >
+              {tMe("adminOpen")}
+            </Link>
+          </section>
+        )}
+
         {/* Device preference, not account data: works even if the workspace
             failed to load. */}
         <AppearanceSetting
