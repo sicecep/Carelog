@@ -1,8 +1,7 @@
 @import "tailwindcss";
-/* shadcn/ui runtime CSS: enter/exit animations and the data-open /
-   data-checked / … variants its components use. Neither defines colours. */
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+/* shadcn/ui: components added later may need `tw-animate-css` (enter/exit
+   animations) and `shadcn/tailwind.css` (data-open / data-checked variants).
+   Each gets imported here in the PR that first needs it. */
 
 /* shadcn components ship `dark:` utilities. Point the variant at the same
    condition the tokens use (phone in dark mode, no `.light` opt-out), so a
