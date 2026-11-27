@@ -1,6 +1,10 @@
 # CareLog Design System — v2 (UI revamp)
 
 > Status: **spec for the revamp.** Screens move to this system one PR at a time.
+> **Brand v2 (approved 2026-11-27):** warm cream, forest, sage, terracotta and lavender; Plus
+> Jakarta Sans + Inter; Lucide icons; pastel category tiles and pill buttons. The shipped app is
+> still on the teal/kunyit/Geist/Phosphor brand; see §14 for what changes. Per-page specs live in
+> `docs/design/` (`brand-v2.md` holds the decision record).
 > `web/src/app/globals.css` is the implementation. Where the code still differs from this spec,
 > see [§14 Migration notes](#14-migration-notes). Library choices follow the
 > `carelog-ui-libraries` skill (`.claude/skills/carelog-ui-libraries/`).
@@ -9,22 +13,26 @@
 
 ## 1. Brand & principles
 
-**Personality:** warm, trustworthy, calm — like a well-organized care notebook. Not clinical,
-not playful. Reliable.
+**Personality:** warm, reassuring, quietly premium — a family companion, not daycare
+management software. The question every screen answers is "Bagaimana hari si kecil?". Not
+clinical, not cartoonish.
 
 Five rules decide any design argument:
 
 1. **Bu Sari first.** Every caregiver screen must be completable in ≤ 3 taps, in Bahasa
    Indonesia, one-handed, on a 360px Galaxy A14 in daylight. If an owner-screen idea makes a
    caregiver screen worse, the caregiver screen wins.
-2. **Calm, not decorated.** The colour accent is spent on the one action that matters.
-   Gradients, glows, glassmorphism, and decorative motion are not used in the app.
+2. **Soft, not decorated.** The forest accent is spent on the one action that matters. Colour
+   elsewhere is soft pastel tints that help recognition (category tiles, contributor badges).
+   Glows, glassmorphism, cartoon characters and decorative motion are not used in the app;
+   illustrations appear only in onboarding and empty states.
 3. **Status is never colour alone.** Severity, contributor, and state always pair a colour with
    a text label and an icon or shape.
 4. **The record is the product.** Timelines and reports must read like a tidy logbook: clear
    times, clear attribution, consistent rhythm.
-5. **Fast on 3G.** No webfont beyond Geist, no heavy animation runtime on the caregiver path,
-   < 200 KB gzipped initial JS (PERF-006).
+5. **Fast on 3G.** Two webfonts at most (Plus Jakarta Sans for headings, Inter for body, both
+   subset and `display: swap`), no heavy animation runtime on the caregiver path, < 200 KB
+   gzipped initial JS (PERF-006).
 
 ### Three surfaces, three densities
 
@@ -46,29 +54,31 @@ classes (`amber-500`, `red-600`, …). Every pairing below was checked against W
 
 | Token | Hex | Usage |
 |---|---|---|
-| `--color-bg` | `#FAF7F2` | Page background (warm cream) |
+| `--color-bg` | `#F8F7F2` | Page background (warm cream) |
 | `--color-surface` | `#FFFFFF` | Cards, sheets, dialogs, inputs |
-| `--color-surface-hover` | `#F5F0E8` | Hover/pressed fill, secondary button fill |
-| `--color-border` | `#E5DED2` | Decorative dividers only (not a control boundary) |
-| `--color-border-strong` | `#D4C9B8` | Card outlines (paired with shadow) |
-| `--color-border-control` | `#8C8273` | **New.** Input and unselected-chip outlines: 3.8:1, meets the non-text 3:1 rule |
-| `--color-text` | `#1F2A24` | Primary text (dark forest) |
-| `--color-text-muted` | `#4A5952` | Secondary text, timestamps, placeholders (6.9:1) |
+| `--color-surface-hover` | `#F1EFE7` | Hover/pressed fill, secondary button fill |
+| `--color-border` | `#ECE9E0` | Hairline card borders and dividers (not a control boundary) |
+| `--color-border-strong` | `#E0DCD0` | Stronger dividers, dashed "already done" chips |
+| `--color-border-control` | `#8A8C83` | Input and unselected-chip outlines: 3.4:1, meets the non-text 3:1 rule |
+| `--color-text` | `#333630` | Primary text (11.4:1 on bg) |
+| `--color-text-muted` | `#63655D` | Secondary text, timestamps, placeholders (5.5:1 on bg, 4.9:1 on the pastel tints) |
 | `--color-text-inverse` | `#FFFFFF` | Text on accent / error / emergency fills |
-| `--color-accent` | `#0E6B73` | Primary actions, links, selected state, app-bar hero (teal) |
-| `--color-accent-hover` | `#0A5A61` | Accent hover/pressed |
-| `--color-accent-soft` | `#DDF0F0` | Selected chip fill, active nav pill, standing-instruction banner |
-| `--color-accent-ink` | `#0A4F55` | Text/icons on `accent-soft` |
-| `--color-highlight` | `#E9A23B` | **New.** Kunyit (turmeric). Decoration only: selected-recipient ring, small dots. 2.2:1 on white, so never text or a control boundary |
-| `--color-highlight-soft` | `#FDF0DB` | "On duty" shift strip, last-logged time pills |
-| `--color-highlight-ink` | `#7A4D00` | Text/icons on `highlight-soft` (6.5:1) |
-| `--color-hero` / `--color-on-hero` | `#0E6B73` / `#FFFFFF` | **New.** "Hari Ini" hero band and its app bar (6.2:1). Dark: `#123A3D` / `#E8EDEA` (10.4:1) |
+| `--color-accent` | `#34483B` | **Forest.** Primary actions, links, selected state, active nav (9.8:1 with white) |
+| `--color-accent-hover` | `#2A3B30` | Accent hover/pressed |
+| `--color-accent-soft` | `#E7ECE2` | Selected chip fill, sage tint |
+| `--color-accent-ink` | `#34483B` | Text/icons on `accent-soft` (8.2:1) |
+| `--color-sage` | `#A8B7A0` | **Decoration only:** large fills, illustration, progress tracks. 2.1:1 with white and 2.0:1 on bg, so never text, a button or a control boundary |
+| `--color-highlight` | `#D99A7B` | **Terracotta.** Decoration only: photo ring, mark dot, accent button fill (dark text on it, 5.2:1). White on it is 2.4:1, so never white text |
+| `--color-highlight-soft` | `#F8E6DC` | Recipient card, "Ringkasan akhir hari" card, activity tint |
+| `--color-highlight-ink` | `#9A5536` | Text/icons on `highlight-soft` (4.7:1) |
+| `--color-lavender` / `-soft` / `-ink` | `#D9D4E8` / `#ECE8F4` / `#4A3F73` | Standing instructions, owner contributor, sleep tint (ink on soft 7.7:1) |
+| `--color-hero` / `--color-on-hero` | `#F8F7F2` / `#333630` | Kept for compatibility: the hero band is gone in v2, so it equals `bg` / `text` |
 
-**Why teal + kunyit (2026-11-23).** The old care green (`#2F7D5D`) sat in the same hue as the
-ride-hailing, chat and marketplace apps on the users' home screens, and health apps in
-Indonesia lean on hospital blue or magenta. Teal keeps the calm, trustworthy feel without
-looking like either; the warm turmeric highlight gives a second, homely colour so screens are
-not one-note. Status colours, severity, contributors and the WhatsApp button are unchanged.
+**Why brand v2 (2026-11-27).** Teal + kunyit read as a well-run care tool; the product is a
+family companion whose job is to make parents feel close and reassured. The cream, forest and
+pastel palette (from the "premium parent dashboard" direction) feels like a wellness app rather
+than daycare software. The prompt's own sage and grey text failed contrast, so sage is
+decoration only, buttons are forest, and secondary text is darkened from `#85877F` to `#63655D`.
 
 ### 2.2 Status
 
@@ -78,10 +88,10 @@ and 2.9:1), so text always uses the `-ink` token.
 
 | Status | Fill | Soft | Ink | Use |
 |---|---|---|---|---|
-| error | `#C0392B` | `#FADBD8` | `#7B241C` | Validation errors, destructive actions, failed saves |
-| warning | `#D4A017` | `#FEF5E7` | `#7A5200` **(new)** | Pending, offline, grace period, "not checked in" soft-block |
-| success | `#27AE60` | `#E8F8F0` | `#1E6B41` **(new)** | Saved, submitted, shift completed |
-| info | `#2563A8` **(new)** | `#E6EFF8` | `#1F4E80` | Parent instructions (daily), handoff banner, tips |
+| error | `#B93A2E` | `#F9E0DC` | `#7B241C` | Validation errors, destructive actions, failed saves |
+| warning | `#C9971A` | `#FBF1DC` | `#7A5200` | Pending, offline, grace period, "already logged" |
+| success | `#4F7A57` | `#E3EFDF` | `#2F5A26` | Saved, submitted, "Ringkasan sudah diisi" |
+| info | `#4A6A8A` | `#E4ECF2` | `#2E4E66` | Daily instructions, tips, the "Ringkasan" badge |
 | whatsapp (brand) | `#25D366` (hover `#1EBE5A`) | — | `#111B21` | WhatsApp share buttons only. Dark text: white on this green is 2.0:1. Same in both themes |
 
 ### 2.3 Incident severity (INC-003)
@@ -90,12 +100,12 @@ The PRD specifies **Low = green, Medium = amber, High = red, Emergency = pulsing
 level must show its text label ("Rendah / Sedang / Tinggi / Darurat") and its icon, never the
 colour alone.
 
-| Severity | Border / icon | Soft bg | Ink | Badge style | Icon (Phosphor) |
+| Severity | Border / icon | Soft bg | Ink | Badge style | Icon (Lucide) |
 |---|---|---|---|---|---|
 | `low` | `#2F8A4E` | `#E8F5EC` | `#1E5A34` | Soft badge | `Info` |
-| `medium` | `#B7791F` | `#FEF3DC` | `#7A4E0B` | Soft badge | `Warning` |
-| `high` | `#C0392B` | `#FBE3E0` | `#7B241C` | Soft badge, 2px border | `WarningCircle` |
-| `emergency` | `#9B1C1C` | — | `#FFFFFF` on `#9B1C1C` | **Solid** badge + pulse ring | `WarningOctagon` |
+| `medium` | `#B7791F` | `#FBEEDB` | `#7A4E0B` | Soft badge | `TriangleAlert` |
+| `high` | `#B93A2E` | `#F9E0DC` | `#7B241C` | Soft badge, 2px border | `CircleAlert` |
+| `emergency` | `#9B1C1C` | — | `#FFFFFF` on `#9B1C1C` | **Solid** badge + pulse ring | `OctagonAlert` |
 
 **Emergency pulse:** a 2px ring around the badge that fades in and out (opacity 1 → 0.35,
 1.6s, infinite). The badge itself never flashes. With `prefers-reduced-motion`, the ring stays
@@ -105,21 +115,21 @@ Tokens: `--color-sev-{low|medium|high|emergency}`, `-soft`, `-ink`.
 
 ### 2.4 Contributor palette (RPT-001)
 
-The timeline colour-codes each contributor. Owner is always **plum**. Caregivers take the other
-slots in order of when they joined the workspace, so the same person keeps the same colour on
-every day. Each badge shows the person's name plus their role label ("Bu Sari · Pengasuh",
-"Mama · Orang Tua").
+The timeline colour-codes each contributor. Owner is always **lavender**. Caregivers take the
+other slots in order of when they joined the workspace, so the same person keeps the same colour
+on every day. Each badge shows the person's name plus their role label ("Bu Sari · Pengasuh",
+"Mama · Pengelola"), or "Anda" for the viewer's own entries.
 
 | Slot | Soft bg | Ink | Assigned to |
 |---|---|---|---|
-| `owner` | `#EEE6F5` | `#5B2E82` | Workspace owner(s) |
-| `c1` blue | `#E3ECF7` | `#1F4E80` | 1st caregiver |
-| `c2` moss | `#E4F0E1` | `#2F5A26` | 2nd caregiver (was teal; moved so it never reads as the accent) |
-| `c3` terracotta | `#F7E5DC` | `#8A3A17` | 3rd caregiver |
-| `c4` olive | `#EEF0DC` | `#545C17` | 4th caregiver |
-| `c5` slate | `#E6E9EC` | `#36424D` | 5th+ caregiver (and revoked: "(dihapus)") |
+| `owner` lavender | `#ECE8F4` | `#4A3F73` | Workspace owner(s) |
+| `c1` blue | `#E4ECF2` | `#2E4E66` | 1st caregiver |
+| `c2` terracotta | `#F8E6DC` | `#9A5536` | 2nd caregiver |
+| `c3` moss | `#E3EFDF` | `#2F5A26` | 3rd caregiver |
+| `c4` olive | `#F1EEDC` | `#5C5520` | 4th caregiver |
+| `c5` stone | `#ECECE7` | `#4A4C45` | 5th+ caregiver (and revoked: "(dihapus)") |
 
-On a timeline entry, the contributor colour appears as the badge fill **and** a 3px left rule on
+On a timeline entry, the contributor colour appears as the badge fill **and** a 4px left rule on
 the entry card. Entries from other contributors shown to a caregiver (RPT-005) use
 `--color-surface-hover` as the card fill, so their own entries visually stand out.
 
@@ -138,22 +148,23 @@ emergency red, the WhatsApp/Google brand colours, and the white switch thumb. Th
 
 | Token | Dark |
 |---|---|
-| `--color-bg` | `#161B18` |
-| `--color-surface` | `#1F2522` |
-| `--color-surface-hover` | `#2A312D` |
-| `--color-border` | `#343C37` |
-| `--color-border-strong` | `#4A544E` |
-| `--color-border-control` | `#6B756F` |
-| `--color-text` | `#E8EDEA` |
-| `--color-text-muted` | `#A3B0A9` |
-| `--color-text-inverse` | `#0F1A14` (text on light accent) |
-| `--color-accent` | `#5EC4C9` |
-| `--color-accent-hover` | `#7DD1D5` |
-| `--color-accent-soft` | `#123A3D` |
-| `--color-accent-ink` | `#A3E2E5` |
-| `--color-highlight` | `#E9B453` |
-| `--color-highlight-soft` | `#3A2C12` |
-| `--color-highlight-ink` | `#F2CF85` |
+| `--color-bg` | `#141815` |
+| `--color-surface` | `#1D221E` |
+| `--color-surface-hover` | `#272D28` |
+| `--color-border` | `#2C332D` |
+| `--color-border-strong` | `#3A423B` |
+| `--color-border-control` | `#737A72` |
+| `--color-text` | `#ECEDE6` |
+| `--color-text-muted` | `#A9ABA2` |
+| `--color-text-inverse` | `#1A231D` (text on the sage accent) |
+| `--color-accent` | `#A8B7A0` (sage: in dark mode it is light enough for buttons, 7.6:1 with dark text) |
+| `--color-accent-hover` | `#BCC8B5` |
+| `--color-accent-soft` | `#26302A` |
+| `--color-accent-ink` | `#C9D5C2` |
+| `--color-highlight` | `#E0AA8E` |
+| `--color-highlight-soft` | `#3A2620` |
+| `--color-highlight-ink` | `#F0C6B0` |
+| `--color-lavender-soft` / `-ink` | `#29253A` / `#CFC7EA` |
 | `--color-overlay` | `rgb(0 0 0 / 0.6)` |
 
 Status, severity and contributor colours in dark mode. The soft colours are dark, the inks are
@@ -163,12 +174,12 @@ light, and the fills are lifted so they read on the dark surface:
 |---|---|---|---|
 | error | `#F07B6E` | `#3A1F1C` | `#F5B5AD` |
 | warning | `#E0B341` | `#352A12` | `#F0CF7A` |
-| success | `#4CC27F` | `#173324` | `#8FDDB0` |
-| info | `#6FA8E8` | `#1A2A3D` | `#A9CBF2` |
+| success | `#8FC79A` | `#1C2E20` | `#B5DDBC` |
+| info | `#8FB0D0` | `#1B2733` | `#BCD2E8` |
 | sev-low | `#5BBF7E` | `#18301F` | `#9ADBB0` |
 | sev-medium | `#E0A24A` | `#3A2A12` | `#F2C98A` |
 | sev-high | `#F07B6E` | `#3D1E1B` | `#F5B5AD` |
-| contrib owner / c1 / c2 / c3 / c4 / c5 | — | `#2E2140` / `#1B2A3D` / `#1A2E17` / `#3A2419` / `#2C2F17` / `#2A3036` | `#D2B8EA` / `#A9C6EC` / `#A9D69B` / `#EDB89B` / `#D3D99A` / `#C3CCD5` |
+| contrib owner / c1 / c2 / c3 / c4 / c5 | — | `#29253A` / `#1B2733` / `#3A2620` / `#1C2E20` / `#2C2F17` / `#2A2D28` | `#CFC7EA` / `#BCD2E8` / `#F0C6B0` / `#B5DDBC` / `#D3D99A` / `#CDD0C8` |
 
 The emergency badge stays `#9B1C1C` with white text in both themes. Its pulsing ring has its
 own token, `--color-sev-emergency-ring`: deep red in light mode, and `#F07B6E` in dark mode,
@@ -181,34 +192,39 @@ badges are built.
 
 ## 3. Typography
 
-- **Family:** **Geist** (variable, loaded via `next/font/google` in `app/layout.tsx`), with
-  `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` as the fallback. **Geist Mono**
-  only for codes, like the invite PIN pad digits and IDs.
-- **Weights:** 400 body · 500 UI labels and buttons · 600 headings. No 300/thin weights: they
+- **Families:** **Plus Jakarta Sans** for headings, the wordmark and large numerals; **Inter**
+  for everything else. Both via `next/font/google` (`latin` subset, `display: swap`), with
+  `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` as the fallback. A monospace face
+  (`ui-monospace`) only for codes, like the invite PIN digits and IDs.
+- **Weights:** Inter 400 body · 500 UI labels and buttons · 600 emphasis. Plus Jakarta Sans 600
+  section titles · 700 page titles, greetings and summary values. No 300/thin weights: they
   break down on low-DPI Android screens.
 - **Numbers:** use `font-variant-numeric: tabular-nums` for times, durations, counts, and vitals,
   so columns of times line up on the timeline.
-- **Line height:** 1.6 body, 1.3 headings, 1.2 large numerals.
+- **Line height:** 1.6 body, 1.3 headings, 1.2 large numerals. Headings get `letter-spacing:
+  -0.01em`.
 - **Indonesian runs about 20% longer than English.** Never fix a width on text containers.
   Buttons grow (`min-height`), and labels wrap rather than truncate. Truncation with an ellipsis
   is only allowed on names in dense owner lists, with the full name in `title` / `aria-label`.
 
-| Role | Tailwind | Size / line | Weight | Where |
+| Role | Tailwind | Size / line | Family / weight | Where |
 |---|---|---|---|---|
-| Caption | `text-xs` | 12 / 16 | 500 | Badge labels, chart axes. **Never on caregiver screens.** |
-| Small | `text-sm` | 14 / 20 | 400 | Owner-screen secondary text, timestamps |
-| Body | `text-base` | 16 / 26 | 400 | **Floor for caregiver screens** (ACC-004; also prevents iOS zoom) |
-| Body large | `text-lg` | 18 / 28 | 400–500 | Caregiver primary labels, sheet content |
-| Section | `text-xl` | 20 / 28 | 600 | Section headers, sheet titles |
-| Page title | `text-2xl` | 24 / 32 | 600 | Page headers |
-| Display | `text-3xl`–`text-5xl` | 30–48 | 600 | Marketing only; shift timer numerals |
+| Caption | `text-xs` | 12 / 16 | Inter 500 | Chart axes. **Never on caregiver screens.** |
+| Small | `text-sm` | 14 / 20 | Inter 400 | Owner-screen secondary text only |
+| Body | `text-base` | 16 / 26 | Inter 400 | **Floor for caregiver screens** (ACC-004; also prevents iOS zoom) |
+| Body large | `text-lg` | 18 / 28 | Inter 400–500 | Caregiver primary labels, sheet content |
+| Section | `text-lg`–`text-xl` | 18–20 / 26–28 | Jakarta 600–700 | Section headers, sheet titles |
+| Page title | `text-2xl` | 22–24 / 30–32 | Jakarta 700 | Page headers, greeting ("Selamat siang, Sari") |
+| Value | `text-2xl` | 26 / 32 | Jakarta 700 | Summary card values ("3 kali") |
+| Display | `text-3xl`–`text-5xl` | 30–48 | Jakarta 700 | Marketing only |
 
 ---
 
 ## 4. Spacing & layout
 
 - **4px base**, Tailwind's default scale (`1` = 4px … `12` = 48px, `16` = 64px).
-- **Page gutter:** 16px (`px-4`) on mobile, 24px (`px-6`) from 768px.
+- **Page gutter:** 20px (`px-5`) on mobile, 24px (`px-6`) from 768px.
+- **Card spacing:** 16px between cards; 12px between tiles in a grid.
 - **Content width:** caregiver views max `640px` centred; owner views max `1120px`.
 - **Vertical rhythm:** 24px between sections, 12px between items in a list, 8px inside a
   component.
@@ -223,26 +239,32 @@ badges are built.
 
 | Radius token | Value | Usage |
 |---|---|---|
-| `--radius-sm` | 6px | Badges, small chips |
-| `--radius-md` | 10px | Buttons, inputs, compact chips |
-| `--radius-lg` | 14px | Cards, timeline entries, dialogs |
-| `--radius-xl` | 20px | Bottom-sheet top corners, large tiles (care-type chips) |
-| `--radius-full` | 9999px | Pills, avatars, filter chips |
+| `--radius-sm` | 6px | Badges |
+| `--radius-md` | 16px | Inputs, option chips, time row, icon tiles in sheet headers |
+| `--radius-lg` | 20px | Cards, category tiles, banners, dialogs |
+| `--radius-xl` | 24px | Large cards (recipient card), summary tiles (22–24px) |
+| `--radius-2xl` | 28px | Bottom-sheet top corners |
+| `--radius-full` | 9999px | **All buttons**, filter chips, recipient switcher, avatars |
 
-The tokens replace Tailwind's default `--radius-*` values, so `rounded-md` / `rounded-lg` / `rounded-xl` are the spec values. Pick by role, not by look: controls use `rounded-md`, containers use `rounded-lg`. A control nested in a container should always be less rounded than its container.
+The tokens replace Tailwind's default `--radius-*` values, so `rounded-md` / `rounded-lg` / `rounded-xl` are the spec values. Pick by role, not by look. Buttons are pills (`rounded-full`) at every size; everything else steps down in radius as it nests (sheet 28 → card 20 → input 16 → badge 6).
 
-Shadows are tinted forest (`rgb(31 42 36 / …)`), never pure black, so they sit warmly on cream:
+Cards use a **1px `--color-border` hairline plus a soft shadow**, not a heavy outline. Category
+tiles have no border at all: their pastel fill separates them from the cream. Shadows are tinted
+forest (`rgb(52 72 59 / …)`), never pure black, so they sit warmly on cream:
 
 ```css
---shadow-xs: 0 1px 2px rgb(31 42 36 / 0.06);              /* cards (with border) */
---shadow-sm: 0 2px 6px rgb(31 42 36 / 0.08);              /* raised chips, sticky bars */
---shadow-lg: 0 -8px 24px rgb(31 42 36 / 0.12);            /* bottom sheets (casts upward) */
---shadow-xl: 0 16px 40px rgb(31 42 36 / 0.16);            /* dialogs, popovers */
+--shadow-xs: 0 1px 2px rgb(52 72 59 / 0.04);              /* entries, tasks */
+--shadow-sm: 0 4px 16px rgb(52 72 59 / 0.06);             /* cards, raised chips */
+--shadow-lg: 0 -8px 24px rgb(52 72 59 / 0.08);            /* bottom sheets, bottom nav */
+--shadow-xl: 0 16px 40px rgb(52 72 59 / 0.12);            /* dialogs, popovers, toasts */
 --shadow-focus: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-accent);
 ```
 
-**Elevation order:** page → card (xs) → sticky bar (sm) → sheet (lg) → dialog/popover (xl) →
-toast. The overlay behind a sheet or dialog is `rgb(15 26 20 / 0.45)`.
+In dark mode the card shadows are `none` (borders carry the edge) and the sheet/dialog shadows
+are `rgb(0 0 0 / 0.5)`.
+
+**Elevation order:** page → card (sm) → sticky bar (lg) → sheet (lg) → dialog/popover (xl) →
+toast. The overlay behind a sheet or dialog is `rgb(20 24 21 / 0.45)`.
 
 ---
 
@@ -301,19 +323,21 @@ library per PR.
 
 | Variant | Fill | Text | Use |
 |---|---|---|---|
-| Primary | `accent` | `text-inverse` | The single main action per screen ("Simpan", "Mulai Shift") |
-| Secondary | `surface` + 1.5px `border-control` | `text` | Alternate actions |
-| Ghost | transparent | `text` | Tertiary actions, toolbar |
-| Danger | `error` | `text-inverse` | Destructive actions, "Laporkan Insiden" |
+| Primary | `accent` (forest) | `text-inverse` | The single main action per screen ("Simpan Makan siang") |
+| Secondary | `surface` + 1.5px `border-control` | `text` | Alternate actions ("Tambah foto") |
+| Accent | `highlight` (terracotta) | `text` (dark, 5.2:1) | Rare warm call-to-action on owner and marketing screens; never next to a Primary |
+| Ghost | transparent | `text` | Tertiary actions, "Lihat semua catatan" rows |
+| Danger | `error` | `text-inverse` | Destructive confirms ("Buang") |
+| Danger outline | `surface` + 2px `error` | `error-ink` | "Catat insiden" on Hari Ini |
 | Icon | as variant, 56×56 | — | Icon-only. **Requires** `aria-label` from i18n |
 
-All variants: `min-h-14` (56px), `px-6`, `rounded-md`, `text-base font-medium`, gap 8px between
-the icon and label. Loading state: keep the label and add an inline spinner, and keep the
-button's width the same so nothing shifts.
+All variants: `min-h-14` (56px), `px-6`, **`rounded-full`**, `text-base font-medium`, gap 8px
+between the icon and label. Loading state: keep the label and add an inline spinner, and keep
+the button's width the same so nothing shifts.
 
 ### 8.2 Inputs
 
-- 56px height, 16px text, `px-4`, 1.5px `--color-border-control`, `rounded-md`,
+- 56px height, 16px text, `px-4`, 1.5px `--color-border-control`, `rounded-md` (16px),
   `bg-surface`.
 - Focus: border becomes `accent` plus `--shadow-focus`. Error: border `error`, plus a message
   below in `error-ink` with an icon, linked via `aria-describedby`.
@@ -322,13 +346,15 @@ button's width the same so nothing shifts.
   (LOG-002 ⑧) through a 56px mic icon button inside the field.
 - Character counters show only once the user reaches 80% of the limit.
 
-### 8.3 Chips
+### 8.3 Chips and tiles
 
 | Type | Size | Resting | Selected |
 |---|---|---|---|
-| Option chip (log sheets) | `min-h-14`, `px-4`, `rounded-full` | `surface` + 1.5px `border-control` | `accent-soft` fill + 2px `accent` border + `accent-ink` text + check icon |
-| Tile (care type, category) | `min-h-24`, `rounded-xl` | as above | as above |
-| Filter chip (RPT-002, owner) | `min-h-11` desktop / `min-h-14` mobile, `rounded-full` | `surface-hover` | `text` fill + `bg` text (inverted) |
+| Option chip (log sheets) | `min-h-14`, `px-4`, `rounded-md` | `surface` + 1.5px `border-control` | `accent-soft` fill + 2px `accent` border + `accent-ink` text + check icon |
+| Already-done chip (SummarySheet) | as above | `surface-hover` fill, dashed `border-strong`, muted text, check icon, disabled | — |
+| Category tile (Catat cepat, category picker) | square-ish, `min-h-24` (picker) / `min-h-30` (Hari Ini), 3-column grid, `rounded-lg`, **no border** | category soft fill, 28px Lucide icon in the category ink, label, then 16px muted last time / name | not selectable: a tile opens the sheet |
+| Summary tile (owner Hari Ini) | `min-h-36`, 2-column grid, `rounded-xl`, no border | category soft fill, centred icon, label, Jakarta 700 value, muted detail | — |
+| Filter chip (RPT-002, owner) / recipient switcher | `min-h-11` desktop / `min-h-14` mobile, `rounded-full` | `surface` + `shadow-xs` | `accent` fill + `text-inverse` |
 
 Selection is shown by three signals together (fill, border, and check icon), so it reads in
 sunlight and for colour-blind users. Selected state must survive `:hover`: see the specificity
@@ -336,9 +362,9 @@ note in `globals.css`.
 
 ### 8.4 Cards & timeline entries
 
-- **Card:** `surface`, 1.5px `border-strong`, `--shadow-xs`, `rounded-lg`, `p-5` (`p-6` ≥
+- **Card:** `surface`, 1px `border`, `--shadow-sm`, `rounded-lg` (20px), `p-4`–`p-5` (`p-6` ≥
   768px).
-- **Timeline entry:** card plus a 3px left rule in the contributor colour. The layout is a fixed
+- **Timeline entry:** card (`rounded-[18px]`, `--shadow-xs`) plus a 4px left rule in the contributor colour. The layout is a fixed
   64px time column (`tabular-nums`, `text-muted`), then a category icon (24px, in a 40px circle of
   the category's soft colour), then the content. Chips selected at logging time render as
   read-only small badges.
@@ -362,7 +388,7 @@ note in `globals.css`.
   `Dialog.Trigger`, so a sheet built directly on `Dialog.Root` drops focus to `<body>`.
 - `preventDismiss` blocks Escape and tap-outside while the sheet holds unsaved input. The
   logging sheet sets it when a note is typed or photos are picked.
-- Top radius `--radius-xl`, `--shadow-lg`, max height 92dvh with the content scrolling inside.
+- Top radius `--radius-2xl` (28px), `--shadow-lg`, max height 92dvh with the content scrolling inside.
   No drag handle, since sheets aren't draggable.
 - The primary action is pinned at the bottom of the sheet, above the safe area.
 - **Incident sheet:** opens in one tap, and dismissal by tapping the overlay is **disabled while
@@ -405,7 +431,7 @@ Banners are full-width messages pinned to the top of the content area (not the v
 
 | Banner | Style | Dismissible |
 |---|---|---|
-| Standing instruction (WRK-003) | `accent-soft` + pin icon + 4px `accent` left rule | No |
+| Standing instruction (WRK-003) | `lavender-soft` card (`rounded-lg`, no rule) + pin icon in `lavender-ink` | No |
 | Daily instruction | `info-soft` + calendar icon | No |
 | Handoff from [Name] (SFT-003) | `info-soft`, collapsible, entry-count summary | Yes, once per session |
 | Not checked in (SFT-001 soft-block) | `warning-soft` + "Mulai Shift" button + "Lanjut tanpa shift" link | No |
@@ -427,10 +453,11 @@ plain text.
 
 ### 8.11 Navigation
 
-- **Mobile:** a bottom tab bar, 64px plus the safe area. At most 4 tabs. Each tab shows an icon
-  *and* a 16px label on one line, and the active tab gets an `accent-soft` pill behind its icon.
+- **Mobile:** a bottom tab bar, 72px plus the safe area, white with a soft upward shadow and no
+  top border. At most 4 tabs. Each tab shows an icon *and* a 16px label on one line; the active
+  tab is forest (icon + label, 600), inactive tabs are `text-muted`.
   Today's tabs: **Beranda · Terawat · Tim · Akun**.
-- **App bar (mobile):** `AppHeader`. Top-level pages show the wordmark; detail pages show a
+- **App bar (mobile):** `AppHeader`, on the cream background (no coloured band). Top-level pages show a greeting or the wordmark; detail pages show a
   56px back arrow (labelled) and the page title. No sign-out button in the app bar: sign out
   lives in the **Akun** tab (`/settings`), together with password, caregiver reminders and,
   for owners, workspace settings.
@@ -446,8 +473,9 @@ plain text.
 
 Every interactive feature defines all three.
 
-- **Empty:** a 96px line illustration in `text-muted`, one sentence explaining what will appear
-  here, and one primary action. Never a blank area. (RPT-003: "Belum ada catatan di tanggal
+- **Empty:** an illustration in the CareLog palette (one consistent style, stored in
+  `web/public/assets/illustrations/` as WebP/AVIF, lazy-loaded, with a fallback), one sentence
+  explaining what will appear here, and one primary action. Never a blank area. (RPT-003: "Belum ada catatan di tanggal
   ini.")
 - **Loading content:** skeletons shaped like the real content (`.skeleton`). **Loading an
   action:** an inline spinner in the button.
@@ -456,42 +484,42 @@ Every interactive feature defines all three.
 
 ### 8.13 Home: "Hari Ini"
 
-The Beranda tab (`/dashboard`) opens on today, not on a list.
+The Beranda tab (`/dashboard`) opens on today, not on a list. There is **no hero band** in v2:
+the page sits on cream. Specs: `docs/design/hari-ini-pengasuh.md` (approved) and `hari-ini-pengelola.md` (both approved).
 
-- **Hero band:** `--color-hero` / `--color-on-hero` (teal with white text by day, deep teal with
-  light text at night), rounded bottom corners, flowing from an `AppHeader tone="accent"` app bar
-  on phones. The page sets `viewport.themeColor` to the same colour so the system bar matches.
 - **Caregiver:**
-  - The hero holds the date, the bell, a recipient switcher (avatars, 56px; `?r=<id>`; shown when
-    more than one recipient is assigned, the selected one with a kunyit ring) and the shift card.
-  - Below it: the owner's standing instruction as a banner.
-  - **Catat cepat:** one tile per enabled category (`CategoryIcon`, label, and today's last time in
-    a kunyit pill, or "belum"). A tile opens the logging sheet straight on that category's options
-    (`LoggingSheet initialCategory`), so a log is three taps. The shift nudge still applies.
-  - A full-width "Catat insiden" outline button, then today's latest three entries with
-    "Lihat semua" to the recipient timeline, then tasks.
-- **Owner:** the hero says who is on duty. One card per active recipient with last meal, last
-  medication, entries today, incidents today and, when there is one, an incident line (colour +
-  icon + text, most severe level). The card opens the recipient. Archive/restore lives on the
-  Terawat tab.
-- The sheets and the shift nudge are shared with the recipient page through
-  `components/ui/LogFlow.tsx`.
-
+  - Greeting header: date (muted), "Selamat {pagi/siang/sore/malam}, {first name} 💚" (Jakarta
+    22/700), "Mari buat hari {recipient} menyenangkan.", bell.
+  - Recipient switcher as pills (`?r=<id>`), only with 2+ recipients; then the recipient card
+    (64px rounded-square photo or initial, name, age, "Bersama {other carers}", chevron).
+  - The owner's standing instruction as a lavender card.
+  - **Catat cepat:** 3-column category tiles (§8.3) with today's last time and, if someone else
+    logged it, their first name. A tile opens the logging sheet straight on that category's
+    options (`LoggingSheet initialCategory`), so a log is three taps.
+  - A full-width "Catat insiden" danger-outline button, the "Ringkasan akhir hari" card
+    (terracotta-soft, opens SummarySheet), then tasks and today's latest entries.
+- **Owner** (`docs/design/hari-ini-pengelola.md`, approved): greeting "Halo, {name} 👋 / Bagaimana hari {recipient}?", the recipient
+  card on terracotta-soft, "Hari ini, {date}", a 2×2 grid of summary tiles (counts from today's
+  entries, never durations the app doesn't record), the "Ringkasan hari ini sudah diisi" success
+  card, and "Lihat semua catatan hari ini". Open incidents go above the recipient card. The
+  tiles are the recipient's first four active modules; 2+ recipients get pills, with "Lainnya (n)"
+  opening a picker sheet when they don't fit.
+- The sheets are shared with the recipient page through `components/ui/LogFlow.tsx`.
 
 ### 8.14 Sign-in screens
 
 Login, register, pending approval, invite claim and change password share `AuthShell`
 (`components/ui/AuthShell.tsx`):
 
-- A teal hero (`--color-hero`) with the app mark (white tile, teal heart, kunyit dot) and the
-  name; the login choice adds the tagline. A cream sheet with 28px top corners holds the content.
+- **To be redesigned for brand v2** (`docs/design/` page 10). Until then: a hero with the app
+  mark and the name; the login choice adds the tagline. A cream sheet with 28px top corners holds the content.
 - Phones: full screen, the sheet fills the rest, so the main button or the PIN pad sits at the
   bottom (`mt-auto`, thumb zone). md+: one centred card.
 - Once a step is under way the page renders `<AuthCompact />`, and the hero shrinks to one row
   (mark + name, no tagline) so the PIN pad and its links fit a 360×780 screen.
-- Role choice: "Saya Pengasuh" in kunyit (`highlight-soft` circle), "Saya Pengelola" in teal; after
+- Role choice: "Saya Pengasuh" in terracotta (`highlight-soft` circle), "Saya Pengelola" in forest; after
   choosing, a chip of the same colour shows which door you came in by, next to "Bukan Anda? Ganti".
-- Buttons stay teal; kunyit is only an accent here, as everywhere else.
+- Buttons are the forest primary; terracotta is only an accent here, as everywhere else.
 
 
 ### 8.15 Recipient page: Linimasa / Profil / Tugas
@@ -516,7 +544,7 @@ fetches the members and (owners) the open invitations and passes them in.
 
 - Order: **PIN reset requests** first, only when there is one (it is the thing someone waits
   on), then **Anggota tim (n)**, then (owners) **Undangan tertunda** with an empty state.
-- Member cards: initial avatar (teal for owners, kunyit for caregivers), name (wraps, never
+- Member cards: initial avatar (lavender for owners, terracotta-soft for caregivers), name (wraps, never
   truncates), email only when it isn't already the title, role and joined date; owners get the
   role select, remove, unlock and username controls.
 - Dates use the workspace timezone (`formatShortDate` / `formatClock`), never the runtime's,
@@ -526,34 +554,48 @@ fetches the members and (owners) the open invitations and passes them in.
 
 ## 9. Icons
 
-- **Phosphor**: the `regular` weight by default, and `fill` for selected/active state. Not
-  `thin`, which is illegible at small sizes on low-DPI screens.
-- Sizes: 20px inline with text, 24px in buttons and nav, 28px in a 48px category circle on tiles, 22px in a 40px circle on the timeline.
+- **Lucide only** (`lucide-react`), line icons with a 1.75–2px stroke. No mixing libraries.
+  Active/selected state is shown by colour and the surrounding fill, not by a filled icon.
+- Sizes: 20px inline with text, 24px in buttons and nav, 28px on category tiles, 20px in a 40px
+  circle on the timeline.
 - Icons always sit next to a text label on caregiver screens. An icon-only button needs an
   `aria-label` (from i18n).
 - One icon **and one colour** per category, used everywhere: log grid, quick-log tiles,
-  timeline, digest email. The shared component is `components/ui/CategoryIcon.tsx`: the icon
-  (ink colour) inside a soft circle of the category colour, 40px on the timeline and 48px on
-  tiles. The colour helps recognition (the Huckleberry / Sprout pattern); it never replaces
-  the label, so the circle is `aria-hidden`.
+  timeline, digest email. The shared component is `components/ui/CategoryIcon.tsx`: the icon in
+  the category ink on the category's soft colour (a square tile on Hari Ini and the picker, a
+  40px circle on the timeline, a 48px rounded square in sheet headers). The colour helps
+  recognition; it never replaces the label, so the shape is `aria-hidden`.
+- Navigation: Beranda `House`, Terawat `UserRound`, Tim `UsersRound`, Akun `CircleUserRound`;
+  bell `Bell`, caregiver `HeartHandshake`; future Linimasa `Clock`, Insights
+  `ChartNoAxesCombined`. Incident types: fall `PersonStanding`, injury `Bandage`, behaviour
+  `Brain`.
 
 | Category | Icon | Soft / ink (light) | Soft / ink (dark) | Ink on soft |
 |---|---|---|---|---|
-| Meal | `ForkKnife` | `#FDF0DB` / `#7A4D00` kunyit | `#3A2C12` / `#F2CF85` | 6.5 / 9.1 |
-| Medication | `Pill` | `#F0E7F7` / `#5E2D86` lavender | `#2E2140` / `#D2B8EA` | 8.0 / 8.4 |
-| Activity | `PersonSimpleRun` | `#E4F0E1` / `#2F5A26` moss | `#1A2E17` / `#A9D69B` | 6.8 / 8.8 |
-| Sleep | `Moon` | `#E6E8F7` / `#2B3680` indigo | `#1E2340` / `#B4BCF0` | 8.9 / 8.3 |
-| Diaper | `Baby` | `#E3ECF7` / `#1F4E80` sky | `#1B2A3D` / `#A9C6EC` | 7.2 / 8.3 |
-| Mood | `Smiley` | `#F7E5DC` / `#8A3A17` coral | `#3A2419` / `#EDB89B` | 6.4 / 8.2 |
-| Health | `Heart` | `#FBE6EA` / `#8C1D3B` rose | `#3D1C25` / `#F2AFC0` | 7.5 / 8.4 |
-| Learning | `BookOpen` | `#EEF0DC` / `#545C17` olive | `#2C2F17` / `#D3D99A` | 6.2 / 9.3 |
-| Therapy | `FirstAid` | `#F3E6EE` / `#7A2E5C` mauve | `#36202E` / `#E7B3D3` | 7.3 / 8.4 |
-| Note | `NotePencil` | `#E6E9EC` / `#36424D` slate | `#2A3036` / `#C3CCD5` | 8.4 / 8.2 |
+| Meal | `Utensils` | `#E7ECE2` / `#34483B` sage | `#26302A` / `#C9D5C2` | 8.2 / 9.0 |
+| Medication | `Pill` | `#EFE9F5` / `#5B3A7A` lilac | `#2B2238` / `#D7C4EA` | 7.6 / 9.3 |
+| Activity | `Blocks` | `#F8E6DC` / `#9A5536` peach | `#3A2620` / `#F0C6B0` | 4.7 / 9.1 |
+| Sleep | `Moon` | `#ECE8F4` / `#4A3F73` lavender | `#29253A` / `#CFC7EA` | 7.7 / 9.2 |
+| Diaper | `Baby` | `#E4ECF2` / `#2E4E66` sky | `#1B2733` / `#BCD2E8` | 7.3 / 9.8 |
+| Mood | `Smile` | `#E3EFDF` / `#2F5A26` green | `#1C2E20` / `#B5DDBC` | 6.8 / 9.6 |
+| Health | `HeartPulse` | `#F7E3E3` / `#8C2F3B` rose | `#3D1C25` / `#F2AFC0` | 6.6 / 8.4 |
+| Learning | `BookOpen` | `#F1EEDC` / `#5C5520` olive | `#2C2F17` / `#D3D99A` | 6.5 / 9.3 |
+| Therapy | `HandHeart` | `#F3E6EE` / `#7A2E5C` mauve | `#36202E` / `#E7B3D3` | 7.3 / 8.4 |
+| Note | `NotebookPen` | `#ECECE7` / `#4A4C45` stone | `#2A2D28` / `#CDD0C8` | 7.4 / 8.9 |
 
-Tokens: `--color-cat-<id>-soft` / `-ink` in `globals.css`. Teal is deliberately not a category
-colour so a category circle never reads as the accent / selected state. Some hues match the
-contributor palette (§2.4); that's acceptable because both always carry a text label. Incident
-types keep their existing icons (`IncidentSheet.tsx`).
+Tokens: `--color-cat-<id>-soft` / `-ink` in `globals.css`. Forest is deliberately not a category
+ink on its own fill, so a tile never reads as the primary button. Some hues match the
+contributor palette (§2.4); that's acceptable because both always carry a text label.
+
+### 9.1 Photography and illustration
+
+- Recipient photos come only from authorised parent uploads, stored privately (like entry
+  `photo_urls`), cropped square; the fallback is the initial on a terracotta gradient. Never
+  stock photos as child data.
+- Mockups may use hand-picked Unsplash / Pexels photos, stored with the mockup, never
+  hot-linked or random URLs.
+- Illustrations: one consistent style in the CareLog palette, for onboarding and empty states
+  only (§8.12).
 
 ---
 
@@ -601,49 +643,56 @@ component only.
 
 ## 13. Implementation (Tailwind v4)
 
-Tokens live in `@theme` in `web/src/app/globals.css`. Below are the **additions and changes**
-this revamp needs. Existing tokens not listed here stay as they are.
+Tokens live in `@theme` in `web/src/app/globals.css`. Below are the **brand v2 values**; the
+dark block redefines them as in §2.5. Tokens not listed here (motion, WhatsApp, emergency) stay
+as they are.
 
 ```css
 @theme {
-  /* new core */
-  --color-border-control: #8C8273;
+  /* core */
+  --color-bg: #F8F7F2; --color-surface: #FFFFFF; --color-surface-hover: #F1EFE7;
+  --color-border: #ECE9E0; --color-border-strong: #E0DCD0; --color-border-control: #8A8C83;
+  --color-text: #333630; --color-text-muted: #63655D; --color-text-inverse: #FFFFFF;
 
-  /* brand (teal + kunyit) */
-  --color-accent: #0E6B73; --color-accent-hover: #0A5A61; --color-accent-soft: #DDF0F0; --color-accent-ink: #0A4F55;
-  --color-highlight: #E9A23B; --color-highlight-soft: #FDF0DB; --color-highlight-ink: #7A4D00;
+  /* brand v2 */
+  --color-accent: #34483B; --color-accent-hover: #2A3B30; --color-accent-soft: #E7ECE2; --color-accent-ink: #34483B;
+  --color-sage: #A8B7A0;
+  --color-highlight: #D99A7B; --color-highlight-soft: #F8E6DC; --color-highlight-ink: #9A5536;
+  --color-lavender: #D9D4E8; --color-lavender-soft: #ECE8F4; --color-lavender-ink: #4A3F73;
+  --color-hero: var(--color-bg); --color-on-hero: var(--color-text);
 
-  /* status inks + info */
-  --color-warning-ink: #7A5200;
-  --color-success-ink: #1E6B41;
-  --color-info: #2563A8;
-  --color-info-soft: #E6EFF8;
-  --color-info-ink: #1F4E80;
+  /* status */
+  --color-error: #B93A2E; --color-error-soft: #F9E0DC; --color-error-ink: #7B241C;
+  --color-warning: #C9971A; --color-warning-soft: #FBF1DC; --color-warning-ink: #7A5200;
+  --color-success: #4F7A57; --color-success-soft: #E3EFDF; --color-success-ink: #2F5A26;
+  --color-info: #4A6A8A; --color-info-soft: #E4ECF2; --color-info-ink: #2E4E66;
 
   /* incident severity */
   --color-sev-low: #2F8A4E;       --color-sev-low-soft: #E8F5EC;       --color-sev-low-ink: #1E5A34;
-  --color-sev-medium: #B7791F;    --color-sev-medium-soft: #FEF3DC;    --color-sev-medium-ink: #7A4E0B;
-  --color-sev-high: #C0392B;      --color-sev-high-soft: #FBE3E0;      --color-sev-high-ink: #7B241C;
+  --color-sev-medium: #B7791F;    --color-sev-medium-soft: #FBEEDB;    --color-sev-medium-ink: #7A4E0B;
+  --color-sev-high: #B93A2E;      --color-sev-high-soft: #F9E0DC;      --color-sev-high-ink: #7B241C;
   --color-sev-emergency: #9B1C1C; --color-sev-emergency-hover: #7F1616;
 
   /* contributor palette */
-  --color-contrib-owner-soft: #EEE6F5; --color-contrib-owner-ink: #5B2E82;
-  --color-contrib-c1-soft: #E3ECF7;    --color-contrib-c1-ink: #1F4E80;
-  --color-contrib-c2-soft: #E4F0E1;    --color-contrib-c2-ink: #2F5A26;
-  --color-contrib-c3-soft: #F7E5DC;    --color-contrib-c3-ink: #8A3A17;
-  --color-contrib-c4-soft: #EEF0DC;    --color-contrib-c4-ink: #545C17;
-  --color-contrib-c5-soft: #E6E9EC;    --color-contrib-c5-ink: #36424D;
+  --color-contrib-owner-soft: #ECE8F4; --color-contrib-owner-ink: #4A3F73;
+  --color-contrib-c1-soft: #E4ECF2;    --color-contrib-c1-ink: #2E4E66;
+  --color-contrib-c2-soft: #F8E6DC;    --color-contrib-c2-ink: #9A5536;
+  --color-contrib-c3-soft: #E3EFDF;    --color-contrib-c3-ink: #2F5A26;
+  --color-contrib-c4-soft: #F1EEDC;    --color-contrib-c4-ink: #5C5520;
+  --color-contrib-c5-soft: #ECECE7;    --color-contrib-c5-ink: #4A4C45;
+
+  /* category tints: see §9 */
 
   /* shape */
-  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 20px;
+  --radius-sm: 6px; --radius-md: 16px; --radius-lg: 20px; --radius-xl: 24px; --radius-2xl: 28px;
 
   /* elevation */
-  --shadow-xs: 0 1px 2px rgb(31 42 36 / 0.06);
-  --shadow-sm: 0 2px 6px rgb(31 42 36 / 0.08);
-  --shadow-lg: 0 -8px 24px rgb(31 42 36 / 0.12);
-  --shadow-xl: 0 16px 40px rgb(31 42 36 / 0.16);
+  --shadow-xs: 0 1px 2px rgb(52 72 59 / 0.04);
+  --shadow-sm: 0 4px 16px rgb(52 72 59 / 0.06);
+  --shadow-lg: 0 -8px 24px rgb(52 72 59 / 0.08);
+  --shadow-xl: 0 16px 40px rgb(52 72 59 / 0.12);
 
-  /* motion */
+  /* motion (unchanged) */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --duration-fast: 120ms;
@@ -651,8 +700,9 @@ this revamp needs. Existing tokens not listed here stay as they are.
   --duration-sheet: 320ms;
 
   /* type */
-  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: var(--font-plus-jakarta-sans), var(--font-sans);
+  --font-mono: ui-monospace, monospace;
 }
 ```
 
@@ -689,29 +739,37 @@ revamped, not all at once.
 | ~~`.toast-success` utility~~ | **Done.** Sonner `Toaster` (tokens, bottom-centre, 4s); Logging and Summary sheets close and toast; incident confirmation renamed `.success-panel` and stays in-sheet | — |
 | Sheets | **Done.** `LoggingSheet`, `SummarySheet`, `IncidentSheet` and `EditRecipientSheet` all use the shared `BottomSheet` (Radix Dialog) | Build new sheets on `BottomSheet`. Sheets with input set `preventDismiss`; the incident sheet also asks "Buang laporan?" |
 | ~~Radii~~ | **Done.** `--radius-sm/md/lg/xl` (6/10/14/20px, `2xl` 24px) replace Tailwind's defaults so `rounded-*` follows §5; 30 controls moved `rounded-lg` → `rounded-md`; shared styles use the tokens | — |
-| Icons | `phosphor-react` | Same set. The package has been succeeded by `@phosphor-icons/react`; a swap needs approval like any dependency change |
-| ~~Spec font~~ | **Done.** Spec says **Geist**, as already shipped | — |
+| Brand v2 colours | `globals.css` still holds teal + kunyit | §13 values, light and dark; the hero band goes, `--color-hero` becomes `bg` |
+| Fonts | Geist via `next/font/google` | Plus Jakarta Sans (headings) + Inter (body). Dependency approved 2026-11-27 |
+| Icons | `phosphor-react` | `lucide-react` (§9). Swap approved 2026-11-27 |
+| Radii and buttons | `--radius-md` 10px, buttons `rounded-md` | §5 radii; buttons `rounded-full` |
+| Quick-log tiles | White tiles with a category circle and a kunyit time pill | Pastel category tiles (§8.3) |
+| Sign-in screens (`AuthShell`) | Teal hero | Redesign in brand v2 (page 10) |
 
 ---
 
 ## 15. Contrast reference
 
-WCAG contrast ratios for the token pairings above, light theme unless marked. Re-run them
-whenever you change a token.
+WCAG contrast ratios for the token pairings above (brand v2), light theme unless marked.
+Re-run them whenever you change a token.
 
 | Pair | Ratio | | Pair | Ratio |
 |---|---|---|---|---|
-| text / bg | 13.9 | | sev-low ink / soft | 7.3 |
-| text-muted / bg | 6.9 | | sev-medium ink / soft | 6.5 |
-| inverse / accent | 6.2 | | sev-high ink / soft | 8.1 |
-| accent (link) / bg | 5.8 | | white / sev-emergency | 8.2 |
-| accent-ink / accent-soft | 7.9 | | contributor inks / softs | 6.2 – 8.4 |
-| highlight-ink / highlight-soft | 6.5 | | **dark** highlight-ink / soft | 9.1 |
-| error / surface | 5.4 | | border-control / surface (UI) | 3.8 |
-| error-ink / error-soft | 7.7 | | **dark** text / bg | 14.7 |
-| warning-ink / warning-soft | 6.4 | | **dark** text-muted / surface | 6.9 |
-| success-ink / success-soft | 5.9 | | **dark** accent / surface | 7.6 |
-| info-ink / info-soft | 7.4 | | **dark** on-accent / accent | 8.7 |
-| **dark** border-control / surface (UI) | 3.3 | | **dark** on-error / error (danger btn) | 6.6 |
-| **dark** error/warning/success/info ink / soft | 8.6 – 9.3 | | **dark** sev ink / soft | 8.6 – 8.9 |
-| **dark** emergency ring / surface (UI) | 5.8 | | **dark** contributor inks / softs | 8.2 – 9.3 |
+| text / bg | 11.4 | | sev-low ink / soft | 7.3 |
+| text-muted / bg | 5.5 | | sev-medium ink / soft | 6.3 |
+| text-muted / surface | 5.9 | | sev-high ink / soft | 7.9 |
+| inverse / accent (forest) | 9.8 | | white / sev-emergency | 8.2 |
+| accent (link) / bg | 9.2 | | contributor and category inks / softs | 4.7 – 8.2 |
+| accent-ink / accent-soft | 8.2 | | border-control / surface (UI) | 3.4 |
+| highlight-ink / highlight-soft | 4.7 | | text / highlight (accent button) | 5.2 |
+| lavender-ink / lavender-soft | 7.7 | | white / error (danger btn) | 5.7 |
+| error / surface | 5.7 | | success fill / surface (UI) | 4.9 |
+| error-ink / error-soft | 7.9 | | **dark** text / bg | 15.2 |
+| warning-ink / warning-soft | 6.2 | | **dark** text-muted / surface | 7.0 |
+| success-ink / success-soft | 6.8 | | **dark** accent (sage) / surface | 7.7 |
+| info-ink / info-soft | 7.3 | | **dark** on-accent / accent | 7.6 |
+| **dark** border-control / surface (UI) | 3.7 | | **dark** on-error / error (danger btn) | 6.0 |
+| **dark** status, contributor and category inks / softs | 8.4 – 9.8 | | **dark** accent-ink / accent-soft | 9.0 |
+
+Not allowed (fail): white on sage (2.1), white on terracotta (2.4), sage on bg as a UI boundary
+(2.0), the prompt's `#85877F` grey on cream (3.4).
