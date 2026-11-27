@@ -1,0 +1,231 @@
+<title>CareLog Ilustrasi Prompt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap">
+<style>
+/* Layout: one column on phones, picker left + live prompt right from 860px. Brand v2 tokens. */
+:root {
+  --bg: #F8F7F2; --surface: #FFFFFF; --hover: #F1EFE7; --border: #ECE9E0; --control: #8A8C83;
+  --text: #333630; --muted: #63655D; --accent: #34483B; --on-accent: #FFFFFF; --accent-soft: #E7ECE2;
+  --peach: #F8E6DC; --peach-ink: #9A5536; --lav: #ECE8F4; --lav-ink: #4A3F73; --ok: #2F5A26; --ok-soft: #E3EFDF;
+  --shadow: 0 4px 16px rgb(52 72 59 / 0.06);
+  --head: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  --body: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141815; --surface: #1D221E; --hover: #272D28; --border: #2C332D; --control: #737A72;
+  --text: #ECEDE6; --muted: #A9ABA2; --accent: #A8B7A0; --on-accent: #1A231D; --accent-soft: #26302A;
+  --peach: #3A2620; --peach-ink: #F0C6B0; --lav: #29253A; --lav-ink: #CFC7EA; --ok: #B5DDBC; --ok-soft: #1C2E20;
+  --shadow: none; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141815; --surface: #1D221E; --hover: #272D28; --border: #2C332D; --control: #737A72;
+  --text: #ECEDE6; --muted: #A9ABA2; --accent: #A8B7A0; --on-accent: #1A231D; --accent-soft: #26302A;
+  --peach: #3A2620; --peach-ink: #F0C6B0; --lav: #29253A; --lav-ink: #CFC7EA; --ok: #B5DDBC; --ok-soft: #1C2E20;
+  --shadow: none; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font: 16px/1.6 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 24px; }
+h1, h2, h3 { font-family: var(--head); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.2; }
+h2 { font-size: 18px; line-height: 26px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.intro { display: flex; flex-direction: column; gap: 6px; max-width: 68ch; }
+.sw { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sw span { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 9999px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; font-variant-numeric: tabular-nums; }
+.sw i { width: 24px; height: 24px; border-radius: 9999px; border: 1px solid rgb(0 0 0 / 0.08); }
+.grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+@media (min-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); } .out { position: sticky; top: 16px; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips label { position: relative; }
+.chips input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.chips span { display: inline-flex; align-items: center; min-height: 48px; padding: 0 16px; border-radius: 16px; border: 1.5px solid var(--control); background: var(--surface); font-weight: 500; }
+.chips input:checked + span { background: var(--accent-soft); border: 2px solid var(--accent); color: var(--text); font-weight: 600; }
+.chips input:checked + span::before { content: "✓"; margin-right: 6px; color: var(--accent); }
+.chips input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+.scene { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 8px; }
+.scene label { position: relative; display: block; }
+.scene input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.scene .s { display: flex; flex-direction: column; gap: 2px; min-height: 72px; padding: 12px 14px; border-radius: 16px; background: var(--hover); border: 2px solid transparent; }
+.scene .s b { font-weight: 600; }
+.scene .s small { font-size: 14px; color: var(--muted); line-height: 20px; }
+.scene .tag { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--peach-ink); }
+.scene input:checked + .s { background: var(--accent-soft); border-color: var(--accent); }
+.scene input:focus-visible + .s { outline: 3px solid var(--accent); outline-offset: 2px; }
+textarea, input[type=text] { width: 100%; font: inherit; color: var(--text); background: var(--surface); border: 1.5px solid var(--control); border-radius: 16px; padding: 12px 14px; }
+textarea:focus, input[type=text]:focus { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.out h2 { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.box { position: relative; background: var(--hover); border-radius: 16px; padding: 16px; font: 14px/1.6 var(--mono); white-space: pre-wrap; word-break: break-word; min-height: 120px; }
+.box.neg { background: var(--peach); color: var(--peach-ink); min-height: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; cursor: pointer; }
+.btn { min-height: 48px; padding: 0 20px; border-radius: 9999px; border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.ghost { background: transparent; color: var(--text); border: 1.5px solid var(--control); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 14px; color: var(--ok); min-height: 20px; }
+.file { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 14px; }
+.file code { font-family: var(--mono); background: var(--lav); color: var(--lav-ink); padding: 2px 8px; border-radius: 6px; word-break: break-all; }
+.tips { display: flex; flex-direction: column; gap: 6px; padding-left: 18px; margin: 0; }
+.tips li { padding-left: 2px; }
+.label { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <p class="label">CareLog · Brand v2</p>
+    <h1>Generator prompt ilustrasi</h1>
+    <p class="muted">Pilih adegan, tokoh dan alat AI. Prompt di kanan sudah mengunci gaya dan palet CareLog supaya semua ilustrasi onboarding dan keadaan kosong terlihat satu keluarga. Salin, tempel ke generator gambar, lalu simpan hasilnya dengan nama file yang disarankan.</p>
+    <div class="sw" aria-label="Palet CareLog">
+      <span><i style="background:#F8F7F2"></i>Cream #F8F7F2</span>
+      <span><i style="background:#A8B7A0"></i>Sage #A8B7A0</span>
+      <span><i style="background:#34483B"></i>Forest #34483B</span>
+      <span><i style="background:#D99A7B"></i>Terracotta #D99A7B</span>
+      <span><i style="background:#D9D4E8"></i>Lavender #D9D4E8</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <form class="card" id="f" aria-label="Pengaturan prompt">
+      <fieldset>
+        <legend>1. Adegan</legend>
+        <div class="scene" id="scenes"></div>
+      </fieldset>
+      <fieldset>
+        <legend>2. Tokoh</legend>
+        <div class="chips" id="cast"></div>
+        <p class="muted" style="font-size:14px">Tokoh selalu digambar tanpa wajah detail (mata titik atau tanpa wajah), supaya tidak mirip anak sungguhan.</p>
+      </fieldset>
+      <fieldset>
+        <legend>3. Format</legend>
+        <div class="chips" id="ratio"></div>
+      </fieldset>
+      <fieldset>
+        <legend>4. Alat AI</legend>
+        <div class="chips" id="tool"></div>
+      </fieldset>
+      <fieldset>
+        <legend><label for="extra">5. Detail tambahan (opsional, bahasa Inggris)</label></legend>
+        <input type="text" id="extra" placeholder="mis. a small window with morning light">
+      </fieldset>
+    </form>
+
+    <section class="card out" aria-labelledby="out-h">
+      <h2 id="out-h">Prompt <span class="row"><button type="button" class="btn" id="copy">Salin prompt</button></span></h2>
+      <div class="box" id="prompt" tabindex="0" aria-live="polite"></div>
+      <div id="negwrap" style="display:flex; flex-direction:column; gap:8px">
+        <div class="row" style="justify-content:space-between"><p class="label">Negative prompt</p><button type="button" class="btn ghost" id="copyneg">Salin</button></div>
+        <div class="box neg" id="neg" tabindex="0"></div>
+      </div>
+      <p class="status" id="status" role="status"></p>
+      <div class="file"><span class="muted">Simpan sebagai</span><code id="fname"></code></div>
+      <div class="file"><span class="muted">Folder</span><code>web/public/assets/illustrations/</code></div>
+      <div>
+        <p class="label" style="margin-bottom:6px">Supaya konsisten</p>
+        <ul class="tips" id="tips"></ul>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const STYLE = "soft flat vector illustration with gentle paper grain, rounded organic shapes, minimal detail, calm and warm, generous empty space around the subject, subtle soft shadows, no outlines or very thin outlines in forest green";
+const PALETTE = "limited palette: warm cream background #F8F7F2, sage green #A8B7A0, deep forest green #34483B, soft terracotta #D99A7B, soft lavender #D9D4E8, small touches of white";
+const PLACE = "set in a modern Indonesian family home, natural light, a few houseplants, simple furniture";
+const FACES = "characters have simplified faces (small dot eyes or no facial features), Southeast Asian skin tones, modest everyday clothing";
+const NEG = "text, letters, words, logos, watermark, signature, photorealistic, 3D render, glossy, neon colors, saturated colors, harsh black outlines, cartoon mascot, anime, big eyes, realistic child face, cluttered background, gradient mesh, frame, border";
+
+const SCENES = [
+  {id:"ob-connect", tag:"Onboarding 1", name:"Tetap terhubung", hint:"Orang tua di kantor melihat HP, hati kecil melayang", text:"a parent at a work desk smiling softly at a phone, a small floating heart and a tiny leaf drifting from the phone toward a distant home", file:"onboarding-01-connect"},
+  {id:"ob-log", tag:"Onboarding 2", name:"Catat dengan mudah", hint:"Pengasuh mengetuk HP sambil menemani anak", text:"a caregiver kneeling next to a child playing with wooden blocks, holding a phone and tapping it with one thumb, a few soft rounded icon shapes (spoon, moon, star) floating above the phone", file:"onboarding-02-log"},
+  {id:"ob-trust", tag:"Onboarding 3", name:"Tim yang saling percaya", hint:"Orang tua dan pengasuh, anak di tengah", text:"a parent and a caregiver standing side by side, the child between them holding both their hands, a gentle sense of trust and teamwork", file:"onboarding-03-trust"},
+  {id:"empty-log", tag:"Keadaan kosong", name:"Belum ada catatan", hint:"Buku catatan terbuka, pensil, daun", text:"an open notebook with blank pages, a pencil resting on it, a small sprig of leaves and a cup of tea beside it, morning light", file:"empty-entries"},
+  {id:"empty-task", tag:"Keadaan kosong", name:"Tidak ada tugas", hint:"Checklist kosong, santai", text:"a clipboard with an empty checklist leaning against a potted plant, a small paper plane resting on top, relaxed and calm", file:"empty-tasks"},
+  {id:"empty-recipient", tag:"Keadaan kosong", name:"Tambah penerima pertama", hint:"Kursi kecil kosong dengan selimut", text:"a small empty armchair with a folded knitted blanket and a soft toy, a gentle invitation to add someone", file:"empty-recipients"},
+  {id:"empty-team", tag:"Keadaan kosong", name:"Undang pengasuh", hint:"Amplop dengan hati", text:"an open envelope with a heart-shaped card coming out of it, two small potted plants on either side", file:"empty-team"},
+  {id:"done-day", tag:"Selesai", name:"Hari ini lengkap", hint:"Pengasuh tersenyum, tanda centang", text:"a caregiver holding a clipboard to her chest, smiling with closed eyes, a large soft check mark in a sage circle beside her, end of a good day", file:"state-day-complete"},
+  {id:"offline", tag:"Gangguan", name:"Tidak ada internet", hint:"Awan dengan kabel terlepas", text:"a small soft cloud with an unplugged cable hanging below it, a calm cat sleeping nearby, reassuring not alarming", file:"state-offline"},
+];
+const CAST = [
+  {id:"none", name:"Tanpa tokoh", text:""},
+  {id:"child", name:"Anak", text:"a young child about three years old"},
+  {id:"elder", name:"Lansia", text:"an elderly grandmother with grey hair in a cardigan"},
+  {id:"hijab", name:"Pengasuh berhijab", text:"the caregiver wears a simple sage hijab"},
+];
+const RATIOS = [{id:"1:1",name:"1:1 · kosong"},{id:"4:3",name:"4:3 · onboarding"},{id:"3:4",name:"3:4 · tegak"}];
+const TOOLS = [
+  {id:"mj", name:"Midjourney"},
+  {id:"gpt", name:"ChatGPT / DALL·E"},
+  {id:"gemini", name:"Gemini / Imagen"},
+  {id:"ideogram", name:"Ideogram"},
+  {id:"sd", name:"Stable Diffusion"},
+];
+const RATIO_WORD = {"1:1":"square 1:1","4:3":"landscape 4:3","3:4":"portrait 3:4"};
+const SIZE = {"1:1":"1024×1024","4:3":"1440×1080","3:4":"1080×1440"};
+
+function radios(el, name, items, checked, render){
+  el.innerHTML = items.map(it => `<label>${'<input type="radio" name="'+name+'" id="'+name+'-'+it.id+'" value="'+it.id+'"'+(it.id===checked?' checked':'')+'>'}${render(it)}</label>`).join("");
+}
+function checks(el, name, items, checked, render){
+  el.innerHTML = items.map(it => `<label><input type="checkbox" name="${name}" id="${name}-${it.id}" value="${it.id}"${checked.includes(it.id)?' checked':''}>${render(it)}</label>`).join("");
+}
+radios(document.getElementById("scenes"), "scene", SCENES, "ob-log", s => `<span class="s"><span class="tag">${s.tag}</span><b>${s.name}</b><small>${s.hint}</small></span>`);
+checks(document.getElementById("cast"), "cast", CAST.filter(c=>c.id!=="none"), ["child"], c => `<span>${c.name}</span>`);
+radios(document.getElementById("ratio"), "ratio", RATIOS, "4:3", r => `<span>${r.name}</span>`);
+radios(document.getElementById("tool"), "tool", TOOLS, "mj", t => `<span>${t.name}</span>`);
+
+const $ = id => document.getElementById(id);
+function val(name){ const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; }
+function build(){
+  const scene = SCENES.find(s => s.id === val("scene"));
+  const cast = [...document.querySelectorAll('input[name="cast"]:checked')].map(i => CAST.find(c => c.id === i.value).text);
+  const ratio = val("ratio"), tool = val("tool");
+  const extra = $("extra").value.trim();
+  const people = /caregiver|parent|grandmother|child/.test(scene.text) || cast.some(c => /child|grandmother/.test(c));
+  const subject = [scene.text, ...cast.filter(Boolean).map(c => "including " + c), extra].filter(Boolean).join(", ");
+  const core = [subject, PLACE, people ? FACES : null, STYLE, PALETTE].filter(Boolean).join(". ") + ".";
+  let prompt, neg = NEG, showNeg = true;
+  if (tool === "mj") {
+    prompt = `${core} --ar ${ratio} --style raw --stylize 150 --no ${NEG.replace(/, /g, ", ")}`;
+    showNeg = false;
+  } else if (tool === "gpt") {
+    prompt = `Create a ${RATIO_WORD[ratio]} illustration for a family care app.\n\n${core}\n\nDo not include: ${NEG}.`;
+    showNeg = false;
+  } else if (tool === "gemini") {
+    prompt = `Generate an image, aspect ratio ${ratio}. ${core} Avoid: ${NEG}.`;
+    showNeg = false;
+  } else if (tool === "ideogram") {
+    prompt = `${core}`;
+  } else {
+    prompt = `(${STYLE}:1.2), ${subject}, ${PLACE}${people ? ", " + FACES : ""}, ${PALETTE}`;
+  }
+  $("prompt").textContent = prompt;
+  $("neg").textContent = neg;
+  $("negwrap").hidden = !showNeg;
+  $("fname").textContent = `${scene.file}${ratio === "1:1" ? "" : "-" + ratio.replace(":", "x")}.webp`;
+  const tips = [
+    `Ukuran target ${SIZE[ratio]}, lalu ekspor ke WebP (kualitas 80) atau AVIF.`,
+    "Buat semua adegan dalam satu sesi. Setelah ada satu hasil yang disukai, pakai sebagai referensi gaya untuk sisanya.",
+    tool === "mj" ? "Midjourney: tambahkan --sref <URL gambar pertama> ke prompt berikutnya supaya gayanya sama." :
+    tool === "sd" ? "Stable Diffusion: kunci seed dan sampler setelah dapat hasil pertama yang cocok." :
+    tool === "ideogram" ? "Ideogram: pilih gaya Illustration dan tempel negative prompt di kolom terpisah." :
+    "Kalau warnanya melenceng, tambahkan: \"use only the listed hex colors\".",
+    "Cek: tidak ada teks, tidak ada wajah anak yang realistis, latar krem polos supaya menyatu dengan aplikasi.",
+  ];
+  $("tips").innerHTML = tips.map(t => `<li>${t}</li>`).join("");
+  $("status").textContent = "";
+}
+async function copy(id){
+  const text = $(id).textContent;
+  try { await navigator.clipboard.writeText(text); $("status").textContent = "Tersalin ke clipboard."; }
+  catch { const r = document.createRange(); r.selectNodeContents($(id)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("status").textContent = "Teks sudah dipilih. Tekan Ctrl/Cmd+C untuk menyalin."; }
+}
+$("f").addEventListener("input", build);
+$("f").addEventListener("submit", e => e.preventDefault());
+$("copy").addEventListener("click", () => copy("prompt"));
+$("copyneg").addEventListener("click", () => copy("neg"));
+build();
+</script>
