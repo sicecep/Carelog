@@ -1,4 +1,20 @@
 @import "tailwindcss";
+/* shadcn/ui runtime CSS: enter/exit animations and the data-open /
+   data-checked / … variants its components use. Neither defines colours. */
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* shadcn components ship `dark:` utilities. Point the variant at the same
+   condition the tokens use (phone in dark mode, no `.light` opt-out), so a
+   shadcn `dark:` class can never switch on a different rule than the
+   tokens. CareLog's own components still must not use `dark:`. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 /* Theming rule: colour comes ONLY from the tokens below. Dark mode works by
    redefining those tokens (see the prefers-color-scheme block after
@@ -136,6 +152,18 @@
      currentColor (dark text colour) in light mode. */
   --color-ring: var(--color-accent);
 
+  /* shadcn/ui surface aliases (components.json). Popovers, menus, selects
+     and cards draw on the surface; form controls use the control outline.
+     ACCENT CLASH: shadcn uses `bg-accent` / `text-accent-foreground` for the
+     subtle hover/highlight row in menus and selects. In CareLog `accent` is
+     the brand fill, so when a shadcn component is added, swap those classes
+     for `bg-surface-hover` / `text-foreground` in its copied source. */
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text);
+  --color-input: var(--color-border-control);
+
   /* Focus indicator (DESIGN.md §5/§7): a 3px gap in the page colour, then a
      2px accent ring — reads on any fill, including accent buttons. Was a
      3px accent-soft halo: ~1.2:1 on surface in both themes, effectively
@@ -238,6 +266,29 @@
 @layer base {
   :root {
     color-scheme: light;
+
+    /* Plain shadcn variables, for component code that reads them directly
+       (`var(--radius)`, `var(--popover)`). Aliases only — the values live in
+       the tokens above and follow them into dark mode. */
+    --background: var(--color-background);
+    --foreground: var(--color-foreground);
+    --card: var(--color-card);
+    --card-foreground: var(--color-card-foreground);
+    --popover: var(--color-popover);
+    --popover-foreground: var(--color-popover-foreground);
+    --primary: var(--color-primary);
+    --primary-foreground: var(--color-primary-foreground);
+    --secondary: var(--color-secondary);
+    --secondary-foreground: var(--color-secondary-foreground);
+    --muted: var(--color-muted);
+    --muted-foreground: var(--color-muted-foreground);
+    --accent: var(--color-surface-hover);
+    --accent-foreground: var(--color-text);
+    --destructive: var(--color-destructive);
+    --border: var(--color-border);
+    --input: var(--color-input);
+    --ring: var(--color-ring);
+    --radius: var(--radius-lg);
   }
 
   html {
