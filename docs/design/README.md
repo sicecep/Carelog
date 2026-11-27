@@ -27,9 +27,9 @@ shared components; these files say how each page uses them.
 | 4 | Recipient detail (Linimasa / Profil / Tugas) | `/recipients/[id]` | Approved 2026-11-25 (timeline variant B); tabs and states approved 2026-11-27 | [recipient-page.md](recipient-page.md) |
 | 5 | SummarySheet | sheet | Approved 2026-11-26 (variant B); API change, note, ×2 and after-midnight decided 2026-11-27 | [summary-sheet.md](summary-sheet.md) |
 | 6 | Hari Ini (owner) | `/dashboard` | Approved 2026-11-27 | [hari-ini-pengelola.md](hari-ini-pengelola.md) |
-| 7 | Terawat list | `/recipients` | — | — |
-| 8 | Tim | `/careteam` | — | — |
-| 9 | InviteCaregiver, EditRecipientSheet | sheet / inline | — | — |
+| 7 | Terawat list | `/recipients` | Approved 2026-11-27 (variant A) | [terawat.md](terawat.md) |
+| 8 | Tim | `/careteam` | Approved 2026-11-27 (variant A) | [tim.md](tim.md) |
+| 9 | InviteCaregiver, EditRecipientSheet | sheet | Approved 2026-11-27 (invite B, edit A) | [invite-and-edit.md](invite-and-edit.md) |
 | 10 | Login, invite claim, Akun, onboarding | various | — | — |
 | 11 | Register, pending, change password, landing, admin, notifications | various | — | — |
 
