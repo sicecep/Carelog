@@ -84,6 +84,20 @@ Tanaphong Toochinda (entry photo on the recipient timeline). These are mockup-on
 only. Generated outside this repo with the prompt builder `docs/design/illustration-prompts.html`; stored in `web/public/assets/illustrations/` as WebP/AVIF with
 descriptive names, lazy-loaded, with a fallback.
 
+Onboarding illustrations in use (2026-11-27, 1200×896 WebP, q80):
+`onboarding-01-connect.webp` (parent at work, heart trail to the child at home: welcome and
+landing), `onboarding-02-log.webp` (caregiver logging on the phone beside the child: landing
+feature image), `onboarding-03-trust.webp` (parent and caregiver holding the child's hands:
+sign-in shell).
+
+Empty and state illustrations (640px, WebP q80, 21–43 KB): `empty-recipients` (armchair with a
+teddy: Terawat empty), `empty-team` (envelope with a heart: Tim, invite the first caregiver),
+`empty-entries` (open notebook: timeline or Hari Ini with no entries), `empty-tasks` (blank
+checklist: no tasks), `state-offline` (unplugged cloud, sleeping cat: load failed / offline,
+reassuring rather than alarming), `state-day-complete` (caregiver hugging a clipboard: day
+summary saved). Show them at 160–240px, lazy-loaded, `alt=""` (decorative; the text beside
+them carries the meaning).
+
 ## Not taken from the prompt
 
 - English copy ("Hello, Sarah!"): the app stays Indonesian.

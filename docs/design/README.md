@@ -30,7 +30,7 @@ shared components; these files say how each page uses them.
 | 7 | Terawat list | `/recipients` | Approved 2026-11-27 (variant A) | [terawat.md](terawat.md) |
 | 8 | Tim | `/careteam` | Approved 2026-11-27 (variant A) | [tim.md](tim.md) |
 | 9 | InviteCaregiver, EditRecipientSheet | sheet | Approved 2026-11-27 (invite B, edit A) | [invite-and-edit.md](invite-and-edit.md) |
-| 10 | Login, invite claim, Akun, onboarding | various | — | — |
-| 11 | Register, pending, change password, landing, admin, notifications | various | — | — |
+| 10 | Login, invite claim, Akun, onboarding | various | Approved 2026-11-27 (sign-in variant B) | [signin-akun-onboarding.md](signin-akun-onboarding.md) |
+| 11 | Register, pending, change password, landing, admin, notifications | various | Approved 2026-11-27 (landing variant B) | [landing-and-account-flows.md](landing-and-account-flows.md) |
 
 Order agreed 2026-11-24: caregiver screens first, then owner screens, then sign-in and settings.
